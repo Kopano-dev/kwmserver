@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/handler"
 	"stash.kopano.io/kwm/kwmserver/signaling/server"
 
 	"github.com/spf13/cobra"
@@ -52,8 +53,12 @@ func serve(cmd *cobra.Command, args []string) error {
 	}
 	logger.Infoln("serve start")
 
+	apiv1 := handler.NewAPIv1(logger)
+
 	config := &server.Config{
 		Logger: logger,
+
+		APIv1: apiv1,
 	}
 
 	listenAddr, _ := cmd.Flags().GetString("listen")

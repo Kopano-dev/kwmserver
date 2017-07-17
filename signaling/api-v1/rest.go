@@ -15,22 +15,26 @@
  *
  */
 
-package server
+package api
 
-import (
-	"net/http"
+// ResponseOK is the most basic response type with boolean OK flag.
+type ResponseOK struct {
+	OK bool `json:"ok"`
+}
 
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/handler"
+// ResponseOKValue is a response value with true OK status.
+var ResponseOKValue = &ResponseOK{true}
 
-	"github.com/sirupsen/logrus"
-)
+// ResponseError is the most basic error response with error string.
+type ResponseError struct {
+	ResponseOK
 
-// Config defines a Server's configuration settings.
-type Config struct {
-	ListenAddr string
+	Error string `json:"error"`
+}
 
-	Logger        logrus.FieldLogger
-	HTTPTransport http.RoundTripper
-
-	APIv1 *handler.APIv1
+// NewResponseError creates a new error response with the provided error.
+func NewResponseError(s string) *ResponseError {
+	return &ResponseError{
+		Error: s,
+	}
 }

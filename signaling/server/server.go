@@ -26,6 +26,8 @@ import (
 	"syscall"
 	"time"
 
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/handler"
+
 	"github.com/gorilla/mux"
 	"github.com/longsleep/go-metrics/loggedwriter"
 	"github.com/longsleep/go-metrics/timing"
@@ -36,6 +38,8 @@ import (
 type Server struct {
 	listenAddr string
 	logger     logrus.FieldLogger
+
+	APIv1 *handler.APIv1
 }
 
 // NewServer constructs a server from the provided parameters.
@@ -43,6 +47,8 @@ func NewServer(c *Config) (*Server, error) {
 	s := &Server{
 		listenAddr: c.ListenAddr,
 		logger:     c.Logger,
+
+		APIv1: c.APIv1,
 	}
 
 	return s, nil
@@ -82,9 +88,13 @@ func (s *Server) AddContext(parent context.Context, next http.Handler) http.Hand
 
 // AddRoutes add the accociated Servers URL routes to the provided router with
 // the provided context.Context.
-func (s *Server) AddRoutes(ctx context.Context, router *mux.Router) {
+func (s *Server) AddRoutes(ctx context.Context, router *mux.Router) http.Handler {
 	// TODO(longsleep): Add subpath support to all handlers and paths.
 	router.Handle("/health-check", s.AddContext(ctx, http.HandlerFunc(s.HealthCheckHandler)))
+
+	s.APIv1.AddRoutes(ctx, router, s.AddContext)
+
+	return router
 }
 
 // Serve starts all the accociated servers resources and listeners and blocks
