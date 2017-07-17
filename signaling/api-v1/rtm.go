@@ -61,3 +61,6 @@ type RTMDataError struct {
 	Code int64  `json:"code"`
 	Msg  string `json:"msg"`
 }
+
+// RTMTypePingPong is the ping/pong message.
+type RTMTypePingPong map[string]interface{}

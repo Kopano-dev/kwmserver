@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -102,8 +103,21 @@ func (c *RTMConnection) ReadPump() {
 			}
 			switch op {
 			case websocket.TextMessage:
-				err = c.mgr.onText(c, r)
-				c.mgr.logger.Debugln("websocket text error", err)
+				// TODO(longsleep): Reuse []byte, probably put into bytes.Buffer.
+				var b []byte
+				b, err = ioutil.ReadAll(io.LimitReader(r, websocketMaxMessageSize))
+				if err != nil {
+					c.mgr.logger.Debugln("websocket read text error", err)
+					break
+				}
+				err = c.mgr.onText(c, b)
+				if err != nil {
+					c.mgr.logger.Debugln("websocket text error", err)
+					break
+				}
+			}
+
+			if err != nil {
 				return
 			}
 		}
@@ -233,8 +247,8 @@ func (rtm *RTMManager) HandleWebsocketConnect(ctx context.Context, key string, r
 func (rtm *RTMManager) onConnect(c *RTMConnection) error {
 	rtm.logger.Debugln("websocket onConnect")
 
-	c.Send(api.RTMTypeHelloMessage)
-	return nil
+	err := c.Send(api.RTMTypeHelloMessage)
+	return err
 }
 
 func (rtm *RTMManager) onDisconnect(c *RTMConnection) error {
@@ -242,20 +256,32 @@ func (rtm *RTMManager) onDisconnect(c *RTMConnection) error {
 	return nil
 }
 
-func (rtm *RTMManager) onText(c *RTMConnection, msg io.Reader) error {
-	rtm.logger.Debugln("websocket onText", msg)
+func (rtm *RTMManager) onText(c *RTMConnection, msg []byte) error {
+	rtm.logger.Debugf("websocket onText: %s", msg)
 
 	// TODO(longsleep): Reuse RTMDataEnvelope / put into pool.
-	envelope := &api.RTMTypeEnvelope{}
-	err := json.NewDecoder(io.LimitReader(msg, websocketMaxMessageSize)).Decode(&envelope)
+	var envelope api.RTMTypeEnvelope
+	err := json.Unmarshal(msg, &envelope)
 	if err != nil {
 		return err
 	}
 
+	err = nil
 	switch envelope.Type {
+	case api.RTMTypeNamePing:
+		// Ping, Pong.
+		var ping api.RTMTypePingPong
+		err = json.Unmarshal(msg, &ping)
+		if err != nil {
+			break
+		}
+		// Send back same data as pong.
+		ping["type"] = api.RTMTypeNamePong
+		err = c.Send(ping)
+
 	default:
 		return fmt.Errorf("unknown incoming type %v", envelope.Type)
 	}
 
-	return nil
+	return err
 }
