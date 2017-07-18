@@ -178,5 +178,4 @@ func (s *Server) Serve(ctx context.Context) error {
 	shutDownCtxCancel() // prevent leak.
 
 	return err
-
 }
