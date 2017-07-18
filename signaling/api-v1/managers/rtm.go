@@ -19,6 +19,7 @@ package managers
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -71,14 +72,22 @@ type RTMManager struct {
 
 // RTMConnection binds the websocket connection to the manager.
 type RTMConnection struct {
-	ID string
-
 	ws  *websocket.Conn
 	ctx context.Context
 	mgr *RTMManager
 
 	// TODO(longsleep): Make this a doubly link list.
 	send chan []byte
+
+	id       string
+	start    time.Time
+	duration time.Duration
+	ping     chan *pingRecord
+}
+
+type pingRecord struct {
+	id   uint64
+	when time.Time
 }
 
 // readPump reads from the underlaying websocket connection until close.
@@ -90,7 +99,30 @@ func (c *RTMConnection) readPump(ctx context.Context) error {
 
 	c.ws.SetReadLimit(websocketMaxMessageSize)
 	c.ws.SetReadDeadline(time.Now().Add(websocketPongWait))
-	c.ws.SetPongHandler(func(string) error {
+	c.ws.SetPongHandler(func(payload string) error {
+		if payload == "" {
+			return nil
+		}
+		var lastPing *pingRecord
+		func() {
+			for {
+				// Drain channel.
+				select {
+				case lastPing = <-c.ping:
+					// Ping from channel.
+				default:
+					return
+				}
+			}
+		}()
+		if lastPing == nil {
+			return nil
+		}
+		payloadInt := binary.LittleEndian.Uint64([]byte(payload))
+		if payloadInt != lastPing.id {
+			// Ignore everything which does not match our last sent ping.
+			return nil
+		}
 		c.ws.SetReadDeadline(time.Now().Add(websocketPongWait))
 		return nil
 	})
@@ -127,8 +159,6 @@ func (c *RTMConnection) readPump(ctx context.Context) error {
 				return err
 			}
 		}
-
-		return nil
 	}()
 
 	return err
@@ -142,6 +172,7 @@ func (c *RTMConnection) writePump(ctx context.Context) error {
 		c.Close()
 	}()
 
+	ping := &pingRecord{}
 	for {
 		select {
 		case <-ctx.Done():
@@ -166,8 +197,24 @@ func (c *RTMConnection) writePump(ctx context.Context) error {
 			}
 
 		case <-ticker.C:
-			c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
-			if err := c.ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+			ping.id++
+			payload := make([]byte, 8)
+			binary.LittleEndian.PutUint64(payload, ping.id)
+			thisPing := &pingRecord{
+				id:   ping.id,
+				when: time.Now(),
+			}
+			select {
+			case c.ping <- thisPing:
+				// ok
+			default:
+				// last ping was not received, hang up.
+				c.mgr.logger.Debugln("websocket ping still pending")
+				return nil
+			}
+
+			c.ws.SetWriteDeadline(thisPing.when.Add(websocketWriteWait))
+			if err := c.ws.WriteMessage(websocket.PingMessage, payload); err != nil {
 				c.mgr.logger.WithError(err).Debugln("websocket write ping error")
 				return err
 			}
@@ -176,8 +223,19 @@ func (c *RTMConnection) writePump(ctx context.Context) error {
 }
 
 // Close closes the underlaying websocket connection.
-func (c *RTMConnection) Close() error {
-	return c.ws.Close()
+func (c *RTMConnection) Close() {
+	c.ws.Close()
+	c.duration = time.Since(c.start)
+}
+
+// Duration returns the duration since the start of the connection until the
+// client was closed or until now when the accociated connection is not yet
+// closed.
+func (c *RTMConnection) Duration() time.Duration {
+	if c.duration > 0 {
+		return c.duration
+	}
+	return time.Since(c.start)
 }
 
 // Send places the message into the send queue in a non-blocking way
@@ -316,13 +374,14 @@ func (rtm *RTMManager) HandleWebsocketConnect(ctx context.Context, key string, r
 	}
 
 	conn := &RTMConnection{
-		ID: id,
-
 		ws:  ws,
 		ctx: ctx,
 		mgr: rtm,
 
-		send: make(chan []byte, 256),
+		id:    id,
+		start: time.Now(),
+		send:  make(chan []byte, 256),
+		ping:  make(chan *pingRecord, 5),
 	}
 
 	rtm.connections.Set(id, conn)
