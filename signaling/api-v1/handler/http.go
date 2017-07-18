@@ -24,7 +24,7 @@ import (
 	"net/http"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
-	apiManagers "stash.kopano.io/kwm/kwmserver/signaling/api-v1/managers"
+	rtm "stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -39,7 +39,7 @@ const (
 type APIv1 struct {
 	logger logrus.FieldLogger
 
-	rtm *apiManagers.RTMManager
+	rtmm *rtm.Manager
 }
 
 // NewAPIv1 creates a new APIv1 with the provided options.
@@ -47,7 +47,7 @@ func NewAPIv1(ctx context.Context, logger logrus.FieldLogger) *APIv1 {
 	return &APIv1{
 		logger: logger,
 
-		rtm: apiManagers.NewRTMManager(ctx, "", logger),
+		rtmm: rtm.NewManager(ctx, "", logger),
 	}
 }
 
@@ -65,7 +65,7 @@ func (h *APIv1) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(
 func (h *APIv1) RTMConnectHandler(rw http.ResponseWriter, req *http.Request) {
 	// TODO(longsleep): check authentication
 	// create random URL to websocket endpoint
-	key, err := h.rtm.Connect(req.Context())
+	key, err := h.rtmm.Connect(req.Context())
 	if err != nil {
 		h.logger.Errorln("connect failed", err)
 		http.Error(rw, "request failed", http.StatusInternalServerError)
@@ -97,9 +97,9 @@ func (h *APIv1) WebsocketHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := h.rtm.HandleWebsocketConnect(req.Context(), key, rw, req)
+	err := h.rtmm.HandleWebsocketConnect(req.Context(), key, rw, req)
 	if err != nil {
-		h.logger.Errorf("websocket connection failed", err)
+		h.logger.WithError(err).Errorln("websocket connection failed")
 		http.Error(rw, "", http.StatusInternalServerError)
 		return
 	}
@@ -108,5 +108,5 @@ func (h *APIv1) WebsocketHandler(rw http.ResponseWriter, req *http.Request) {
 // NumActive returns the number of the currently active connections at the
 // accociated api..
 func (h *APIv1) NumActive() int {
-	return h.rtm.NumActive()
+	return h.rtmm.NumActive()
 }
