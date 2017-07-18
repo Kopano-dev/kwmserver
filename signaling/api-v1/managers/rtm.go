@@ -25,6 +25,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"sync/atomic"
 	"time"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
@@ -67,14 +69,16 @@ type RTMManager struct {
 	keys     cmap.ConcurrentMap
 	upgrader *websocket.Upgrader
 
+	count       uint64
 	connections cmap.ConcurrentMap
 }
 
 // RTMConnection binds the websocket connection to the manager.
 type RTMConnection struct {
-	ws  *websocket.Conn
-	ctx context.Context
-	mgr *RTMManager
+	ws     *websocket.Conn
+	ctx    context.Context
+	mgr    *RTMManager
+	logger logrus.FieldLogger
 
 	// TODO(longsleep): Make this a doubly link list.
 	send chan []byte
@@ -133,8 +137,8 @@ func (c *RTMConnection) readPump(ctx context.Context) error {
 		for {
 			op, r, err := c.ws.NextReader()
 			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
-					c.mgr.logger.WithError(err).Debugln("websocket read error")
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					c.logger.WithError(err).Debugln("websocket read error")
 					return err
 				}
 				return nil
@@ -145,12 +149,12 @@ func (c *RTMConnection) readPump(ctx context.Context) error {
 				var b []byte
 				b, err = ioutil.ReadAll(io.LimitReader(r, websocketMaxMessageSize))
 				if err != nil {
-					c.mgr.logger.Debugln("websocket read text error", err)
+					c.logger.Debugln("websocket read text error", err)
 					break
 				}
 				err = c.mgr.onText(c, b)
 				if err != nil {
-					c.mgr.logger.Debugln("websocket text error", err)
+					c.logger.Debugln("websocket text error", err)
 					break
 				}
 			}
@@ -169,14 +173,14 @@ func (c *RTMConnection) writePump(ctx context.Context) error {
 	ticker := time.NewTicker(websocketPingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.Close()
+		c.ws.Close()
 	}()
 
 	ping := &pingRecord{}
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil
 
 		case message, ok := <-c.send:
 			c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
@@ -187,12 +191,12 @@ func (c *RTMConnection) writePump(ctx context.Context) error {
 
 			w, err := c.ws.NextWriter(websocket.TextMessage)
 			if err != nil {
-				c.mgr.logger.WithError(err).Debugln("websocket write pump error")
+				c.logger.WithError(err).Debugln("websocket write pump error")
 				return err
 			}
 			w.Write(message)
 			if err := w.Close(); err != nil {
-				c.mgr.logger.WithError(err).Debugln("websocket write error")
+				c.logger.WithError(err).Debugln("websocket write error")
 				return err
 			}
 
@@ -209,13 +213,13 @@ func (c *RTMConnection) writePump(ctx context.Context) error {
 				// ok
 			default:
 				// last ping was not received, hang up.
-				c.mgr.logger.Debugln("websocket ping still pending")
+				c.logger.Debugln("websocket ping still pending")
 				return nil
 			}
 
 			c.ws.SetWriteDeadline(thisPing.when.Add(websocketWriteWait))
 			if err := c.ws.WriteMessage(websocket.PingMessage, payload); err != nil {
-				c.mgr.logger.WithError(err).Debugln("websocket write ping error")
+				c.logger.WithError(err).Debugln("websocket write ping error")
 				return err
 			}
 		}
@@ -225,6 +229,7 @@ func (c *RTMConnection) writePump(ctx context.Context) error {
 // Close closes the underlaying websocket connection.
 func (c *RTMConnection) Close() {
 	c.ws.Close()
+	close(c.send)
 	c.duration = time.Since(c.start)
 }
 
@@ -242,7 +247,7 @@ func (c *RTMConnection) Duration() time.Duration {
 func (c *RTMConnection) Send(message interface{}) error {
 	b, err := json.MarshalIndent(message, "", "\t")
 	if err != nil {
-		c.mgr.logger.Errorln("websocket send marshal failed: %v", err)
+		c.logger.Errorln("websocket send marshal failed: %v", err)
 		return err
 	}
 
@@ -251,7 +256,7 @@ func (c *RTMConnection) Send(message interface{}) error {
 		// ok
 	default:
 		// channel full?
-		c.mgr.logger.Warnln("websocket send channel full")
+		c.logger.Warnln("websocket send channel full")
 		return fmt.Errorf("queue full")
 	}
 
@@ -264,12 +269,12 @@ func (c *RTMConnection) ServeWS(ctx context.Context) {
 	go func() {
 		err := c.writePump(ctx)
 		if err != nil {
-			c.mgr.logger.WithError(err).Warn("websocket write pump exit")
+			c.logger.WithError(err).Warn("websocket write pump exit")
 		}
 	}()
 	err := c.readPump(ctx)
 	if err != nil {
-		c.mgr.logger.WithError(err).Warn("websocket read pump exit")
+		c.logger.WithError(err).Warn("websocket read pump exit")
 	}
 }
 
@@ -368,15 +373,12 @@ func (rtm *RTMManager) HandleWebsocketConnect(ctx context.Context, key string, r
 		return err
 	}
 
-	id, err := rndm.GenerateRandomString(rtmConnectionIDSize)
-	if err != nil {
-		return err
-	}
-
+	id := strconv.FormatUint(atomic.AddUint64(&rtm.count, 1), 10)
 	conn := &RTMConnection{
-		ws:  ws,
-		ctx: ctx,
-		mgr: rtm,
+		ws:     ws,
+		ctx:    ctx,
+		mgr:    rtm,
+		logger: rtm.logger.WithField("rtm_connection", id),
 
 		id:    id,
 		start: time.Now(),
@@ -392,19 +394,19 @@ func (rtm *RTMManager) HandleWebsocketConnect(ctx context.Context, key string, r
 }
 
 func (rtm *RTMManager) onConnect(c *RTMConnection) error {
-	rtm.logger.Debugln("websocket onConnect")
+	c.logger.Debugln("websocket onConnect")
 
 	err := c.Send(api.RTMTypeHelloMessage)
 	return err
 }
 
 func (rtm *RTMManager) onDisconnect(c *RTMConnection) error {
-	rtm.logger.Debugln("websocket onDisconnect")
+	c.logger.Debugln("websocket onDisconnect")
 	return nil
 }
 
 func (rtm *RTMManager) onText(c *RTMConnection, msg []byte) error {
-	rtm.logger.Debugf("websocket onText: %s", msg)
+	c.logger.Debugf("websocket onText: %s", msg)
 
 	// TODO(longsleep): Reuse RTMDataEnvelope / put into pool.
 	var envelope api.RTMTypeEnvelope
