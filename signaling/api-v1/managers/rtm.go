@@ -29,7 +29,7 @@ import (
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 
 	"github.com/gorilla/websocket"
-	"github.com/patrickmn/go-cache"
+	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
 	"stash.kopano.io/kc/konnect/rndm"
 )
@@ -61,7 +61,7 @@ type RTMManager struct {
 	ID     string
 	logger logrus.FieldLogger
 
-	cache    *cache.Cache
+	table    cmap.ConcurrentMap
 	upgrader *websocket.Upgrader
 }
 
@@ -186,32 +186,68 @@ func (c *RTMConnection) Send(message interface{}) error {
 	return nil
 }
 
+type rtmRecord struct {
+	when time.Time
+}
+
 // NewRTMManager creates a new RTMManager with an id.
-func NewRTMManager(id string, logger logrus.FieldLogger) *RTMManager {
-	return &RTMManager{
+func NewRTMManager(ctx context.Context, id string, logger logrus.FieldLogger) *RTMManager {
+	rtm := &RTMManager{
 		ID:     id,
 		logger: logger,
 
-		cache: cache.New(rtmConnectExpiration, rtmConnectCleanupInterval),
+		table: cmap.New(),
 		upgrader: &websocket.Upgrader{
 			ReadBufferSize:  websocketReadBufferSize,
 			WriteBufferSize: websocketWriteBufferSize,
 		},
 	}
+
+	// Cleanup function.
+	go func() {
+		ticker := time.NewTicker(rtmConnectCleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				rtm.purgeExpired()
+			case <-ctx.Done():
+				return
+			}
+
+		}
+	}()
+
+	return rtm
 }
 
-// Connect adds a new connect sentry to the managers cache with random key.
+func (rtm *RTMManager) purgeExpired() {
+	expired := make([]string, 0)
+	deadline := time.Now().Add(-rtmConnectExpiration)
+	var record *rtmRecord
+	for entry := range rtm.table.IterBuffered() {
+		record = entry.Val.(*rtmRecord)
+		if record.when.Before(deadline) {
+			expired = append(expired, entry.Key)
+		}
+	}
+	for _, code := range expired {
+		rtm.table.Remove(code)
+	}
+}
+
+// Connect adds a new connect sentry to the managers table with random key.
 func (rtm *RTMManager) Connect(ctx context.Context) (string, error) {
 	key, err := rndm.GenerateRandomString(rtmConnectKeySize)
 	if err != nil {
 		return "", err
 	}
 
-	// Add key to cache.
-	err = rtm.cache.Add(key, true, cache.DefaultExpiration)
-	if err != nil {
-		return "", err
+	// Add key to table.
+	record := &rtmRecord{
+		when: time.Now(),
 	}
+	rtm.table.Set(key, record)
 
 	return key, nil
 }
@@ -219,7 +255,7 @@ func (rtm *RTMManager) Connect(ctx context.Context) (string, error) {
 // HandleWebsocketConnect checks the presence of the key in cache and returns a
 // new connection if key is found.
 func (rtm *RTMManager) HandleWebsocketConnect(ctx context.Context, key string, rw http.ResponseWriter, req *http.Request) error {
-	if _, ok := rtm.cache.Get(key); !ok {
+	if _, ok := rtm.table.Pop(key); !ok {
 		http.NotFound(rw, req)
 		return nil
 	}

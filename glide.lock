@@ -1,5 +1,5 @@
-hash: f3a639794305671ce3fadb738364863de426f6ea4964fccd953f04ac90c7dc7a
-updated: 2017-07-17T18:19:56.996824142+02:00
+hash: c54ba8f0f4878357910f754bc0429a86575cebbbdfcca45cdb8e025a598e5644
+updated: 2017-07-18T09:36:48.10573118+02:00
 imports:
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
@@ -14,8 +14,8 @@ imports:
   subpackages:
   - loggedwriter
   - timing
-- name: github.com/patrickmn/go-cache
-  version: 1881a9bccb818787f68c52bfba648c6cf34c34fa
+- name: github.com/orcaman/concurrent-map
+  version: 2ae17bc4c860c83513ee50feb9746f3e50d7515d
 - name: github.com/sirupsen/logrus
   version: 202f25545ea4cf9b191ff7f846df5d87c9382c2b
 - name: github.com/spf13/cobra

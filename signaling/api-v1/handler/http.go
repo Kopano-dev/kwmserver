@@ -43,11 +43,11 @@ type APIv1 struct {
 }
 
 // NewAPIv1 creates a new APIv1 with the provided options.
-func NewAPIv1(logger logrus.FieldLogger) *APIv1 {
+func NewAPIv1(ctx context.Context, logger logrus.FieldLogger) *APIv1 {
 	return &APIv1{
 		logger: logger,
 
-		rtm: apiManagers.NewRTMManager("", logger),
+		rtm: apiManagers.NewRTMManager(ctx, "", logger),
 	}
 }
 

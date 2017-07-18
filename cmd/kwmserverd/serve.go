@@ -53,7 +53,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	}
 	logger.Infoln("serve start")
 
-	apiv1 := handler.NewAPIv1(logger)
+	apiv1 := handler.NewAPIv1(ctx, logger)
 
 	config := &server.Config{
 		Logger: logger,
