@@ -104,3 +104,9 @@ func (h *APIv1) WebsocketHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 }
+
+// NumActive returns the number of the currently active connections at the
+// accociated api..
+func (h *APIv1) NumActive() int {
+	return h.rtm.NumActive()
+}

@@ -18,10 +18,6 @@
 package server
 
 import (
-	"net/http"
-
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/handler"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,8 +25,5 @@ import (
 type Config struct {
 	ListenAddr string
 
-	Logger        logrus.FieldLogger
-	HTTPTransport http.RoundTripper
-
-	APIv1 *handler.APIv1
+	Logger logrus.FieldLogger
 }

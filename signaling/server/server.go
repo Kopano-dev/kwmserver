@@ -47,8 +47,6 @@ func NewServer(c *Config) (*Server, error) {
 	s := &Server{
 		listenAddr: c.ListenAddr,
 		logger:     c.Logger,
-
-		APIv1: c.APIv1,
 	}
 
 	return s, nil
@@ -105,6 +103,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	defer serveCtxCancel()
 
 	logger := s.logger
+	s.APIv1 = handler.NewAPIv1(serveCtx, logger)
 
 	errCh := make(chan error, 2)
 	exitCh := make(chan bool, 1)
@@ -150,12 +149,17 @@ func (s *Server) Serve(ctx context.Context) error {
 	serveCtxCancel()
 	func() {
 		for {
-			select {
-			case <-exitCh:
-				return
-			default:
-				// HTTP listener has not quit yet.
-				logger.Info("waiting for http listener to exit")
+			numActive := s.APIv1.NumActive()
+			if numActive == 0 {
+				select {
+				case <-exitCh:
+					return
+				default:
+					// HTTP listener has not quit yet.
+					logger.Info("waiting for http listener to exit")
+				}
+			} else {
+				logger.WithField("connections", numActive).Info("waiting for active connections to exit")
 			}
 			select {
 			case reason := <-signalCh:

@@ -38,6 +38,7 @@ const (
 	rtmConnectExpiration      = time.Duration(30) * time.Second
 	rtmConnectCleanupInterval = time.Duration(1) * time.Minute
 	rtmConnectKeySize         = 24
+	rtmConnectionIDSize       = 24
 
 	// Buffer sizes.
 	websocketReadBufferSize  = 1024
@@ -60,13 +61,18 @@ const (
 type RTMManager struct {
 	ID     string
 	logger logrus.FieldLogger
+	ctx    context.Context
 
-	table    cmap.ConcurrentMap
+	keys     cmap.ConcurrentMap
 	upgrader *websocket.Upgrader
+
+	connections cmap.ConcurrentMap
 }
 
 // RTMConnection binds the websocket connection to the manager.
 type RTMConnection struct {
+	ID string
+
 	ws  *websocket.Conn
 	ctx context.Context
 	mgr *RTMManager
@@ -75,8 +81,8 @@ type RTMConnection struct {
 	send chan []byte
 }
 
-// ReadPump reads from the underlaying websocket connection until close.
-func (c *RTMConnection) ReadPump() {
+// readPump reads from the underlaying websocket connection until close.
+func (c *RTMConnection) readPump(ctx context.Context) error {
 	defer func() {
 		c.mgr.onDisconnect(c)
 		c.Close()
@@ -91,15 +97,15 @@ func (c *RTMConnection) ReadPump() {
 
 	c.mgr.onConnect(c)
 
-	func() {
+	err := func() error {
 		for {
 			op, r, err := c.ws.NextReader()
 			if err != nil {
-				if err == io.EOF {
-				} else {
-					c.mgr.logger.Debugln("websocket read error", err)
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+					c.mgr.logger.WithError(err).Debugln("websocket read error")
+					return err
 				}
-				return
+				return nil
 			}
 			switch op {
 			case websocket.TextMessage:
@@ -118,44 +124,52 @@ func (c *RTMConnection) ReadPump() {
 			}
 
 			if err != nil {
-				return
+				return err
 			}
 		}
+
+		return nil
 	}()
+
+	return err
 }
 
-// WritePump writes to the underlaying websocket connection.
-func (c *RTMConnection) WritePump() {
+// writePump writes to the underlaying websocket connection.
+func (c *RTMConnection) writePump(ctx context.Context) error {
 	ticker := time.NewTicker(websocketPingPeriod)
 	defer func() {
 		ticker.Stop()
 		c.Close()
 	}()
+
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
 		case message, ok := <-c.send:
 			c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
 			if !ok {
 				c.ws.WriteMessage(websocket.CloseMessage, []byte{})
-				return
+				return nil
 			}
 
 			w, err := c.ws.NextWriter(websocket.TextMessage)
 			if err != nil {
-				c.mgr.logger.Debugln("websocket write pump error", err)
-				return
+				c.mgr.logger.WithError(err).Debugln("websocket write pump error")
+				return err
 			}
 			w.Write(message)
 			if err := w.Close(); err != nil {
-				c.mgr.logger.Debugln("websocket write error", err)
-				return
+				c.mgr.logger.WithError(err).Debugln("websocket write error")
+				return err
 			}
 
 		case <-ticker.C:
 			c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
 			if err := c.ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
-				c.mgr.logger.Debugln("websocket write ping error", err)
-				return
+				c.mgr.logger.WithError(err).Debugln("websocket write ping error")
+				return err
 			}
 		}
 	}
@@ -186,6 +200,21 @@ func (c *RTMConnection) Send(message interface{}) error {
 	return nil
 }
 
+// ServeWS serves the Websocket protocol for the accociated client connections
+// and returns once either of the connections are closed.
+func (c *RTMConnection) ServeWS(ctx context.Context) {
+	go func() {
+		err := c.writePump(ctx)
+		if err != nil {
+			c.mgr.logger.WithError(err).Warn("websocket write pump exit")
+		}
+	}()
+	err := c.readPump(ctx)
+	if err != nil {
+		c.mgr.logger.WithError(err).Warn("websocket read pump exit")
+	}
+}
+
 type rtmRecord struct {
 	when time.Time
 }
@@ -195,12 +224,15 @@ func NewRTMManager(ctx context.Context, id string, logger logrus.FieldLogger) *R
 	rtm := &RTMManager{
 		ID:     id,
 		logger: logger,
+		ctx:    ctx,
 
-		table: cmap.New(),
+		keys: cmap.New(),
 		upgrader: &websocket.Upgrader{
 			ReadBufferSize:  websocketReadBufferSize,
 			WriteBufferSize: websocketWriteBufferSize,
 		},
+
+		connections: cmap.New(),
 	}
 
 	// Cleanup function.
@@ -225,14 +257,14 @@ func (rtm *RTMManager) purgeExpired() {
 	expired := make([]string, 0)
 	deadline := time.Now().Add(-rtmConnectExpiration)
 	var record *rtmRecord
-	for entry := range rtm.table.IterBuffered() {
+	for entry := range rtm.keys.IterBuffered() {
 		record = entry.Val.(*rtmRecord)
 		if record.when.Before(deadline) {
 			expired = append(expired, entry.Key)
 		}
 	}
-	for _, code := range expired {
-		rtm.table.Remove(code)
+	for _, key := range expired {
+		rtm.keys.Remove(key)
 	}
 }
 
@@ -247,15 +279,26 @@ func (rtm *RTMManager) Connect(ctx context.Context) (string, error) {
 	record := &rtmRecord{
 		when: time.Now(),
 	}
-	rtm.table.Set(key, record)
+	rtm.keys.Set(key, record)
 
 	return key, nil
+}
+
+// Context Returns the Context of the associated manager.
+func (rtm *RTMManager) Context() context.Context {
+	return rtm.ctx
+}
+
+// NumActive returns the number of the currently active connections at the
+// accociated manager.
+func (rtm *RTMManager) NumActive() int {
+	return rtm.connections.Count()
 }
 
 // HandleWebsocketConnect checks the presence of the key in cache and returns a
 // new connection if key is found.
 func (rtm *RTMManager) HandleWebsocketConnect(ctx context.Context, key string, rw http.ResponseWriter, req *http.Request) error {
-	if _, ok := rtm.table.Pop(key); !ok {
+	if _, ok := rtm.keys.Pop(key); !ok {
 		http.NotFound(rw, req)
 		return nil
 	}
@@ -267,7 +310,14 @@ func (rtm *RTMManager) HandleWebsocketConnect(ctx context.Context, key string, r
 		return err
 	}
 
+	id, err := rndm.GenerateRandomString(rtmConnectionIDSize)
+	if err != nil {
+		return err
+	}
+
 	conn := &RTMConnection{
+		ID: id,
+
 		ws:  ws,
 		ctx: ctx,
 		mgr: rtm,
@@ -275,8 +325,10 @@ func (rtm *RTMManager) HandleWebsocketConnect(ctx context.Context, key string, r
 		send: make(chan []byte, 256),
 	}
 
-	go conn.WritePump()
-	conn.ReadPump()
+	rtm.connections.Set(id, conn)
+	conn.ServeWS(rtm.Context())
+	rtm.connections.Remove(id)
+
 	return nil
 }
 
