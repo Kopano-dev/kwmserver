@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -85,46 +86,43 @@ func (c *Connection) readPump(ctx context.Context) error {
 
 	c.mgr.onConnect(c)
 
-	err := func() error {
-		for {
-			op, r, err := c.ws.NextReader()
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					c.logger.WithError(err).Debugln("websocket read error")
-					return err
-				}
-				return nil
+	for {
+		op, r, err := c.ws.NextReader()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				c.logger.WithError(err).Debugln("websocket read error")
+				return err
 			}
-			switch op {
-			case websocket.TextMessage:
-				// TODO(longsleep): Reuse []byte, probably put into bytes.Buffer.
-				var b []byte
-				b, err = ioutil.ReadAll(io.LimitReader(r, websocketMaxMessageSize))
-				if err != nil {
-					c.logger.Debugln("websocket read text error", err)
-					break
-				}
-				err = c.mgr.onText(c, b)
-				if err != nil {
-					c.logger.Debugln("websocket text error", err)
-					break
-				}
-			}
-
+			break
+		}
+		switch op {
+		case websocket.TextMessage:
+			// TODO(longsleep): Reuse []byte, probably put into bytes.Buffer.
+			var b []byte
+			b, err = ioutil.ReadAll(io.LimitReader(r, websocketMaxMessageSize))
 			if err != nil {
+				c.logger.Debugln("websocket read text error", err)
+				return err
+			}
+			err = c.mgr.onText(c, b)
+			if err != nil {
+				c.logger.Debugln("websocket text error", err)
 				return err
 			}
 		}
-	}()
+	}
 
-	return err
+	return nil
 }
 
 // writePump writes to the underlaying websocket connection.
 func (c *Connection) writePump(ctx context.Context) error {
+	var err error
+
 	ticker := time.NewTicker(websocketPingPeriod)
 	defer func() {
 		ticker.Stop()
+		c.mgr.onBeforeDisconnect(c, err)
 		c.ws.Close()
 	}()
 
@@ -132,23 +130,20 @@ func (c *Connection) writePump(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			err = nil
 			return nil
 
-		case message, ok := <-c.send:
-			c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
+		case payload, ok := <-c.send:
 			if !ok {
-				c.ws.WriteMessage(websocket.CloseMessage, []byte{})
+				c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
+				c.ws.WriteMessage(websocket.CloseMessage, rawZeroBytes)
+				err = errors.New("send channel closed")
 				return nil
 			}
 
-			w, err := c.ws.NextWriter(websocket.TextMessage)
+			err = c.write(payload, websocket.TextMessage)
 			if err != nil {
 				c.logger.WithError(err).Debugln("websocket write pump error")
-				return err
-			}
-			w.Write(message)
-			if err := w.Close(); err != nil {
-				c.logger.WithError(err).Debugln("websocket write error")
 				return err
 			}
 
@@ -170,7 +165,7 @@ func (c *Connection) writePump(ctx context.Context) error {
 			}
 
 			c.ws.SetWriteDeadline(thisPing.when.Add(websocketWriteWait))
-			if err := c.ws.WriteMessage(websocket.PingMessage, payload); err != nil {
+			if err = c.ws.WriteMessage(websocket.PingMessage, payload); err != nil {
 				c.logger.WithError(err).Debugln("websocket write ping error")
 				return err
 			}
@@ -195,7 +190,8 @@ func (c *Connection) Duration() time.Duration {
 	return time.Since(c.start)
 }
 
-// Send places the message into the send queue in a non-blocking way
+// Send encodes the provided message with JSON and then adds the encoded message
+// into the send queue in a non-blocking way.
 func (c *Connection) Send(message interface{}) error {
 	b, err := json.MarshalIndent(message, "", "\t")
 	if err != nil {
@@ -203,13 +199,34 @@ func (c *Connection) Send(message interface{}) error {
 		return err
 	}
 
+	return c.RawSend(b)
+}
+
+// RawSend adds the pprovided payload data into the send queue in a non blocking
+// way.
+func (c *Connection) RawSend(payload []byte) error {
 	select {
-	case c.send <- b:
+	case c.send <- payload:
 		// ok
 	default:
 		// channel full?
 		c.logger.Warnln("websocket send channel full")
 		return fmt.Errorf("queue full")
+	}
+
+	return nil
+}
+
+func (c *Connection) write(payload []byte, messageType int) error {
+	c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
+
+	w, err := c.ws.NextWriter(messageType)
+	if err != nil {
+		return fmt.Errorf("failed to get writer: %v", err)
+	}
+	w.Write(payload)
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("failed to write: %v", err)
 	}
 
 	return nil

@@ -19,10 +19,11 @@ package api
 
 // Type names for RTM payloads.
 const (
-	RTMTypeNameHello = "hello"
-	RTMTypeNameError = "error"
-	RTMTypeNamePing  = "ping"
-	RTMTypeNamePong  = "pong"
+	RTMTypeNameHello   = "hello"
+	RTMTypeNameError   = "error"
+	RTMTypeNamePing    = "ping"
+	RTMTypeNamePong    = "pong"
+	RTMTypeNameGoodbye = "goodbye"
 )
 
 // RTMConnectResponse is the response returned from rtm.connect.
@@ -48,6 +49,12 @@ type RTMTypeEnvelopeReply struct {
 // RTMTypeHelloMessage is the hello message sent to clients after connect.
 var RTMTypeHelloMessage = &RTMTypeEnvelope{
 	Type: RTMTypeNameHello,
+}
+
+// RTMTypeGoodbyeMessage is the goodbye message sent to clients before the
+// server is going to disconnect.
+var RTMTypeGoodbyeMessage = &RTMTypeEnvelope{
+	Type: RTMTypeNameGoodbye,
 }
 
 // RTMTypeError is the error reply.

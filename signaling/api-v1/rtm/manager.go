@@ -170,12 +170,24 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 func (m *Manager) onConnect(c *Connection) error {
 	c.logger.Debugln("websocket onConnect")
 
-	err := c.Send(api.RTMTypeHelloMessage)
+	err := c.RawSend(rawRTMTypeHelloMessage)
 	return err
 }
 
 func (m *Manager) onDisconnect(c *Connection) error {
 	c.logger.Debugln("websocket onDisconnect")
+
+	return nil
+}
+
+func (m *Manager) onBeforeDisconnect(c *Connection, err error) error {
+	c.logger.Debugln("websocket onBeforeDisconnect", err)
+
+	if err == nil {
+		err = c.write(rawRTMTypeGoodbyeMessage, websocket.TextMessage)
+		return err
+	}
+
 	return nil
 }
 
