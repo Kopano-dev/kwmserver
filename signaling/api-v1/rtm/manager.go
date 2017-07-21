@@ -19,14 +19,7 @@ package rtm
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"strconv"
-	"sync/atomic"
 	"time"
-
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 
 	"github.com/gorilla/websocket"
 	"github.com/orcaman/concurrent-map"
@@ -45,15 +38,7 @@ type Manager struct {
 
 	count       uint64
 	connections cmap.ConcurrentMap
-}
-
-type pingRecord struct {
-	id   uint64
-	when time.Time
-}
-
-type keyRecord struct {
-	when time.Time
+	users       cmap.ConcurrentMap
 }
 
 // NewManager creates a new Manager with an id.
@@ -70,6 +55,7 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Mana
 		},
 
 		connections: cmap.New(),
+		users:       cmap.New(),
 	}
 
 	// Cleanup function.
@@ -90,23 +76,8 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Mana
 	return m
 }
 
-func (m *Manager) purgeExpiredKeys() {
-	expired := make([]string, 0)
-	deadline := time.Now().Add(-connectExpiration)
-	var record *keyRecord
-	for entry := range m.keys.IterBuffered() {
-		record = entry.Val.(*keyRecord)
-		if record.when.Before(deadline) {
-			expired = append(expired, entry.Key)
-		}
-	}
-	for _, key := range expired {
-		m.keys.Remove(key)
-	}
-}
-
-// Connect adds a new connect sentry to the managers table with random key.
-func (m *Manager) Connect(ctx context.Context) (string, error) {
+// Connect adds a new connect entry to the managers table with random key.
+func (m *Manager) Connect(ctx context.Context, userID string) (string, error) {
 	key, err := rndm.GenerateRandomString(connectKeySize)
 	if err != nil {
 		return "", err
@@ -116,9 +87,24 @@ func (m *Manager) Connect(ctx context.Context) (string, error) {
 	record := &keyRecord{
 		when: time.Now(),
 	}
+	if userID != "" {
+		record.user = &userRecord{
+			id: userID,
+		}
+	}
 	m.keys.Set(key, record)
 
 	return key, nil
+}
+
+// LookupConnectionsByUserID returns the active connections for a given user.
+func (m *Manager) LookupConnectionsByUserID(userID string) ([]*Connection, bool) {
+	connections, ok := m.users.Get(userID)
+	if !ok {
+		return nil, false
+	}
+
+	return connections.([]*Connection), true
 }
 
 // Context Returns the Context of the associated manager.
@@ -132,91 +118,31 @@ func (m *Manager) NumActive() int {
 	return m.connections.Count()
 }
 
-// HandleWebsocketConnect checks the presence of the key in cache and returns a
-// new connection if key is found.
-func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw http.ResponseWriter, req *http.Request) error {
-	if _, ok := m.keys.Pop(key); !ok {
-		http.NotFound(rw, req)
-		return nil
-	}
-
-	ws, err := m.upgrader.Upgrade(rw, req, nil)
-	if _, ok := err.(websocket.HandshakeError); ok {
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	id := strconv.FormatUint(atomic.AddUint64(&m.count, 1), 10)
-	conn := &Connection{
-		ws:     ws,
-		ctx:    ctx,
-		mgr:    m,
-		logger: m.logger.WithField("rtm_connection", id),
-
-		id:    id,
-		start: time.Now(),
-		send:  make(chan []byte, 256),
-		ping:  make(chan *pingRecord, 5),
-	}
-
-	m.connections.Set(id, conn)
-	conn.ServeWS(m.Context())
-	m.connections.Remove(id)
-
-	return nil
+type pingRecord struct {
+	id   uint64
+	when time.Time
 }
 
-func (m *Manager) onConnect(c *Connection) error {
-	c.logger.Debugln("websocket onConnect")
-
-	err := c.RawSend(rawRTMTypeHelloMessage)
-	return err
+type userRecord struct {
+	id string
 }
 
-func (m *Manager) onDisconnect(c *Connection) error {
-	c.logger.Debugln("websocket onDisconnect")
-
-	return nil
+type keyRecord struct {
+	when time.Time
+	user *userRecord
 }
 
-func (m *Manager) onBeforeDisconnect(c *Connection, err error) error {
-	c.logger.Debugln("websocket onBeforeDisconnect", err)
-
-	if err == nil {
-		err = c.write(rawRTMTypeGoodbyeMessage, websocket.TextMessage)
-		return err
-	}
-
-	return nil
-}
-
-func (m *Manager) onText(c *Connection, msg []byte) error {
-	c.logger.Debugf("websocket onText: %s", msg)
-
-	// TODO(longsleep): Reuse RTMDataEnvelope / put into pool.
-	var envelope api.RTMTypeEnvelope
-	err := json.Unmarshal(msg, &envelope)
-	if err != nil {
-		return err
-	}
-
-	err = nil
-	switch envelope.Type {
-	case api.RTMTypeNamePing:
-		// Ping, Pong.
-		var ping api.RTMTypePingPong
-		err = json.Unmarshal(msg, &ping)
-		if err != nil {
-			break
+func (m *Manager) purgeExpiredKeys() {
+	expired := make([]string, 0)
+	deadline := time.Now().Add(-connectExpiration)
+	var record *keyRecord
+	for entry := range m.keys.IterBuffered() {
+		record = entry.Val.(*keyRecord)
+		if record.when.Before(deadline) {
+			expired = append(expired, entry.Key)
 		}
-		// Send back same data as pong.
-		ping["type"] = api.RTMTypeNamePong
-		err = c.Send(ping)
-
-	default:
-		return fmt.Errorf("unknown incoming type %v", envelope.Type)
 	}
-
-	return err
+	for _, key := range expired {
+		m.keys.Remove(key)
+	}
 }

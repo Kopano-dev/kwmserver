@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 	rtm "stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
@@ -64,8 +65,14 @@ func (h *APIv1) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(
 // RTMConnectHandler implements the HTTP handler for rtm.connect.
 func (h *APIv1) RTMConnectHandler(rw http.ResponseWriter, req *http.Request) {
 	// TODO(longsleep): check authentication
+	req.ParseForm()
+	user := req.Form.Get("user")
+	if user == "" {
+		http.Error(rw, "missing user parameter", http.StatusBadRequest)
+	}
+
 	// create random URL to websocket endpoint
-	key, err := h.rtmm.Connect(req.Context())
+	key, err := h.rtmm.Connect(req.Context(), user)
 	if err != nil {
 		h.logger.Errorln("connect failed", err)
 		http.Error(rw, "request failed", http.StatusInternalServerError)
@@ -75,8 +82,11 @@ func (h *APIv1) RTMConnectHandler(rw http.ResponseWriter, req *http.Request) {
 	response := &api.RTMConnectResponse{
 		ResponseOK: *api.ResponseOKValue,
 
-		URL:  fmt.Sprintf("%s/websocket/%s", APIv1URIPrefix, key),
-		Self: &api.Self{},
+		URL: fmt.Sprintf("%s/websocket/%s", APIv1URIPrefix, key),
+		Self: &api.Self{
+			ID:   user,
+			Name: fmt.Sprintf("User %s", strings.ToUpper(user)),
+		},
 	}
 
 	rw.Header().Set("Content-Type", "application/json")

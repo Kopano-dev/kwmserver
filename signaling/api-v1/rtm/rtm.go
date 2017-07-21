@@ -29,6 +29,7 @@ const (
 	connectCleanupInterval = time.Duration(1) * time.Minute
 	connectKeySize         = 24
 	connectionIDSize       = 24
+	channelIDSize          = 24
 
 	// Buffer sizes.
 	websocketReadBufferSize  = 1024

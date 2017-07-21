@@ -27,6 +27,8 @@ import (
 	"io/ioutil"
 	"time"
 
+	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
+
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 )
@@ -45,6 +47,8 @@ type Connection struct {
 	start    time.Time
 	duration time.Duration
 	ping     chan *pingRecord
+
+	user *userRecord
 }
 
 // readPump reads from the underlaying websocket connection until close.
@@ -87,6 +91,7 @@ func (c *Connection) readPump(ctx context.Context) error {
 	c.mgr.onConnect(c)
 
 	for {
+		// Wait on incoming data from websocket.
 		op, r, err := c.ws.NextReader()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
@@ -95,20 +100,35 @@ func (c *Connection) readPump(ctx context.Context) error {
 			}
 			break
 		}
+
+		// Process data based on op.
 		switch op {
 		case websocket.TextMessage:
 			// TODO(longsleep): Reuse []byte, probably put into bytes.Buffer.
+			// Rread incoming message into memory.
 			var b []byte
 			b, err = ioutil.ReadAll(io.LimitReader(r, websocketMaxMessageSize))
 			if err != nil {
 				c.logger.Debugln("websocket read text error", err)
 				return err
 			}
+			// Process incoming text message..
 			err = c.mgr.onText(c, b)
 			if err != nil {
-				c.logger.Debugln("websocket text error", err)
-				return err
+				switch err.(type) {
+				case *api.RTMTypeError:
+					// Send out known errors to connection.
+					c.Send(err)
+					// breaks
+				default:
+					// Exit for all other errors.
+					c.logger.Debugln("websocket text error", err)
+					return err
+				}
 			}
+
+		default:
+			c.logger.Warnln("websocket received unsupported op: %v", op)
 		}
 	}
 

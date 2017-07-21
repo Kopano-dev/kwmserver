@@ -17,6 +17,10 @@
 
 package api
 
+import (
+	"encoding/json"
+)
+
 // Type names for RTM payloads.
 const (
 	RTMTypeNameHello   = "hello"
@@ -24,6 +28,17 @@ const (
 	RTMTypeNamePing    = "ping"
 	RTMTypeNamePong    = "pong"
 	RTMTypeNameGoodbye = "goodbye"
+
+	RTMTypeNameWebRTC = "webrtc"
+
+	RTMSubtypeNameWebRTCCall      = "webrtc_call"
+	RTMSubtypeNameWebRTCOffer     = "webrtc_offer"
+	RTMSubtypeNameWebRTCAnswer    = "webrtc_answer"
+	RTMSubtypeNameWebRTCCandidate = "webrtc_candidate"
+
+	RTMErrorIDServerError      = "server_error"
+	RTMErrorIDBadMessage       = "bad_message"
+	RTMErrorIDNoSessionForUser = "no_session_for_user"
 )
 
 // RTMConnectResponse is the response returned from rtm.connect.
@@ -36,7 +51,16 @@ type RTMConnectResponse struct {
 
 // RTMTypeEnvelope is the envelope with type key for RTM JSON data messages.
 type RTMTypeEnvelope struct {
+	ID   uint64 `json:"id,omitempty"`
 	Type string `json:"type"`
+}
+
+// RTMTypeSubtypeEnvelope is the envelope with type and subtype key for RTM JSON
+// data messages.
+type RTMTypeSubtypeEnvelope struct {
+	ID      uint64 `json:"id,omitempty"`
+	Type    string `json:"type"`
+	Subtype string `json:"subtype"`
 }
 
 // RTMTypeEnvelopeReply is the envelope with type key and reply for RTM JSON
@@ -60,14 +84,48 @@ var RTMTypeGoodbyeMessage = &RTMTypeEnvelope{
 // RTMTypeError is the error reply.
 type RTMTypeError struct {
 	*RTMTypeEnvelopeReply
-	Error *RTMDataError `json:"error"`
+	ErrorData *RTMDataError `json:"error"`
+}
+
+// Error implements the error interface.
+func (err *RTMTypeError) Error() string {
+	if (err.ErrorData) == nil {
+		return RTMErrorIDServerError
+	}
+	return err.ErrorData.Code
 }
 
 // RTMDataError is the error payload data.
 type RTMDataError struct {
-	Code int64  `json:"code"`
+	Code string `json:"code"`
 	Msg  string `json:"msg"`
+}
+
+// NewRTMTypeError creates a new RTMTypeError with the provided parameters.
+func NewRTMTypeError(code string, msg string, replyTo uint64) *RTMTypeError {
+	return &RTMTypeError{
+		&RTMTypeEnvelopeReply{
+			Type:    RTMTypeNameError,
+			ReplyTo: replyTo,
+		},
+		&RTMDataError{
+			Code: code,
+			Msg:  msg,
+		},
+	}
 }
 
 // RTMTypePingPong is the ping/pong message.
 type RTMTypePingPong map[string]interface{}
+
+// RTMTypeWebRTC defines webrtc related messages.
+type RTMTypeWebRTC struct {
+	*RTMTypeSubtypeEnvelope
+	Target    string          `json:"target"`
+	Source    string          `json:"source"`
+	Initiator bool            `json:"initiator,omitempty"`
+	State     string          `json:"state,omitempty"`
+	Channel   string          `json:"channel,omitempty"`
+	Hash      string          `json:"hash,omitempty"`
+	Data      json.RawMessage `json:"data,omitempty"`
+}
