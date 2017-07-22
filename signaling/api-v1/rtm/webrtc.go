@@ -141,8 +141,15 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 		msg.Source = c.user.id
 		msg.ID = 0
 
-		// Lookup and send modified message.
-		c.Send(msg)
+		// Lookup target and send modified message.
+		// XXX(longsleep): Not a good idea to send these messages to every connection.
+		connections, ok := m.LookupConnectionsByUserID(msg.Target)
+		if !ok {
+			return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
+		}
+		for _, c := range connections {
+			c.Send(msg)
+		}
 
 	default:
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "unknown subtype", msg.ID)

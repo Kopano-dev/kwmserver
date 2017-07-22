@@ -39,6 +39,7 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 
 	ws, err := m.upgrader.Upgrade(rw, req, nil)
 	if _, ok := err.(websocket.HandshakeError); ok {
+		m.logger.WithError(err).Debugln("websocket handshake error")
 		return nil
 	} else if err != nil {
 		return err

@@ -19,6 +19,7 @@ package rtm
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -52,6 +53,10 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Mana
 		upgrader: &websocket.Upgrader{
 			ReadBufferSize:  websocketReadBufferSize,
 			WriteBufferSize: websocketWriteBufferSize,
+			CheckOrigin: func(req *http.Request) bool {
+				// TODO(longsleep): Check if its a good idea to allow all origins.
+				return true
+			},
 		},
 
 		connections: cmap.New(),
