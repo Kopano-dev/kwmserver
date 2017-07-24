@@ -66,8 +66,12 @@ window.app = new Vue({
 		gUMconstraints: {
 			audio: true,
 			video: {
-				width: 1280,
-				height: 720
+				width: 640,
+				height: 480,
+				frameRate: {
+					ideal: 10,
+					max: 15
+				}
 			}
 		},
 		webrtcConfig: {
@@ -472,13 +476,7 @@ window.app = new Vue({
 		},
 		getUserMedia: function(peercall) {
 			// Prefer camera resolution nearest to 1280x720.
-			var constraints = {
-				audio: true,
-				video: {
-					width: 1280,
-					height: 720
-				}
-			};
+			var constraints = this.$data.gUMconstraints;
 			console.log('starting getUserMedia', constraints);
 			return navigator.mediaDevices.getUserMedia(constraints)
 				.then(mediaStream => {
