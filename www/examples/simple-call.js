@@ -137,6 +137,10 @@ window.app = new Vue({
 					this.$data.socket = null;
 					this.$data.connected = false;
 					this.$data.connecting = false;
+					this.$data.error = {
+						code: 'socket error',
+						msg: err
+					};
 				};
 				socket.onmessage = event => {
 					if (event.target !== socket) {
@@ -403,6 +407,12 @@ window.app = new Vue({
 				video.onloadedmetadata = function(event) {
 					video.play();
 				};
+			});
+			pc.on('iceStateChange', state => {
+				console.log('iceStateChange', state);
+			});
+			pc.on('signalingStateChange', state => {
+				console.log('signalingStateChange', state);
 			});
 
 			peercall.pc = pc;
