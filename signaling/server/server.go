@@ -125,9 +125,9 @@ func (s *Server) Serve(ctx context.Context) error {
 	logger.Infoln("ready to handle requests")
 
 	go func() {
-		err = srv.Serve(listener)
-		if err != nil {
-			errCh <- err
+		serveErr := srv.Serve(listener)
+		if serveErr != nil {
+			errCh <- serveErr
 		}
 
 		logger.Debugln("http listener stopped")
