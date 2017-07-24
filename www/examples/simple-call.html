@@ -63,9 +63,11 @@
 </div>
 </section>
 
-<div id="video-container" v-if="peercall">
-	<video id="video-remote"></video>
-	<video id="video-local" muted></video>
+<div id="remote-video-container" v-if="peercall">
+	<remote-video v-bind:stream="peercall.remoteStream"></remote-video>
+</div>
+<div id="local-video-container" v-if="peercall">
+	<local-video v-bind:stream="peercall.localStream"></local-video>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.2.2/vue.min.js" integrity="sha256-aj1M6HvoQC92WZpIeJvEFeHktFR5mizcIhJnK5n91wk=" crossorigin="anonymous"></script>

@@ -76,6 +76,48 @@ window.app = new Vue({
 			]
 		}
 	},
+	components: {
+		'remote-video': {
+			props: ['stream'],
+			template: `
+				<div>
+					<video ref="video"></video>
+				</div>`,
+			watch: {
+				stream: function(mediaStream) {
+					let video = this.$refs.video;
+					if (!mediaStream) {
+						video.src = '';
+						return;
+					}
+					video.srcObject = mediaStream;
+					video.onloadedmetadata = function(event) {
+						video.play();
+					};
+				}
+			}
+		},
+		'local-video': {
+			props: ['stream'],
+			template: `
+				<div>
+					<video ref="video" muted></video>
+				</div>`,
+			watch: {
+				stream: function(mediaStream) {
+					let video = this.$refs.video;
+					if (!mediaStream) {
+						video.src = '';
+						return;
+					}
+					video.srcObject = mediaStream;
+					video.onloadedmetadata = function(event) {
+						video.play();
+					};
+				}
+			}
+		},
+	},
 	created: function() {
 		console.log('welcome to simple-call');
 
@@ -163,7 +205,7 @@ window.app = new Vue({
 							this.handleWebRTC(message);
 							break;
 						default:
-							console.log('unknown type', message.type);
+							console.log('unknown type', message.type, message);
 							break;
 					}
 				};
@@ -270,17 +312,28 @@ window.app = new Vue({
 			switch (message.subtype) {
 				case 'webrtc_call':
 					if (message.initiator) {
-						// incoming call request, auto accept.
 						let response = {
 							type: 'webrtc',
 							subtype: 'webrtc_call',
 							target: message.source,
 							state: getRandomString(12),
 							channel: message.channel,
-							hash: message.hash,
-							data: {
-								accept: true
-							}
+							hash: message.hash
+						};
+
+						if (this.$data.peercall) {
+							console.log('rejecting incoming call while already have a call');
+							response.data = {
+								accept: false,
+								reason: 'reject_busy'
+							};
+							this.websocketSend(response);
+							return;
+						}
+
+						// incoming call request, auto accept.
+						response.data = {
+							accept: true
 						};
 						let peercall = {
 							initiator: false,
@@ -303,8 +356,12 @@ window.app = new Vue({
 					} else {
 						// call reply, check and start webrtc.
 						if (!message.data.accept) {
-							console.log('peer did not accept call');
+							console.log('peer did not accept call', message);
 							this.hangup();
+							this.$data.error = {
+								code: 'not_accepted',
+								msg: message.data.reason
+							};
 							return;
 						}
 						if (!this.$data.peercall) {
@@ -352,7 +409,7 @@ window.app = new Vue({
 					break;
 
 				default:
-					console.log('unknown webrtc subtype', message.subtype);
+					console.log('unknown webrtc subtype', message.subtype, message);
 					break;
 			}
 		},
@@ -402,11 +459,6 @@ window.app = new Vue({
 			pc.on('stream', mediaStream => {
 				console.log('peerconnection stream', mediaStream);
 				peercall.remoteStream = mediaStream;
-				let video = document.getElementById('video-remote');
-				video.srcObject = mediaStream;
-				video.onloadedmetadata = function(event) {
-					video.play();
-				};
 			});
 			pc.on('iceStateChange', state => {
 				console.log('iceStateChange', state);
@@ -436,17 +488,17 @@ window.app = new Vue({
 						return;
 					}
 					peercall.localStream = mediaStream;
-					let video = document.getElementById('video-local');
+					/*let video = document.getElementById('video-local');
 					video.srcObject = mediaStream;
 					video.onloadedmetadata = function(event) {
 						video.play();
-					};
+					};*/
 				})
 				.catch(err => {
 					console.log('getUserMedia error', err.name + ': ' + err.message);
 					peercall.localStream = null;
-					let video = document.getElementById('video-local');
-					video.src = '';
+					/*let video = document.getElementById('video-local');
+					video.src = '';*/
 				});
 		},
 		stopUserMedia: function(localStream) {
