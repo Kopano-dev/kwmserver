@@ -60,7 +60,21 @@ window.app = new Vue({
 		connecting: false,
 		connected: false,
 		socket: null,
-		peercall: null
+		peercall: null,
+
+		// TODO(longsleep): Add additional constraints and settings.
+		gUMconstraints: {
+			audio: true,
+			video: {
+				width: 1280,
+				height: 720
+			}
+		},
+		webrtcConfig: {
+			iceServers: [
+				{url: 'stun:stun.l.google.com:19302'}
+			]
+		}
 	},
 	created: function() {
 		console.log('welcome to simple-call');
@@ -344,7 +358,8 @@ window.app = new Vue({
 			let pc = new SimplePeer({
 				initiator: peercall.initiator,
 				stream: peercall.localStream,
-				trickle: true
+				trickle: true,
+				config: this.$data.webrtcConfig
 			});
 			pc.on('error', err => {
 				console.log('peerconnection error', err);
