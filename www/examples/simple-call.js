@@ -92,6 +92,8 @@ window.app = new Vue({
 					socket.close();
 				}
 
+				this.$data.connected = false;
+
 				let url = makeURLFromPath(connectResult.url).replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
 				console.log('connecting socket URL', url);
 				socket = new WebSocket(url);
@@ -124,15 +126,23 @@ window.app = new Vue({
 				};
 				socket.onmessage = event => {
 					if (event.target !== socket) {
+						socket.close();
 						return;
 					}
-					console.log('socket message', event);
+					//console.log('socket message', event);
 					let message = JSON.parse(event.data);
 					switch (message.type) {
 						case 'hello':
+							console.log('server said hello', message);
+							break;
+						case 'goodbye':
+							console.log('server said goodbye, close connection', message);
+							socket.close();
+							this.$data.connected = false;
+							this.$data.socket = null;
 							break;
 						case 'webrtc':
-							this.webrtc_handler(message);
+							this.handleWebRTC(message);
 							break;
 						default:
 							console.log('unknown type', message.type);
@@ -174,17 +184,14 @@ window.app = new Vue({
 				this.$data.connectResult = connectResult;
 			});
 		},
-		send: function(data) {
-			let socket = this.$data.socket;
-			if (socket === null) {
-				throw 'no socket';
-			}
-
-			let raw = JSON.stringify(data);
-			socket.send(raw);
+		reload: function() {
+			window.location.reload();
 		},
-		webrtc_call: function() {
-			console.log('webrtc_call clicked');
+		closeErrorModal: function() {
+			this.$data.error = null;
+		},
+		call: function() {
+			console.log('call clicked');
 			let data = {
 				type: 'webrtc',
 				subtype: 'webrtc_call',
@@ -207,11 +214,11 @@ window.app = new Vue({
 				if (this.$data.peercall !== peercall) {
 					return;
 				}
-				this.send(data);
+				this.websocketSend(data);
 			});
 		},
-		webrtc_hangup: function() {
-			console.log('webrtc_hangup clicked');
+		hangup: function() {
+			console.log('hangup clicked');
 			if (!this.$data.peercall) {
 				return;
 			}
@@ -228,7 +235,19 @@ window.app = new Vue({
 			}
 			this.$data.peercall = null;
 		},
-		webrtc_handler: function(message) {
+
+		//  webbsocket functions.
+		websocketSend: function(data) {
+			let socket = this.$data.socket;
+			if (socket === null) {
+				throw 'no socket';
+			}
+
+			let raw = JSON.stringify(data);
+			socket.send(raw);
+		},
+
+		handleWebRTC: function(message) {
 			console.log('received webrtc message', message);
 			switch (message.subtype) {
 				case 'webrtc_call':
@@ -261,13 +280,13 @@ window.app = new Vue({
 							if (this.$data.peercall !== peercall) {
 								return;
 							}
-							this.send(response);
+							this.websocketSend(response);
 						});
 					} else {
 						// call reply, check and start webrtc.
 						if (!message.data.accept) {
 							console.log('peer did not accept call');
-							this.webrtc_hangup();
+							this.hangup();
 							return;
 						}
 						if (!this.$data.peercall) {
@@ -276,7 +295,7 @@ window.app = new Vue({
 						let peercall = this.$data.peercall;
 						if (peercall.peer !== message.source) {
 							console.log('peer is the wrong source');
-							this.webrtc_hangup();
+							this.hangup();
 							return;
 						}
 
@@ -319,6 +338,7 @@ window.app = new Vue({
 					break;
 			}
 		},
+
 		getPeerConnection: function(peercall) {
 			console.log('peerconnection create', peercall.initiator, peercall.localStream);
 			let pc = new SimplePeer({
@@ -331,7 +351,11 @@ window.app = new Vue({
 				if (this.$data.peercall !== peercall) {
 					return;
 				}
-				this.webrtc_hangup();
+				this.$data.error = {
+					code: 'perrconnection error',
+					msg: err
+				};
+				this.hangup();
 			});
 			pc.on('signal', data => {
 				console.log('peerconnection signal', data);
@@ -344,7 +368,7 @@ window.app = new Vue({
 					hash: peercall.hash,
 					data: data
 				};
-				this.send(message);
+				this.websocketSend(message);
 			});
 			pc.on('connect', () => {
 				console.log('peerconnection connect');
@@ -354,7 +378,7 @@ window.app = new Vue({
 				if (this.$data.peercall !== peercall) {
 					return;
 				}
-				this.webrtc_hangup();
+				this.hangup();
 			});
 			pc.on('stream', mediaStream => {
 				console.log('peerconnection stream', mediaStream);
@@ -369,11 +393,6 @@ window.app = new Vue({
 			peercall.pc = pc;
 			return pc;
 		},
-		stopUserMedia: function(localStream) {
-			for (let track of localStream.getTracks()) {
-				track.stop();
-			}
-		},
 		getUserMedia: function(peercall) {
 			// Prefer camera resolution nearest to 1280x720.
 			var constraints = {
@@ -383,6 +402,7 @@ window.app = new Vue({
 					height: 720
 				}
 			};
+			console.log('starting getUserMedia', constraints);
 			return navigator.mediaDevices.getUserMedia(constraints)
 				.then(mediaStream => {
 					console.log('getUserMedia done', mediaStream);
@@ -398,14 +418,17 @@ window.app = new Vue({
 					};
 				})
 				.catch(err => {
-					console.log(err.name + ': ' + err.message);
+					console.log('getUserMedia error', err.name + ': ' + err.message);
+					peercall.localStream = null;
+					let video = document.getElementById('video-local');
+					video.src = '';
 				});
 		},
-		reload: function() {
-			window.location.reload();
-		},
-		closeErrorModal: function() {
-			this.$data.error = null;
+		stopUserMedia: function(localStream) {
+			console.log('stopping getUserMedia');
+			for (let track of localStream.getTracks()) {
+				track.stop();
+			}
 		}
 	}
 });

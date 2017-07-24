@@ -39,6 +39,7 @@ func (m *Manager) onConnect(c *Connection) error {
 
 			// TODO(longsleep): for now kill off all other connections and replace with new.
 			for _, old := range valueInMap.([]*Connection) {
+				c.logger.Debugf("websocket onConnect disconnecting old connection: %v\n", old.id)
 				old.ws.Close()
 			}
 

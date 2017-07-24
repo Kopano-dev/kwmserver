@@ -50,8 +50,8 @@
 	</div>
 
     <button class="button is-primary" v-on:click="connect" v-if="!connected">Connect</button>
-    <button class="button is-success" v-on:click="webrtc_call" v-if="connected && !peercall">Call</button>
-	<button class="button is-danger" v-on:click="webrtc_hangup" v-if="peercall">Hangup</button>
+    <button class="button is-success" v-on:click="call" v-if="connected && !peercall">Call</button>
+	<button class="button is-danger" v-on:click="hangup" v-if="peercall">Hangup</button>
 </div>
 </section>
 

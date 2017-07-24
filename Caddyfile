@@ -5,6 +5,9 @@
 # example backend running on 127.0.0.1:8088.
 
 0.0.0.0:8843
+errors stderr
+log stdout
+
 tls self_signed
 root ./www
 
