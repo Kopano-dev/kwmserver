@@ -10,6 +10,7 @@
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 	grid-gap: 1px;
+	overflow: hidden;
 }
 #remote-video-container > div {
 	position: relative;
@@ -19,7 +20,7 @@
 	position: fixed;
 	bottom: 10px;
 	right: 10px;
-	max-height: 35%;
+	height: 35%;
 	max-width: 640px;
 	min-width: 320px;
 	width: 35%;

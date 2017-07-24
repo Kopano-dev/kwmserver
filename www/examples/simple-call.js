@@ -63,11 +63,12 @@ window.app = new Vue({
 		peercall: null,
 
 		// TODO(longsleep): Add additional constraints and settings.
+		// NOTE(longsleep): Firefox does not support frameRate and thus fails.
 		gUMconstraints: {
 			audio: true,
 			video: {
 				width: 640,
-				height: 480,
+				height: 360,
 				frameRate: {
 					ideal: 10,
 					max: 15
@@ -274,8 +275,12 @@ window.app = new Vue({
 				hash: null
 			};
 			this.$data.peercall = peercall;
-			this.getUserMedia(peercall).then(() => {
+			this.getUserMedia(peercall).then(ok => {
 				if (this.$data.peercall !== peercall) {
+					return;
+				}
+				if (!ok) {
+					this.hangup();
 					return;
 				}
 				this.websocketSend(data);
@@ -351,8 +356,12 @@ window.app = new Vue({
 						};
 						this.$data.target = message.source;
 						this.$data.peercall = peercall;
-						this.getUserMedia(peercall).then(() => {
+						this.getUserMedia(peercall).then(ok => {
 							if (this.$data.peercall !== peercall) {
+								return;
+							}
+							if (!ok) {
+								this.hangup();
 								return;
 							}
 							this.websocketSend(response);
@@ -483,20 +492,19 @@ window.app = new Vue({
 					console.log('getUserMedia done', mediaStream);
 					if (this.$data.peercall !== peercall) {
 						this.stopUserMedia(mediaStream);
-						return;
+						return false;
 					}
 					peercall.localStream = mediaStream;
-					/*let video = document.getElementById('video-local');
-					video.srcObject = mediaStream;
-					video.onloadedmetadata = function(event) {
-						video.play();
-					};*/
+					return true;
 				})
 				.catch(err => {
 					console.log('getUserMedia error', err.name + ': ' + err.message);
 					peercall.localStream = null;
-					/*let video = document.getElementById('video-local');
-					video.src = '';*/
+					this.$data.error = {
+						code: 'get_usermedia_failed',
+						msg: err.name + ': ' + err.message
+					};
+					return false;
 				});
 		},
 		stopUserMedia: function(localStream) {
