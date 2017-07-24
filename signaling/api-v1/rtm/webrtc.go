@@ -103,11 +103,7 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			}
 		}
 
-	case api.RTMSubtypeNameWebRTCOffer:
-		fallthrough
-	case api.RTMSubtypeNameWebRTCAnswer:
-		fallthrough
-	case api.RTMSubtypeNameWebRTCCandidate:
+	case api.RTMSubtypeNameWebRTCSignal:
 		// Connection must have a user.
 		if c.user == nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "connection has no user", msg.ID)

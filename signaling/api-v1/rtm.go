@@ -31,10 +31,8 @@ const (
 
 	RTMTypeNameWebRTC = "webrtc"
 
-	RTMSubtypeNameWebRTCCall      = "webrtc_call"
-	RTMSubtypeNameWebRTCOffer     = "webrtc_offer"
-	RTMSubtypeNameWebRTCAnswer    = "webrtc_answer"
-	RTMSubtypeNameWebRTCCandidate = "webrtc_candidate"
+	RTMSubtypeNameWebRTCCall   = "webrtc_call"
+	RTMSubtypeNameWebRTCSignal = "webrtc_signal"
 
 	RTMErrorIDServerError      = "server_error"
 	RTMErrorIDBadMessage       = "bad_message"

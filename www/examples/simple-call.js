@@ -287,7 +287,7 @@ window.app = new Vue({
 					}
 					break;
 
-				case 'webrtc_offer':
+				case 'webrtc_signal':
 					if (!this.$data.peercall) {
 						return;
 					}
@@ -337,7 +337,7 @@ window.app = new Vue({
 				console.log('peerconnection signal', data);
 				let message = {
 					type: 'webrtc',
-					subtype: 'webrtc_offer',
+					subtype: 'webrtc_signal',
 					target: peercall.peer,
 					state: peercall.state,
 					channel: peercall.channel,

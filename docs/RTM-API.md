@@ -63,3 +63,20 @@
 - there must be channel and hash and data.
 
 ## simon receives response
+
+Create WebRTC peer connection and exchange signals by sending the WebRTC sdp
+data through the server to the target.
+
+{
+	"type": "webrtc",
+	"subtype": "webrtc_signal",
+	"target": "simon",
+	"state": "some-random-state",
+	"channel": "some-random-string",
+	"data": {
+		/*sdp*/
+	}
+}
+
+The `webrtc_signal` type can be sent by both parties. The peer connection is
+created on the fly when none is yet there for the source/target.

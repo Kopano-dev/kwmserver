@@ -33,10 +33,12 @@ cd ~/go/src/stash.kopano.io/kwm/kwmserver
 go test -v $(glide novendor)
 ```
 
-## Try RTM API
+## RTM API
 
 RTM stands for real time messaging. This API uses a websocket connection with
 JSON payload data.
+
+### Try RTM API
 
 One can use the tools [curl](https://curl.haxx.se/), [jq](https://stedolan.github.io/jq/) and [wsc](https://github.com/raphael/wsc) for testing.
 
@@ -76,3 +78,10 @@ with jq and wsc:
 ```
 wsc ws://localhost:8778$(curl -s http://localhost:8778/api/v1/rtm.connect |jq -r '.url')
 ```
+
+### RTM Websocket API
+
+The RTM API is a simple JSON based Websocket API that allows to send and received
+events in real time.
+
+See `docs/RTM-API.md` for the events are JSON format definition.
