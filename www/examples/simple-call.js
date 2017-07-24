@@ -70,8 +70,7 @@ window.app = new Vue({
 				width: 640,
 				height: 360,
 				frameRate: {
-					ideal: 10,
-					max: 15
+					ideal: 10
 				}
 			}
 		},
@@ -121,7 +120,7 @@ window.app = new Vue({
 					};
 				}
 			}
-		},
+		}
 	},
 	created: function() {
 		console.log('welcome to simple-call');
@@ -208,6 +207,10 @@ window.app = new Vue({
 							break;
 						case 'webrtc':
 							this.handleWebRTC(message);
+							break;
+						case 'error':
+							console.log('server said error', message);
+							this.$data.error = message.error;
 							break;
 						default:
 							console.log('unknown type', message.type, message);
@@ -498,7 +501,7 @@ window.app = new Vue({
 					return true;
 				})
 				.catch(err => {
-					console.log('getUserMedia error', err.name + ': ' + err.message);
+					console.log('getUserMedia error', err.name + ': ' + err.message, err);
 					peercall.localStream = null;
 					this.$data.error = {
 						code: 'get_usermedia_failed',
