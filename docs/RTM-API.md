@@ -7,7 +7,7 @@
 	"subtype": "webrtc_call",
 	"target": "sean",
 	"initiator": true,
-	"state": "some-random-state"
+	"state": "simons-random-client-state"
 }
 
 ## server check and adds stuff and sends it to sean
@@ -18,7 +18,7 @@
 	"target": "sean",
 	"source": "simon",
 	"initiator": true,
-	"state": "some-random-state",
+	"state": "simons-random-client-state",
 	"channel": "server-made-random-string",
 	"hash": hmac(type,sorted(source,target),channel)
 }
@@ -34,8 +34,8 @@
 	"type": "webrtc",
 	"subtype": "webrtc_call",
 	"target": "simon",
-	"state": "some-random-state",
-	"channel": "some-random-string",
+	"state": "simons-random-client-state",
+	"channel": "server-made-random-string",
 	"hash": hmac(type,sorted(source,target),channel),
 	"data": {
 		"accept": true,
@@ -49,18 +49,20 @@
 	"subtype": "webrtc_call",
 	"target": "simon",
 	"source": "sean",
-	"state": "some-random-state",
-	"channel": "some-random-string",
+	"state": "seans-random-client-state",
+	"channel": "server-made-random-string",
 	"hash": hmac(type,sorted(source,target),channel),
 	"data": {
 		"accept": true,
+		"state": "simons-random-client-state"
 	}
 }
 
 ### checks
 
 - hmac needs to be valid.
-- there must be channel and hash and data.
+- there must be state, channel, hash and data.
+- data.state must be the previously generated state from the peer.
 
 ## simon receives response
 
@@ -70,13 +72,30 @@ data through the server to the target.
 {
 	"type": "webrtc",
 	"subtype": "webrtc_signal",
-	"target": "simon",
-	"state": "some-random-state",
-	"channel": "some-random-string",
+	"target": "sean",
+	"state": "simons-random-client-state",
+	"channel": "server-made-random-string",
 	"data": {
 		/*sdp*/
 	}
 }
+
+{
+	"type": "webrtc",
+	"subtype": "webrtc_signal",
+	"target": "simon",
+	"state": "seans-random-client-state",
+	"channel": "server-made-random-string",
+	"data": {
+		/*sdp*/
+	}
+}
+
+## checks
+
+- channel must match.
+- state revceived must match the accepted state from webrtc_call response.
+- source must match the accepted source from webrtc_call response.
 
 The `webrtc_signal` type can be sent by both parties. The peer connection is
 created on the fly when none is yet there for the source/target.

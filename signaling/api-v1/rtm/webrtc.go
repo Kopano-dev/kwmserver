@@ -18,12 +18,55 @@
 package rtm
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 
 	"stash.kopano.io/kc/konnect/rndm"
 )
+
+var webrtcChannelHashKey []byte
+
+func init() {
+	var err error
+	webrtcChannelHashKey, err = rndm.GenerateRandomBytes(32)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func computeWebRTCChannelHash(msgType, source, target, channel string) []byte {
+	h := hmac.New(sha256.New, webrtcChannelHashKey)
+	h.Write([]byte(msgType))
+	if source < target {
+		h.Write([]byte(source))
+		h.Write([]byte(target))
+	} else {
+		h.Write([]byte(target))
+		h.Write([]byte(source))
+	}
+	h.Write([]byte(channel))
+	return h.Sum(nil)
+}
+
+func checkWebRTCChannelHash(source string, msg *api.RTMTypeWebRTC) error {
+	// check hash
+	if msg.Hash == "" {
+		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "missing hash", msg.ID)
+	}
+	hash, err := base64.StdEncoding.DecodeString(msg.Hash)
+	if err != nil {
+		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "hash decode error", msg.ID)
+	}
+	if !hmac.Equal(hash, computeWebRTCChannelHash(msg.Type, source, msg.Target, msg.Channel)) {
+		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid hash", msg.ID)
+	}
+
+	return nil
+}
 
 func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 	switch msg.Subtype {
@@ -66,7 +109,8 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 				return fmt.Errorf("failed to generate channel id: %v", err)
 			}
 			msg.Channel = channel
-			msg.Hash = "lala"
+			hash := computeWebRTCChannelHash(msg.Type, msg.Source, msg.Target, msg.Channel)
+			msg.Hash = base64.StdEncoding.EncodeToString(hash)
 			msg.ID = 0
 
 			// TODO(longsleep): make hash
@@ -84,9 +128,11 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			if msg.Channel == "" || msg.Hash == "" || msg.Data == nil {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel, hash or data is empty", msg.ID)
 			}
+
 			// check hash
-			if msg.Hash != "lala" {
-				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid hash", msg.ID)
+			err := checkWebRTCChannelHash(c.user.id, msg)
+			if err != nil {
+				return err
 			}
 
 			// Add source and send modified message.
@@ -129,8 +175,9 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 		}
 
 		// check hash
-		if msg.Hash != "lala" {
-			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid hash", msg.ID)
+		err := checkWebRTCChannelHash(c.user.id, msg)
+		if err != nil {
+			return err
 		}
 
 		// Add source and send modified message.

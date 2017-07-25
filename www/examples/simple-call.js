@@ -275,6 +275,7 @@ window.app = new Vue({
 				remoteStream: null,
 				channel: null,
 				state: data.state,
+				ref: null,
 				hash: null
 			};
 			this.$data.peercall = peercall;
@@ -337,6 +338,7 @@ window.app = new Vue({
 							console.log('rejecting incoming call while already have a call');
 							response.data = {
 								accept: false,
+								state: message.state,
 								reason: 'reject_busy'
 							};
 							this.websocketSend(response);
@@ -345,7 +347,8 @@ window.app = new Vue({
 
 						// incoming call request, auto accept.
 						response.data = {
-							accept: true
+							accept: true,
+							state: message.state
 						};
 						let peercall = {
 							initiator: false,
@@ -355,6 +358,7 @@ window.app = new Vue({
 							remoteStream: null,
 							channel: message.channel,
 							state: response.state,
+							ref: message.state,
 							hash: response.hash
 						};
 						this.$data.target = message.source;
@@ -370,7 +374,20 @@ window.app = new Vue({
 							this.websocketSend(response);
 						});
 					} else {
+						if (!this.$data.peercall) {
+							return;
+						}
+						let peercall = this.$data.peercall;
 						// call reply, check and start webrtc.
+						if (message.data.state !== peercall.state) {
+							console.log('peer sent invalid state', message);
+							return;
+						}
+						if (peercall.peer !== message.source) {
+							console.log('peer is the wrong source');
+							this.hangup();
+							return;
+						}
 						if (!message.data.accept) {
 							console.log('peer did not accept call', message);
 							this.hangup();
@@ -380,17 +397,9 @@ window.app = new Vue({
 							};
 							return;
 						}
-						if (!this.$data.peercall) {
-							return;
-						}
-						let peercall = this.$data.peercall;
-						if (peercall.peer !== message.source) {
-							console.log('peer is the wrong source');
-							this.hangup();
-							return;
-						}
 
 						peercall.channel = message.channel;
+						peercall.ref = message.state;
 						peercall.hash = message.hash;
 						console.log('start webrtc, accept call reply');
 						this.getPeerConnection(peercall);
@@ -402,13 +411,16 @@ window.app = new Vue({
 						return;
 					}
 					let peercall = this.$data.peercall;
-					// check channel
+					// checks
 					if (peercall.channel !== message.channel) {
-						console.log('wrong channel');
+						console.log('webrtc signal with wrong channel');
 						return;
 					}
+					if (peercall.ref !== message.state) {
+						console.log('webrtc signal with wrong state');
+					}
 					if (peercall.peer !== message.source) {
-						console.log('wrong source');
+						console.log('webrtc signal with wrong source');
 						return;
 					}
 					if (!message.data) {
