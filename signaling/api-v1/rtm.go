@@ -31,9 +31,10 @@ const (
 
 	RTMTypeNameWebRTC = "webrtc"
 
-	RTMSubtypeNameWebRTCCall   = "webrtc_call"
-	RTMSubtypeNameWebRTCHangup = "webrtc_hangup"
-	RTMSubtypeNameWebRTCSignal = "webrtc_signal"
+	RTMSubtypeNameWebRTCCall    = "webrtc_call"
+	RTMSubtypeNameWebRTCChannel = "webrtc_channel"
+	RTMSubtypeNameWebRTCHangup  = "webrtc_hangup"
+	RTMSubtypeNameWebRTCSignal  = "webrtc_signal"
 
 	RTMErrorIDServerError      = "server_error"
 	RTMErrorIDBadMessage       = "bad_message"
@@ -66,6 +67,14 @@ type RTMTypeSubtypeEnvelope struct {
 // data reply messages.
 type RTMTypeEnvelopeReply struct {
 	Type    string `json:"type"`
+	ReplyTo uint64 `json:"reply_to,omitempty"`
+}
+
+// RTMTypeSubtypeEnvelopeReply is the envelope with type and subtype and reply
+// for RTM JSON data reply messages
+type RTMTypeSubtypeEnvelopeReply struct {
+	Type    string `json:"type"`
+	Subtype string `json:"subtype"`
 	ReplyTo uint64 `json:"reply_to,omitempty"`
 }
 
@@ -127,4 +136,13 @@ type RTMTypeWebRTC struct {
 	Channel   string          `json:"channel,omitempty"`
 	Hash      string          `json:"hash,omitempty"`
 	Data      json.RawMessage `json:"data,omitempty"`
+}
+
+// RTMTypeWebRTCReply defines webrtc related replies..
+type RTMTypeWebRTCReply struct {
+	*RTMTypeSubtypeEnvelopeReply
+	State   string          `json:"state,omitempty"`
+	Channel string          `json:"channel,omitempty"`
+	Hash    string          `json:"hash,omitempty"`
+	Data    json.RawMessage `json:"data,omitempty"`
 }

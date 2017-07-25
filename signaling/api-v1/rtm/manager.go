@@ -104,13 +104,22 @@ func (m *Manager) purgeExpiredKeys() {
 	}
 }
 
+type channelRecord struct {
+	when    time.Time
+	channel *Channel
+}
+
 func (m *Manager) purgeEmptyChannels() {
 	empty := make([]string, 0)
-	var channel *Channel
+	deadline := time.Now().Add(-channelExpiration)
+	var record *channelRecord
 	for entry := range m.channels.IterBuffered() {
-		channel = entry.Val.(*Channel)
-		if channel.Size() == 0 {
-			empty = append(empty, entry.Key)
+		record = entry.Val.(*channelRecord)
+		if record.channel.Size() <= 1 {
+			if record.when.Before(deadline) {
+				// Kill all channels with 1 or lower connections.
+				empty = append(empty, entry.Key)
+			}
 		}
 	}
 	for _, key := range empty {

@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 
@@ -109,7 +110,11 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 				return fmt.Errorf("failed to create channel: %v", err)
 			}
 			channel.Add(c.user.id, c)
-			m.channels.SetIfAbsent(channel.id, channel)
+			record := &channelRecord{
+				when:    time.Now(),
+				channel: channel,
+			}
+			m.channels.SetIfAbsent(channel.id, record)
 
 			// Create hash for channel.
 			hash := computeWebRTCChannelHash(msg.Type, c.user.id, msg.Target, channel.id)
@@ -118,6 +123,19 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			msg.Source = c.user.id
 			msg.Channel = channel.id
 			msg.Hash = base64.StdEncoding.EncodeToString(hash)
+
+			// Send to self to populate channel and hash.
+			c.Send(&api.RTMTypeWebRTCReply{
+				RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
+					Type:    api.RTMTypeNameWebRTC,
+					Subtype: api.RTMSubtypeNameWebRTCChannel,
+					ReplyTo: msg.ID,
+				},
+				Channel: msg.Channel,
+				Hash:    msg.Hash,
+			})
+
+			// Reset id for sending to target.
 			msg.ID = 0
 
 			// Lookup target and send modified message.
@@ -125,8 +143,8 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			if !ok {
 				return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
 			}
-			for _, c := range connections {
-				c.Send(msg)
+			for _, connection := range connections {
+				connection.Send(msg)
 			}
 
 		} else {
@@ -142,11 +160,11 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			}
 
 			// Get channel and add user with connection.
-			channelEntry, ok := m.channels.Get(msg.Channel)
+			record, ok := m.channels.Get(msg.Channel)
 			if !ok {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel not found", msg.ID)
 			}
-			channel := channelEntry.(*Channel)
+			channel := record.(*channelRecord).channel
 			err = channel.Add(c.user.id, c)
 			if err != nil {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
@@ -191,11 +209,11 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 		}
 
 		// Get channel and add user with connection.
-		channelEntry, ok := m.channels.Get(msg.Channel)
+		record, ok := m.channels.Get(msg.Channel)
 		if !ok {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel not found", msg.ID)
 		}
-		channel := channelEntry.(*Channel)
+		channel := record.(*channelRecord).channel
 
 		// Add source and send modified message.
 		msg.Source = c.user.id
@@ -207,7 +225,14 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			// XXX(longsleep): Find a better way to remove ourselves from channels.
 			channel.Remove(c.user.id)
 			if !ok {
-				// We do not care if target was not found on hangup.
+				// Lookup target and send hangup to all user connections.
+				connections, exists := m.LookupConnectionsByUserID(msg.Target)
+				if !exists {
+					return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
+				}
+				for _, connection := range connections {
+					connection.Send(msg)
+				}
 				break
 			}
 		}

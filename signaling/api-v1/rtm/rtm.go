@@ -30,6 +30,7 @@ const (
 	connectKeySize         = 24
 	connectionIDSize       = 24
 	channelIDSize          = 24
+	channelExpiration      = time.Duration(1) * time.Minute
 
 	// Buffer sizes.
 	websocketReadBufferSize  = 1024
