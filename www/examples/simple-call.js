@@ -62,7 +62,10 @@ window.app = new Vue({
 		socket: null,
 		peercallPending: null,
 		peercall: null,
-
+		settings: {
+			connect: false,
+			accept: false
+		},
 		// TODO(longsleep): Add additional constraints and settings.
 		// NOTE(longsleep): Firefox does not support frameRate and thus fails.
 		gUMconstraints: {
@@ -129,13 +132,17 @@ window.app = new Vue({
 		let queryValues = parseParams(location.search.substr(1));
 		console.log('URL query values on load', queryValues);
 		if (queryValues.source) {
-			this.source = queryValues.source;
+			this.$data.source = queryValues.source;
 		}
 		if (queryValues.target) {
-			this.target = queryValues.target;
+			this.$data.target = queryValues.target;
+		}
+		if (queryValues.accept) {
+			this.$data.settings.accept = true;
 		}
 		if (queryValues.connect) {
-			this.connect();
+			this.$data.settings.connect = true;
+			this.$nextTick(this.connect);
 		}
 	},
 	watch: {
@@ -411,6 +418,10 @@ window.app = new Vue({
 							hash: message.hash
 						};
 						this.$data.peercallPending = peercall;
+						if (this.$data.settings.accept) {
+							// Auto accept support.
+							this.accept();
+						}
 					} else {
 						if (!this.$data.peercall) {
 							return;
