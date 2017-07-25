@@ -37,13 +37,8 @@ func (m *Manager) onConnect(c *Connection) error {
 				return []*Connection{newValue.(*Connection)}
 			}
 
-			// TODO(longsleep): for now kill off all other connections and replace with new.
-			for _, old := range valueInMap.([]*Connection) {
-				c.logger.Debugf("websocket onConnect disconnecting old connection: %v\n", old.id)
-				old.ws.Close()
-			}
-
-			return []*Connection{newValue.(*Connection)}
+			connections := append(valueInMap.([]*Connection), newValue.(*Connection))
+			return connections
 		})
 	}
 

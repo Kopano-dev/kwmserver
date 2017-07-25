@@ -146,3 +146,10 @@ type RTMTypeWebRTCReply struct {
 	Hash    string          `json:"hash,omitempty"`
 	Data    json.RawMessage `json:"data,omitempty"`
 }
+
+// RTMDataWebRTCAccept defines webrtc extra accept data.
+type RTMDataWebRTCAccept struct {
+	Accept bool   `json:"accept"`
+	State  string `json:"state,omitempty"`
+	Reason string `json:"reason"`
+}

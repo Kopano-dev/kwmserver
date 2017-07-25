@@ -21,6 +21,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -159,15 +160,26 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 				return err
 			}
 
+			// check extra data
+			var msgData *api.RTMDataWebRTCAccept
+			err = json.Unmarshal(msg.Data, &msgData)
+			if err != nil {
+				return err
+			}
+
 			// Get channel and add user with connection.
 			record, ok := m.channels.Get(msg.Channel)
 			if !ok {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel not found", msg.ID)
 			}
 			channel := record.(*channelRecord).channel
-			err = channel.Add(c.user.id, c)
-			if err != nil {
-				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
+
+			if msgData.Accept {
+				// Add to channel when accept.
+				err = channel.Add(c.user.id, c)
+				if err != nil {
+					return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
+				}
 			}
 
 			// Add source and send modified message.

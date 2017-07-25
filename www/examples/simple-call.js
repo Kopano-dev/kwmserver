@@ -325,6 +325,7 @@ window.app = new Vue({
 				channel: peercall.channel,
 				hash: peercall.hash,
 				data: {
+					accept: false,
 					reason: 'hangup',
 					state: peercall.ref
 				}
@@ -402,7 +403,7 @@ window.app = new Vue({
 									reason: 'reject_busy'
 								}
 							};
-							console.log('rejecting incoming call while already have a call');
+							console.log('webrtc incoming call while already have a call');
 							this.websocketSend(response);
 							return;
 						}
@@ -428,17 +429,17 @@ window.app = new Vue({
 						}
 						peercall = this.$data.peercall;
 						// call reply, check and start webrtc.
-						if (message.data.state !== peercall.state) {
-							console.log('peer sent invalid state', message);
+						if (peercall.state !== message.data.state) {
+							console.log('webrtc peer data with wrong state', peercall.state);
 							return;
 						}
 						if (peercall.peer !== message.source) {
-							console.log('peer is the wrong source', peercall.peer);
+							console.log('webrtc peer is the wrong source', peercall.peer);
 							this.hangup();
 							return;
 						}
 						if (!message.data.accept) {
-							console.log('peer did not accept call', message);
+							console.log('webrtc peer did not accept call', message);
 							this.hangup();
 							this.$data.error = {
 								code: 'not_accepted',
@@ -461,7 +462,7 @@ window.app = new Vue({
 					}
 					peercall = this.$data.peercall;
 					if (peercall.channel || peercall.hash) {
-						console.log('channel or hash when already got it');
+						console.log('webrtc channel or hash when already got it');
 						return;
 					}
 					peercall.channel = message.channel;
@@ -482,6 +483,14 @@ window.app = new Vue({
 						console.log('webrtc hangup with wrong channel', peercall.channel);
 						return;
 					}
+					if (!message.data) {
+						console.log('webrtc hangup data empty');
+						return;
+					}
+					if (peercall.state !== message.data.state) {
+						console.log('webrtc hangup data with wrong state', peercall.state);
+						return;
+					}
 					if (peercall.ref !== message.state && peercall.ref !== null) {
 						console.log('webrtc hangup with wrong state', peercall.ref);
 						return;
@@ -490,10 +499,7 @@ window.app = new Vue({
 						console.log('webrtc hangup with wrong source', peercall.peer);
 						return;
 					}
-					if (!message.data) {
-						console.log('webrtc hangup data empty');
-						return;
-					}
+
 					this.hangup();
 					break;
 
