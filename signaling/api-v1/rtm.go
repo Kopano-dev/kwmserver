@@ -32,6 +32,7 @@ const (
 	RTMTypeNameWebRTC = "webrtc"
 
 	RTMSubtypeNameWebRTCCall   = "webrtc_call"
+	RTMSubtypeNameWebRTCHangup = "webrtc_hangup"
 	RTMSubtypeNameWebRTCSignal = "webrtc_signal"
 
 	RTMErrorIDServerError      = "server_error"

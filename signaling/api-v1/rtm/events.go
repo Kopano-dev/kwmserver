@@ -27,7 +27,7 @@ import (
 )
 
 func (m *Manager) onConnect(c *Connection) error {
-	c.logger.Debugln("websocket onConnect")
+	//c.logger.Debugln("websocket onConnect")
 
 	if c.user != nil {
 		// Add user to table.
@@ -52,7 +52,7 @@ func (m *Manager) onConnect(c *Connection) error {
 }
 
 func (m *Manager) onDisconnect(c *Connection) error {
-	c.logger.Debugln("websocket onDisconnect")
+	//c.logger.Debugln("websocket onDisconnect")
 
 	if c.user != nil {
 		// XXX(longsleep): This can remove the wrong connection if it was
@@ -64,7 +64,7 @@ func (m *Manager) onDisconnect(c *Connection) error {
 }
 
 func (m *Manager) onBeforeDisconnect(c *Connection, err error) error {
-	c.logger.Debugln("websocket onBeforeDisconnect", err)
+	//c.logger.Debugln("websocket onBeforeDisconnect", err)
 
 	if err == nil {
 		err = c.write(rawRTMTypeGoodbyeMessage, websocket.TextMessage)
@@ -75,7 +75,7 @@ func (m *Manager) onBeforeDisconnect(c *Connection, err error) error {
 }
 
 func (m *Manager) onText(c *Connection, msg []byte) error {
-	c.logger.Debugf("websocket onText: %s", msg)
+	//c.logger.Debugf("websocket onText: %s", msg)
 
 	// TODO(longsleep): Reuse RTMDataEnvelope / put into pool.
 	var envelope api.RTMTypeEnvelope

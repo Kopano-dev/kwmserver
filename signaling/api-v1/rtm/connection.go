@@ -49,6 +49,15 @@ type Connection struct {
 	ping     chan *pingRecord
 
 	user *userRecord
+
+	onClosedCallbacks []connectionClosedFunc
+}
+
+type connectionClosedFunc func(*Connection)
+
+type pingRecord struct {
+	id   uint64
+	when time.Time
 }
 
 // readPump reads from the underlaying websocket connection until close.
@@ -198,6 +207,15 @@ func (c *Connection) Close() {
 	c.ws.Close()
 	close(c.send)
 	c.duration = time.Since(c.start)
+	for _, cb := range c.onClosedCallbacks {
+		cb(c)
+	}
+	c.onClosedCallbacks = nil
+}
+
+// OnClosed registers a callback to be caled after the connection has closed.
+func (c *Connection) OnClosed(cb connectionClosedFunc) {
+	c.onClosedCallbacks = append(c.onClosedCallbacks, cb)
 }
 
 // Duration returns the duration since the start of the connection until the

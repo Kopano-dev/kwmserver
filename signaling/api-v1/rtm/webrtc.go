@@ -102,18 +102,24 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			if msg.Data != nil {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "data must be empty", msg.ID)
 			}
+
+			// Create channel annd add user with connection.
+			channel, err := CreateChannel(m)
+			if err != nil {
+				return fmt.Errorf("failed to create channel: %v", err)
+			}
+			channel.Add(c.user.id, c)
+			m.channels.SetIfAbsent(channel.id, channel)
+
+			// Create hash for channel.
+			hash := computeWebRTCChannelHash(msg.Type, c.user.id, msg.Target, channel.id)
+
 			// Add source, channel and hash.
 			msg.Source = c.user.id
-			channel, err := rndm.GenerateRandomString(channelIDSize)
-			if err != nil {
-				return fmt.Errorf("failed to generate channel id: %v", err)
-			}
-			msg.Channel = channel
-			hash := computeWebRTCChannelHash(msg.Type, msg.Source, msg.Target, msg.Channel)
+			msg.Channel = channel.id
 			msg.Hash = base64.StdEncoding.EncodeToString(hash)
 			msg.ID = 0
 
-			// TODO(longsleep): make hash
 			// Lookup target and send modified message.
 			connections, ok := m.LookupConnectionsByUserID(msg.Target)
 			if !ok {
@@ -135,32 +141,36 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 				return err
 			}
 
+			// Get channel and add user with connection.
+			channelEntry, ok := m.channels.Get(msg.Channel)
+			if !ok {
+				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel not found", msg.ID)
+			}
+			channel := channelEntry.(*Channel)
+			err = channel.Add(c.user.id, c)
+			if err != nil {
+				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
+			}
+
 			// Add source and send modified message.
 			msg.Source = c.user.id
 			msg.ID = 0
 
 			// Lookup target and send modified message.
-			connections, ok := m.LookupConnectionsByUserID(msg.Target)
+			connection, ok := channel.Get(msg.Target)
 			if !ok {
 				return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
 			}
-			for _, c := range connections {
-				c.Send(msg)
-			}
+			connection.Send(msg)
 		}
+
+	case api.RTMSubtypeNameWebRTCHangup:
+		fallthrough
 
 	case api.RTMSubtypeNameWebRTCSignal:
 		// Connection must have a user.
 		if c.user == nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "connection has no user", msg.ID)
-		}
-		// Target must always be not empty.
-		if msg.Target == "" {
-			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target is empty", msg.ID)
-		}
-		// Target cannot be the same as source.
-		if msg.Target == c.user.id {
-			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target same as source", msg.ID)
 		}
 		// State must always be not empty.
 		if msg.State == "" {
@@ -180,19 +190,32 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			return err
 		}
 
+		// Get channel and add user with connection.
+		channelEntry, ok := m.channels.Get(msg.Channel)
+		if !ok {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel not found", msg.ID)
+		}
+		channel := channelEntry.(*Channel)
+
 		// Add source and send modified message.
 		msg.Source = c.user.id
 		msg.ID = 0
 
 		// Lookup target and send modified message.
-		// XXX(longsleep): Not a good idea to send these messages to every connection.
-		connections, ok := m.LookupConnectionsByUserID(msg.Target)
+		connection, ok := channel.Get(msg.Target)
+		if msg.Subtype == api.RTMSubtypeNameWebRTCHangup {
+			// XXX(longsleep): Find a better way to remove ourselves from channels.
+			channel.Remove(c.user.id)
+			if !ok {
+				// We do not care if target was not found on hangup.
+				break
+			}
+		}
 		if !ok {
 			return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
 		}
-		for _, c := range connections {
-			c.Send(msg)
-		}
+
+		connection.Send(msg)
 
 	default:
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "unknown subtype", msg.ID)

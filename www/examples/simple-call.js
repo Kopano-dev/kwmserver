@@ -306,6 +306,18 @@ window.app = new Vue({
 				this.stopUserMedia(peercall.localStream);
 				peercall.localStream = null;
 			}
+			let data = {
+				type: 'webrtc',
+				subtype: 'webrtc_hangup',
+				target: peercall.peer,
+				state: peercall.state,
+				channel: peercall.channel,
+				hash: peercall.hash,
+				data: {
+					reason: 'hangup'
+				}
+			};
+			this.websocketSend(data);
 			this.$data.peercall = null;
 		},
 
@@ -322,6 +334,8 @@ window.app = new Vue({
 
 		handleWebRTC: function(message) {
 			console.log('received webrtc message', message);
+			let peercall;
+
 			switch (message.subtype) {
 				case 'webrtc_call':
 					if (message.initiator) {
@@ -350,7 +364,7 @@ window.app = new Vue({
 							accept: true,
 							state: message.state
 						};
-						let peercall = {
+						peercall = {
 							initiator: false,
 							peer: message.source,
 							pc: null,
@@ -377,7 +391,7 @@ window.app = new Vue({
 						if (!this.$data.peercall) {
 							return;
 						}
-						let peercall = this.$data.peercall;
+						peercall = this.$data.peercall;
 						// call reply, check and start webrtc.
 						if (message.data.state !== peercall.state) {
 							console.log('peer sent invalid state', message);
@@ -406,11 +420,35 @@ window.app = new Vue({
 					}
 					break;
 
+				case 'webrtc_hangup':
+					if (!this.$data.peercall) {
+						return;
+					}
+					peercall = this.$data.peercall;
+					// checks
+					if (peercall.channel !== message.channel) {
+						console.log('webrtc hangup with wrong channel');
+						return;
+					}
+					if (peercall.ref !== message.state) {
+						console.log('webrtc hangup with wrong state');
+					}
+					if (peercall.peer !== message.source) {
+						console.log('webrtc hangup with wrong source');
+						return;
+					}
+					if (!message.data) {
+						console.log('webrtc hangup data empty');
+						return;
+					}
+					this.hangup();
+					break;
+
 				case 'webrtc_signal':
 					if (!this.$data.peercall) {
 						return;
 					}
-					let peercall = this.$data.peercall;
+					peercall = this.$data.peercall;
 					// checks
 					if (peercall.channel !== message.channel) {
 						console.log('webrtc signal with wrong channel');
@@ -433,7 +471,6 @@ window.app = new Vue({
 						this.getPeerConnection(peercall);
 					}
 					peercall.pc.signal(message.data);
-
 					break;
 
 				default:
@@ -482,7 +519,7 @@ window.app = new Vue({
 				if (this.$data.peercall !== peercall) {
 					return;
 				}
-				this.hangup();
+				// TODO(longsleep): auto reconnect
 			});
 			pc.on('stream', mediaStream => {
 				console.log('peerconnection stream', mediaStream);

@@ -30,7 +30,7 @@ import (
 
 // Manager handles RTM connect state.
 type Manager struct {
-	ID     string
+	id     string
 	logger logrus.FieldLogger
 	ctx    context.Context
 
@@ -40,12 +40,13 @@ type Manager struct {
 	count       uint64
 	connections cmap.ConcurrentMap
 	users       cmap.ConcurrentMap
+	channels    cmap.ConcurrentMap
 }
 
 // NewManager creates a new Manager with an id.
 func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Manager {
 	m := &Manager{
-		ID:     id,
+		id:     id,
 		logger: logger,
 		ctx:    ctx,
 
@@ -61,6 +62,7 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Mana
 
 		connections: cmap.New(),
 		users:       cmap.New(),
+		channels:    cmap.New(),
 	}
 
 	// Cleanup function.
@@ -71,6 +73,7 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Mana
 			select {
 			case <-ticker.C:
 				m.purgeExpiredKeys()
+				m.purgeEmptyChannels()
 			case <-ctx.Done():
 				return
 			}
@@ -79,6 +82,45 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Mana
 	}()
 
 	return m
+}
+
+type keyRecord struct {
+	when time.Time
+	user *userRecord
+}
+
+func (m *Manager) purgeExpiredKeys() {
+	expired := make([]string, 0)
+	deadline := time.Now().Add(-connectExpiration)
+	var record *keyRecord
+	for entry := range m.keys.IterBuffered() {
+		record = entry.Val.(*keyRecord)
+		if record.when.Before(deadline) {
+			expired = append(expired, entry.Key)
+		}
+	}
+	for _, key := range expired {
+		m.keys.Remove(key)
+	}
+}
+
+func (m *Manager) purgeEmptyChannels() {
+	empty := make([]string, 0)
+	var channel *Channel
+	for entry := range m.channels.IterBuffered() {
+		channel = entry.Val.(*Channel)
+		if channel.Size() == 0 {
+			empty = append(empty, entry.Key)
+		}
+	}
+	for _, key := range empty {
+		m.logger.WithField("channel", key).Debugln("remove empty channel")
+		m.channels.Remove(key)
+	}
+}
+
+type userRecord struct {
+	id string
 }
 
 // Connect adds a new connect entry to the managers table with random key.
@@ -121,33 +163,4 @@ func (m *Manager) Context() context.Context {
 // accociated manager.
 func (m *Manager) NumActive() int {
 	return m.connections.Count()
-}
-
-type pingRecord struct {
-	id   uint64
-	when time.Time
-}
-
-type userRecord struct {
-	id string
-}
-
-type keyRecord struct {
-	when time.Time
-	user *userRecord
-}
-
-func (m *Manager) purgeExpiredKeys() {
-	expired := make([]string, 0)
-	deadline := time.Now().Add(-connectExpiration)
-	var record *keyRecord
-	for entry := range m.keys.IterBuffered() {
-		record = entry.Val.(*keyRecord)
-		if record.when.Before(deadline) {
-			expired = append(expired, entry.Key)
-		}
-	}
-	for _, key := range expired {
-		m.keys.Remove(key)
-	}
 }
