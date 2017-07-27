@@ -25,9 +25,9 @@ import (
 	"fmt"
 	"time"
 
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
-
 	"stash.kopano.io/kc/konnect/rndm"
+
+	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
 var webrtcChannelHashKey []byte

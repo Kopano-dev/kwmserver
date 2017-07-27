@@ -24,11 +24,11 @@ import (
 	"net/http"
 	"strings"
 
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
-	rtm "stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
-
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+
+	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
+	rtm "stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 )
 
 const (

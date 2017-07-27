@@ -26,12 +26,12 @@ import (
 	"syscall"
 	"time"
 
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/handler"
-
 	"github.com/gorilla/mux"
 	"github.com/longsleep/go-metrics/loggedwriter"
 	"github.com/longsleep/go-metrics/timing"
 	"github.com/sirupsen/logrus"
+
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/handler"
 )
 
 // Server is our HTTP server implementation.

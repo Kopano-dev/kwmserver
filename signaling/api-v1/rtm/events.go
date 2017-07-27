@@ -21,9 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
-
 	"github.com/gorilla/websocket"
+
+	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
 func (m *Manager) onConnect(c *Connection) error {

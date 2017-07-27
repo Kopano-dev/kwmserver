@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"os"
 
-	"stash.kopano.io/kwm/kwmserver/signaling/server"
-
 	"github.com/spf13/cobra"
+
+	"stash.kopano.io/kwm/kwmserver/signaling/server"
 )
 
 func commandServe() *cobra.Command {

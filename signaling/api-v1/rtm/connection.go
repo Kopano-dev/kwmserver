@@ -27,10 +27,10 @@ import (
 	"io/ioutil"
 	"time"
 
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
-
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+
+	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
 // Connection binds the websocket connection to the manager.
