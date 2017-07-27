@@ -37,7 +37,7 @@ type Channel struct {
 
 // NewChannel initializes a new channel with id.
 func NewChannel(id string, logger logrus.FieldLogger) *Channel {
-	logger.Debugln("new channel")
+	logger.Debugln("channel create")
 	return &Channel{
 		id:     id,
 		logger: logger,

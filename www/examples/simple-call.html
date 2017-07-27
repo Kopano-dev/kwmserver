@@ -52,7 +52,7 @@
     <button class="button is-primary" v-on:click="connect" v-if="!connected">Connect</button>
     <button class="button is-info" v-on:click="call" v-if="connected && !peercall && !peercallPending">Call</button>
 	<button class="button is-success" v-on:click="accept" v-if="peercallPending">Accept</button>
-	<button class="button is-danger" v-on:click="hangup" v-if="peercallPending">Reject</button>
+	<button class="button is-danger" v-on:click="reject" v-if="peercallPending">Reject</button>
 	<button class="button is-danger" v-on:click="hangup" v-if="peercall">Hangup</button>
 </div>
 </section>

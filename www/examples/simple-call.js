@@ -369,17 +369,46 @@ window.app = new Vue({
 				this.websocketSend(response);
 			});
 		},
-
-		//  webbsocket functions.
-		websocketSend: function(data) {
-			let socket = this.$data.socket;
-			if (socket === null) {
-				throw 'no socket';
+		reject: function() {
+			console.log('reject clicked');
+			if (!this.$data.peercallPending) {
+				return;
 			}
+			let peercall = this.$data.peercallPending;
 
-			let raw = JSON.stringify(data);
-			socket.send(raw);
+			// incoming call request.
+			let response = {
+				type: 'webrtc',
+				subtype: 'webrtc_call',
+				target: peercall.peer,
+				state: peercall.state,
+				channel: peercall.channel,
+				hash: peercall.hash,
+				data: {
+					accept: false,
+					reason: 'reject',
+					state: peercall.ref
+				}
+			};
+
+			this.websocketSend(response);
+			this.$data.peercallPending = null;
 		},
+		//  webbsocket functions.
+		websocketSend: (function() {
+			let seq = 0;
+			return function(data) {
+				let socket = this.$data.socket;
+				if (socket === null) {
+					throw 'no socket';
+				}
+
+				seq++;
+				data.id = seq;
+				let raw = JSON.stringify(data);
+				socket.send(raw);
+			};
+		})(),
 
 		handleWebRTC: function(message) {
 			console.log('received webrtc message', message);
@@ -389,6 +418,15 @@ window.app = new Vue({
 				case 'webrtc_call':
 					if (message.initiator) {
 						// Incoming call.
+						if (this.$data.peercallPending && !message.source) {
+							peercall = this.$data.peercallPending;
+							if (peercall.channel === message.channel) {
+								// Silent clear incoming call, call was taken by other connection.
+								this.$data.peercallPending = null;
+								break;
+							}
+						}
+
 						if (this.$data.peercall || this.$data.peercallPending) {
 							let response = {
 								type: 'webrtc',

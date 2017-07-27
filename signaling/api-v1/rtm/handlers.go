@@ -52,7 +52,7 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 		"rtm_connection": id,
 	}
 	if kr.user != nil {
-		loggerFields["user"] = kr.user.id
+		loggerFields["user_id"] = kr.user.id
 	}
 	conn := &Connection{
 		ws:     ws,

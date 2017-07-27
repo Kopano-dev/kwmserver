@@ -20,26 +20,47 @@ package rtm
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/sirupsen/logrus"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
 func (m *Manager) onConnect(c *Connection) error {
-	//c.logger.Debugln("websocket onConnect")
+	c.logger.Debugln("websocket onConnect")
 
 	if c.user != nil {
 		// Add user to table.
-		m.users.Upsert(c.user.id, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+		nur := c.user
+		nur.Lock()
+		m.users.Upsert(nur.id, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
 			if !exist {
 				// No connection for that user.
-				return []*Connection{newValue.(*Connection)}
+				c.user.connections = append(c.user.connections, newValue.(*Connection))
+				c.user.when = time.Now()
+				return c.user
 			}
 
-			connections := append(valueInMap.([]*Connection), newValue.(*Connection))
-			return connections
+			connection := newValue.(*Connection)
+			ur := valueInMap.(*userRecord)
+			ur.Lock()
+			ur.connections = append(ur.connections, connection)
+			// TODO(longsleep): Limit maximum number of connections.
+			ur.Unlock()
+
+			// Overwrite the connections user record.
+			connection.user = ur
+
+			return ur
 		})
+		nur.Unlock()
+
+		if nur == c.user {
+			// This was the users first connection.
+			m.logger.WithField("user_id", nur.id).Debugln("user is now active")
+		}
 	}
 
 	err := c.RawSend(rawRTMTypeHelloMessage)
@@ -47,14 +68,43 @@ func (m *Manager) onConnect(c *Connection) error {
 }
 
 func (m *Manager) onDisconnect(c *Connection) error {
-	//c.logger.Debugln("websocket onDisconnect")
+	c.logger.Debugln("websocket onDisconnect")
 
 	if c.user != nil {
-		// XXX(longsleep): This can remove the wrong connection if it was
-		// already replaced.
-		m.users.Pop(c.user.id)
+		m.users.Upsert(c.user.id, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+			if !exist {
+				connection := newValue.(*Connection)
+				m.logger.WithFields(logrus.Fields{
+					"user_id":       connection.user.id,
+					"connection_id": connection.id,
+				}).Warnln("disconnect user connection without user map entry - this should not happen")
+				return &userRecord{
+					id: connection.id,
+				}
+			}
+
+			ur := valueInMap.(*userRecord)
+			ur.Lock()
+			connections := make([]*Connection, len(ur.connections)-1)
+			offset := 0
+			for idx, connection := range ur.connections {
+				if connection == c {
+					offset++
+					continue
+				}
+				connections[idx-offset] = connection
+			}
+			if len(connections) == 0 {
+				ur.exit = time.Now()
+			}
+			ur.connections = connections
+			ur.Unlock()
+
+			return ur
+		})
 	}
 
+	c.logger.Debugln("websocket onDisconnect done")
 	return nil
 }
 

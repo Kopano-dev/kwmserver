@@ -182,6 +182,27 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 				}
 			}
 
+			if c.user != nil {
+				// Notify users other connetions, which might have received the call.
+				connections, exists := m.LookupConnectionsByUserID(c.user.id)
+				if exists {
+					clearedMsg := &api.RTMTypeWebRTC{
+						RTMTypeSubtypeEnvelope: &api.RTMTypeSubtypeEnvelope{
+							Type:    api.RTMTypeNameWebRTC,
+							Subtype: api.RTMSubtypeNameWebRTCCall,
+						},
+						Initiator: true,
+						Channel:   msg.Channel,
+					}
+					for _, connection := range connections {
+						if connection == c {
+							continue
+						}
+						connection.Send(clearedMsg)
+					}
+				}
+			}
+
 			// Add source and send modified message.
 			msg.Source = c.user.id
 			msg.ID = 0

@@ -20,6 +20,7 @@ package rtm
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -74,6 +75,7 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Mana
 			case <-ticker.C:
 				m.purgeExpiredKeys()
 				m.purgeEmptyChannels()
+				m.purgeInactiveUsers()
 			case <-ctx.Done():
 				return
 			}
@@ -104,6 +106,49 @@ func (m *Manager) purgeExpiredKeys() {
 	}
 }
 
+type userRecord struct {
+	sync.RWMutex
+	id          string
+	when        time.Time
+	exit        time.Time
+	connections []*Connection
+}
+
+func (m *Manager) purgeInactiveUsers() {
+	now := time.Now()
+	empty := make([]*userRecord, 0)
+	deadline := now.Add(-channelExpiration)
+	var record *userRecord
+	for entry := range m.users.IterBuffered() {
+		record = entry.Val.(*userRecord)
+		record.Lock()
+		m.logger.WithFields(logrus.Fields{
+			"user_id":     record.id,
+			"connections": len(record.connections),
+			"duration":    now.Sub(record.when),
+		}).Debugf("user active")
+		if len(record.connections) == 0 {
+			if record.exit.Before(deadline) {
+				empty = append(empty, record)
+			}
+		}
+		record.Unlock()
+	}
+	for _, record := range empty {
+		record.Lock()
+		if len(record.connections) == 0 {
+			m.users.Remove(record.id)
+			record.Unlock()
+			m.logger.WithFields(logrus.Fields{
+				"user_id":  record.id,
+				"duration": record.exit.Sub(record.when),
+			}).Debugln("user no longer active")
+		} else {
+			record.Unlock()
+		}
+	}
+}
+
 type channelRecord struct {
 	when    time.Time
 	channel *Channel
@@ -123,13 +168,9 @@ func (m *Manager) purgeEmptyChannels() {
 		}
 	}
 	for _, key := range empty {
-		m.logger.WithField("channel", key).Debugln("remove empty channel")
+		m.logger.WithField("channel", key).Debugln("channel purge")
 		m.channels.Remove(key)
 	}
-}
-
-type userRecord struct {
-	id string
 }
 
 // Connect adds a new connect entry to the managers table with random key.
@@ -153,14 +194,21 @@ func (m *Manager) Connect(ctx context.Context, userID string) (string, error) {
 	return key, nil
 }
 
-// LookupConnectionsByUserID returns the active connections for a given user.
+// LookupConnectionsByUserID returns a copy slice of the active connections for
+// the user accociated with the provided userID.
 func (m *Manager) LookupConnectionsByUserID(userID string) ([]*Connection, bool) {
-	connections, ok := m.users.Get(userID)
+	entry, ok := m.users.Get(userID)
 	if !ok {
 		return nil, false
 	}
 
-	return connections.([]*Connection), true
+	ur := entry.(*userRecord)
+	ur.RLock()
+	connections := make([]*Connection, len(ur.connections))
+	copy(connections, ur.connections)
+	ur.RUnlock()
+
+	return connections, true
 }
 
 // Context Returns the Context of the associated manager.
