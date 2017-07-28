@@ -33,6 +33,7 @@ import (
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
 	kwmAPIv1Service "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
+	kwmJanusService "stash.kopano.io/kwm/kwmserver/signaling/janus/service"
 )
 
 // Server is our HTTP server implementation.
@@ -105,8 +106,10 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	logger := s.logger
 	apiv1Service := kwmAPIv1Service.NewHTTPService(serveCtx, logger, nil)
+	janusService := kwmJanusService.NewHTTPService(serveCtx, logger)
 	services := []signaling.Service{
 		apiv1Service,
+		janusService,
 	}
 
 	errCh := make(chan error, 2)

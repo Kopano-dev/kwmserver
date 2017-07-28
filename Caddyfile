@@ -16,5 +16,10 @@ proxy /api/v1/websocket 127.0.0.1:8778 {
 	websocket
 }
 
+# kwmserverd janus compat api
+proxy /janus 127.0.0.1:8778 {
+	websocket
+}
+
 # kwmserverd
 proxy /api/v1 127.0.0.1:8778
