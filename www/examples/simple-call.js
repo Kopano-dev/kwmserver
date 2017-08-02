@@ -1,8 +1,3 @@
-/* jshint esversion:6 */
-/* jshint browser:true */
-/* jshint camelcase:false */
-/* jshint globalstrict:true */
-/* jshint devel:true */
 'use strict';
 
 function parseParams(s) {
