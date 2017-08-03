@@ -1,0 +1,82 @@
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.3.2/css/bulma.min.css" integrity="sha256-gFMi0ldgZQk7xqpcLc/KjAYdPTLqv5Nv5gOkIPxuZkY=" crossorigin="anonymous" />
+    <link rel="stylesheet" href="common.css" />
+	<link rel="stylesheet" href="simple-call.css" />
+</head>
+<body>
+<div id="app" v-cloak>
+
+<div class="modal" v-if="error !== null" v-bind:class="{ 'is-active': error !== null}">
+	<div class="modal-background"></div>
+	<div class="modal-content">
+		<div class="notification is-danger">
+			<button class="delete" v-on:click="closeErrorModal"></button>
+			<p>{{ error.code }}<span v-if="error.msg"> : {{ error.msg }}</span></p>
+		</div>
+	</div>
+</div>
+
+<section class="hero is-primary">
+  <div class="hero-body">
+    <div class="container">
+      <h1 class="title">
+        Simple call
+      </h1>
+      <h2 class="subtitle">
+        This is a simple web app to test WebRTC one to one calls
+      </h2>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+<div class="container">
+	<h3 class="subtitle">Call by ID</h3>
+
+    <div class="control">
+		<label class="label">Source</label>
+		<p class="control is-expanded">
+			<input class="input" type="text" v-model="source" :disabled="connected ? true : false">
+		</p>
+	</div>
+	<div class="control">
+		<label class="label">Target</label>
+		<p class="control is-expanded">
+			<input class="input" type="text" v-model="target" :disabled="peercall ? true : false">
+		</p>
+	</div>
+
+    <button class="button is-primary" v-on:click="connect" v-if="!connected">Connect</button>
+    <button class="button is-info" v-on:click="call" v-if="connected && !peercall && !peercallPending">Call</button>
+	<button class="button is-success" v-on:click="accept" v-if="peercallPending">Accept</button>
+	<button class="button is-danger" v-on:click="reject" v-if="peercallPending">Reject</button>
+	<button class="button is-danger" v-on:click="hangup" v-if="peercall">Hangup</button>
+</div>
+</section>
+
+<section class="section">
+<div class="container">
+	<span class="tag is-info" v-if="connecting">connecting</span>
+	<span class="tag is-success" v-if="connected">connected</span>
+	<span class="tag is-success" v-if="peercall">in-call</span>
+</div>
+</section>
+
+<div id="remote-video-container" v-if="peercall">
+	<remote-video v-bind:stream="peercall.remoteStream"></remote-video>
+</div>
+<div id="local-video-container" v-if="peercall">
+	<local-video v-bind:stream="peercall.localStream"></local-video>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.2.2/vue.min.js" integrity="sha256-aj1M6HvoQC92WZpIeJvEFeHktFR5mizcIhJnK5n91wk=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue-resource/1.2.1/vue-resource.min.js" integrity="sha256-P6g4fDl1UmpoTtqDYVujZf0dSm8aqwT15ueMa3/1uyg=" crossorigin="anonymous"></script>
+<script src="scripts/simplepeer.min.js"></script>
+<script src="simple-call.js"></script>
+
+</div> <!-- id=app -->
+</body>
+</html>

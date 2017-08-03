@@ -1,0 +1,17 @@
+package: stash.kopano.io/kwm/kwmserver
+import:
+- package: github.com/gorilla/mux
+  version: v1.4.0
+- package: github.com/longsleep/go-metrics
+  subpackages:
+  - loggedwriter
+  - timing
+- package: github.com/sirupsen/logrus
+  version: 1.0.0
+- package: github.com/spf13/cobra
+- package: stash.kopano.io/kc/konnect
+  subpackages:
+  - rndm
+- package: github.com/gorilla/websocket
+  version: v1.2.0
+- package: github.com/orcaman/concurrent-map
