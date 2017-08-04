@@ -23,6 +23,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"stash.kopano.io/kc/konnect/rndm"
+
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
 
 // Channel binds connections together.
@@ -32,7 +34,7 @@ type Channel struct {
 
 	id string
 
-	connections map[string]*Connection
+	connections map[string]*connection.Connection
 }
 
 // NewChannel initializes a new channel with id.
@@ -42,7 +44,7 @@ func NewChannel(id string, logger logrus.FieldLogger) *Channel {
 		id:     id,
 		logger: logger,
 
-		connections: make(map[string]*Connection),
+		connections: make(map[string]*connection.Connection),
 	}
 }
 
@@ -57,17 +59,17 @@ func CreateChannel(m *Manager) (*Channel, error) {
 }
 
 // Add adds the provided connection to the channel identified by id.
-func (c *Channel) Add(id string, connection *Connection) error {
+func (c *Channel) Add(id string, conn *connection.Connection) error {
 	c.Lock()
 	if _, ok := c.connections[id]; ok {
 		c.Unlock()
 		return errors.New("id already exists")
 	}
 
-	c.connections[id] = connection
+	c.connections[id] = conn
 	c.Unlock()
 
-	connection.OnClosed(func(connection *Connection) {
+	conn.OnClosed(func(connection *connection.Connection) {
 		c.Remove(id)
 	})
 
@@ -86,7 +88,7 @@ func (c *Channel) Remove(id string) error {
 }
 
 // Get retrieves the connection identified by the provided id.
-func (c *Channel) Get(id string) (*Connection, bool) {
+func (c *Channel) Get(id string) (*connection.Connection, bool) {
 	c.RLock()
 	connection, ok := c.connections[id]
 	c.RUnlock()

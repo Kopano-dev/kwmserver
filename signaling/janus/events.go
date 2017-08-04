@@ -19,118 +19,196 @@ package janus
 
 import (
 	"encoding/json"
+
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
 
-func (m *Manager) onConnect(c *Connection) error {
-	c.logger.Debugln("janus websocket onConnect")
+// OnConnect is called for new connections.
+func (m *Manager) OnConnect(c *connection.Connection) error {
+	c.Logger().Debugln("websocket OnConnect")
 
 	return nil
 }
 
-func (m *Manager) onDisconnect(c *Connection) error {
-	c.logger.Debugln("janus websocket onDisconnect")
+// OnDisconnect is called after a connection has closed.
+func (m *Manager) OnDisconnect(c *connection.Connection) error {
+	c.Logger().Debugln("websocket OnDisconnect")
 
 	return nil
 }
 
-func (m *Manager) onBeforeDisconnect(c *Connection, err error) error {
-	//c.logger.Debugln("websocket onBeforeDisconnect", err)
+// OnBeforeDisconnect is called before a connection is closed. An indication why
+// the connection will be closed is provided with the passed error.
+func (m *Manager) OnBeforeDisconnect(c *connection.Connection, err error) error {
+	//c.Logger().Debugln("websocket OnBeforeDisconnect", err)
 
 	return nil
 }
 
-func (m *Manager) onText(c *Connection, msg []byte) error {
-	c.logger.Debugf("janus websocket onText: %s", msg)
-
+// OnText is called when the provided connection received a text message. The
+// message payload is provided as []byte in the msg parameter.
+func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
+	//c.Logger().Debugf("websocket OnText: %s", msg)
 	// TODO(longsleep): Reuse msg []byte slices / put into pool.
-	var envelope janusEnvelope
+	var envelope EnvelopeData
 	err := json.Unmarshal(msg, &envelope)
 	if err != nil {
 		return err
 	}
 
+	cr := c.Bound().(*ConnectionRecord)
+
 	switch envelope.Type {
 	case TypeNameCreate:
 		// Send back success
-		response := &Response{
+		response := &ResponseData{
 			Type: TypeNameSuccess,
 			ID:   envelope.ID,
 			Data: map[string]interface{}{
-				"id": c.session,
+				"id": cr.Session,
 			},
 		}
 		err = c.Send(response)
 
 	case TypeNameAttach:
-		var attach janusAttachMessage
+		var attach AttachMessageData
 		err = json.Unmarshal(msg, &attach)
 		if err != nil {
 			break
 		}
 
-		switch attach.PluginName {
-		case PluginVideoCallName:
-			m.plugins.Upsert(attach.PluginName, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
-				// TODO(longsleep): Allow to attach multiple plugins to a connection.
-				if exist {
-					newValue.(*Connection).plugin = valueInMap.(Plugin)
-					return valueInMap
+		m.plugins.Upsert(attach.PluginName, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+			if exist && valueInMap != nil {
+				plugin := valueInMap.(Plugin)
+				errPlugin := plugin.OnAttached(m, func(_ Plugin) {
+					// Send back success
+					response := &ResponseData{
+						Type: TypeNameSuccess,
+						ID:   envelope.ID,
+						Data: map[string]interface{}{
+							"id": plugin.HandleID(),
+						},
+					}
+					c.Send(response)
+				})
+				if errPlugin != nil {
+					m.Logger().WithError(err).Errorf("failed to attach existing plugin")
+					err = errPlugin
+				} else {
+					cr.Plugin = plugin
 				}
-				c.plugin = newPluginVideoCall(c.session)
-				return c.plugin
-			})
-		default:
-			m.logger.Warnf("unknown janus plugin %v", attach.PluginName)
-		}
 
-		// Send back success
-		response := &Response{
-			Type: TypeNameSuccess,
-			ID:   envelope.ID,
-			Data: map[string]interface{}{
-				"id": c.plugin.HandleID(),
-			},
-		}
-		err = c.Send(response)
+				return valueInMap
+			}
+
+			plugin, errPlugin := m.LaunchPlugin(attach.PluginName)
+			if errPlugin != nil {
+				m.Logger().WithError(err).Errorf("failed to launch plugin")
+				err = errPlugin
+				return nil
+			}
+
+			errPlugin = plugin.Attach(m, c, &attach, func(p Plugin) {
+				// Send back success
+				response := &ResponseData{
+					Type: TypeNameSuccess,
+					ID:   envelope.ID,
+					Data: map[string]interface{}{
+						"id": p.HandleID(),
+					},
+				}
+				errSuccess := c.Send(response)
+				if errSuccess != nil {
+					m.Logger().WithError(errSuccess).Errorf("failed to send success after plugin attach")
+				}
+			}, func(p Plugin) {
+				// Cleanup when plugin wants to.
+				cr.Plugin = nil
+				m.plugins.Remove(attach.PluginName)
+			})
+			if errPlugin != nil {
+				m.Logger().WithError(errPlugin).Errorf("failed to attach plugin")
+				err = errPlugin
+				return nil
+			}
+
+			cr.Plugin = plugin
+
+			return plugin
+		})
 
 	case TypeNameDestroy:
-		// TODO(longsleep): Close connection.
+		// Close connection when done here.
+		defer func() {
+			// Send back for confirmation.
+			response := &EnvelopeData{
+				Type:    TypeNameDestroy,
+				ID:      envelope.ID,
+				Session: envelope.Session,
+			}
+			c.Send(response)
+			c.RawSend(nil) // This closes, once everything has been sent.
+		}()
 
-		// Fall through to detach if with plugin.
-		if c.plugin == nil {
+		if cr.Plugin == nil {
 			break
 		}
+		// Fall through to detach if with plugin.
 		fallthrough
 
 	case TypeNameDetach:
-		if c.plugin == nil {
+		if cr.Plugin == nil {
 			m.logger.Warnln("janus detach without attached plugin")
 			break
 		}
-		err = c.plugin.onDetach(m, c, &envelope)
+		err = cr.Plugin.OnDetach(m, c, &envelope)
 		if err != nil {
-			c.plugin = nil
+			cr.Plugin = nil
 		}
 
 	case TypeNameMessage:
-		var message janusMessageMessage
+		var message MessageMessageData
 		err = json.Unmarshal(msg, &message)
 		if err != nil {
 			break
 		}
 
-		if c.plugin == nil {
+		if cr.Plugin == nil {
 			m.logger.Warnln("janus message without attached plugin")
 			break
 		}
-		err = c.plugin.onMessage(m, c, &message)
+		err = cr.Plugin.OnMessage(m, c, &message)
+
+	case TypeNameTrickle:
+		var trickle TrickleMessageData
+		err = json.Unmarshal(msg, &trickle)
+		if err != nil {
+			break
+		}
+
+		if cr.Plugin == nil {
+			m.logger.Warnln("janus trickle without attached plugin")
+			break
+		}
+		trickle.ID = "" // We do not want a transaction for trickle.
+		err = cr.Plugin.OnMessage(m, c, &MessageMessageData{
+			EnvelopeData: trickle.EnvelopeData,
+			Body:         trickle.Candidate,
+		})
 
 	case TypeNameKeepAlive:
 		// breaks
 
 	default:
-		m.logger.Warnf("unknown incoming janus typ %v", envelope.Type)
+		m.logger.Warnf("janus unknown incoming janus type %v", envelope.Type)
 	}
 
+	return err
+}
+
+// OnError is called, when the provided connection has encountered an error. The
+// provided error is the error encountered. Any return value other than nil,
+// will result in a close of the connection.
+func (m *Manager) OnError(c *connection.Connection, err error) error {
 	return err
 }

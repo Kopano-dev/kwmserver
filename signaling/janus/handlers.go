@@ -22,11 +22,20 @@ import (
 	"net/http"
 	"strconv"
 	"sync/atomic"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
+
+// ConnectionRecord is used as binder between janus data and connections.
+type ConnectionRecord struct {
+	Session  int64
+	Username string
+	Plugin   Plugin
+	Mcu      *connection.Connection
+}
 
 // HandleWebsocketConnect handles Janus protocol websocket connections.
 func (m *Manager) HandleWebsocketConnect(ctx context.Context, rw http.ResponseWriter, req *http.Request) error {
@@ -37,7 +46,6 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, rw http.ResponseWr
 	} else if err != nil {
 		return err
 	}
-	m.logger.Debugln("selected subprotocol", websocket.Subprotocols(req), ws.Subprotocol())
 	if ws.Subprotocol() != websocketSubProtocolName {
 		m.logger.Debugln("websocket bad subprotocol")
 		return nil
@@ -50,21 +58,22 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, rw http.ResponseWr
 		"janus_connection": id,
 	}
 
-	conn := &Connection{
-		ws:      ws,
-		ctx:     ctx,
-		mgr:     m,
-		logger:  m.logger.WithFields(loggerFields),
-		id:      id,
-		session: int64(session),
-		start:   time.Now(),
-		send:    make(chan []byte, 256),
-		ping:    make(chan *pingRecord, 5),
+	c, err := connection.New(ctx, ws, m, m.logger.WithFields(loggerFields), id)
+	if err != nil {
+		return err
 	}
 
-	m.connections.Set(id, conn)
-	conn.ServeWS(m.Context())
-	m.connections.Remove(id)
+	cr := &ConnectionRecord{
+		Session: int64(session),
+	}
+	c.Bind(cr)
+	go m.serveWebsocketConnection(c, id)
 
 	return nil
+}
+
+func (m *Manager) serveWebsocketConnection(c *connection.Connection, id string) {
+	m.connections.Set(id, c)
+	c.ServeWS(m.Context())
+	m.connections.Remove(id)
 }

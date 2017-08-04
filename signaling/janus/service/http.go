@@ -27,7 +27,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/janus"
+	"stash.kopano.io/kwm/kwmserver/signaling/janus/plugins"
 )
 
 const (
@@ -43,11 +45,23 @@ type HTTPService struct {
 }
 
 // NewHTTPService creates a new HTTP Janus API service with the provided options.
-func NewHTTPService(ctx context.Context, logger logrus.FieldLogger) *HTTPService {
+func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, mcum *mcu.Manager) *HTTPService {
+	// create plugin factories
+	factories := make(map[string]func(string, *janus.Manager) (janus.Plugin, error))
+
+	if mcum != nil {
+		// Forward all plugin calls to chromiumcu.
+		_, factory := plugins.ChromiuMCUFactory(mcum)
+		factories[""] = factory
+	} else {
+		id, factory := plugins.VideoCallFactory()
+		factories[id] = factory
+	}
+
 	return &HTTPService{
 		logger: logger,
 
-		janus: janus.NewManager(ctx, "", logger),
+		janus: janus.NewManager(ctx, "", logger, mcum, factories),
 	}
 }
 
@@ -61,19 +75,18 @@ func dumpRequest(req *http.Request) {
 
 // AddRoutes add the accociated Servers URL routes to the provided router with
 // the provided context.Context.
-func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(context.Context, http.Handler) http.Handler) http.Handler {
+func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
 	r := router.PathPrefix(URIPrefix).Subrouter()
-	r.Handle("/admin", wrapper(ctx, http.HandlerFunc(h.adminHandler)))
-	r.Handle("/websocket", http.HandlerFunc(h.websocketHandler))
+	r.Handle("/admin", wrapper(http.HandlerFunc(h.adminHandler)))
+	r.Handle("/websocket", wrapper(http.HandlerFunc(h.websocketHandler)))
 	r.NotFoundHandler = http.HandlerFunc(h.DebugHandler)
 
 	return router
 }
 
 func (h *HTTPService) adminHandler(rw http.ResponseWriter, req *http.Request) {
-	dumpRequest(req)
-
-	response := &janus.Response{
+	//dumpRequest(req)
+	response := &janus.ResponseData{
 		Type: janus.TypeNameSuccess,
 	}
 

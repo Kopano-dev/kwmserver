@@ -19,32 +19,43 @@ package janus
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
+	"sync/atomic"
 
 	"github.com/gorilla/websocket"
 	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
+
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 )
 
 // Manager handles Janus protocol websocket connect state.
 type Manager struct {
-	id     string
-	logger logrus.FieldLogger
-	ctx    context.Context
+	id        string
+	logger    logrus.FieldLogger
+	ctx       context.Context
+	mcum      *mcu.Manager
+	factories map[string]func(string, *Manager) (Plugin, error)
 
 	upgrader *websocket.Upgrader
 
 	count       uint64
+	handles     uint64
 	connections cmap.ConcurrentMap
 	plugins     cmap.ConcurrentMap
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Manager {
+func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, mcum *mcu.Manager, factories map[string]func(string, *Manager) (Plugin, error)) *Manager {
 	m := &Manager{
-		id:     id,
-		logger: logger,
-		ctx:    ctx,
+		id:        id,
+		logger:    logger.WithField("manager", "janus"),
+		ctx:       ctx,
+		mcum:      mcum,
+		factories: factories,
 
 		upgrader: &websocket.Upgrader{
 			Subprotocols:    []string{websocketSubProtocolName},
@@ -72,4 +83,40 @@ func (m *Manager) Context() context.Context {
 // accociated manager.
 func (m *Manager) NumActive() int {
 	return m.connections.Count()
+}
+
+// GetConnectionBySessionID returns the connection identified by the provided
+// session.
+func (m *Manager) GetConnectionBySessionID(session int64) *connection.Connection {
+	id := strconv.FormatInt(session, 10)
+	c, found := m.connections.Get(id)
+	if !found {
+		return nil
+	}
+
+	return c.(*connection.Connection)
+}
+
+// Logger returns the accociated logger.
+func (m *Manager) Logger() logrus.FieldLogger {
+	return m.logger
+}
+
+// NewHandle returns the next available handle id of the accociated manager.
+func (m *Manager) NewHandle() int64 {
+	return int64(atomic.AddUint64(&m.handles, 1))
+}
+
+// LaunchPlugin creates a new instance of the requested plugin.
+func (m *Manager) LaunchPlugin(name string) (Plugin, error) {
+	factory, ok := m.factories[name]
+	if !ok {
+		// Try default with empty name.
+		factory, _ = m.factories[""]
+	}
+	if factory != nil {
+		return factory(name, m)
+	}
+
+	return nil, fmt.Errorf("unknown plugin: %s", name)
 }

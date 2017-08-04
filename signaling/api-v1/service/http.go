@@ -19,17 +19,14 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
-	rtm "stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 )
 
 const (
@@ -43,6 +40,7 @@ type HTTPService struct {
 	services []signaling.Service
 
 	rtmm *rtm.Manager
+	mcum *mcu.Manager
 }
 
 // NewHTTPService creates a new APIv1 with the provided options.
@@ -52,77 +50,37 @@ func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services []s
 		services: services,
 
 		rtmm: rtm.NewManager(ctx, "", logger),
+		mcum: mcu.NewManager(ctx, "", logger),
 	}
 }
 
 // AddRoutes add the accociated Servers URL routes to the provided router with
 // the provided context.Context.
-func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(context.Context, http.Handler) http.Handler) http.Handler {
+func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
 	v1 := router.PathPrefix(URIPrefix).Subrouter()
+
 	for _, service := range h.services {
 		service.AddRoutes(ctx, v1, wrapper)
 	}
-	v1.Handle("/rtm.connect", wrapper(ctx, http.HandlerFunc(h.RTMConnectHandler)))
-	v1.Handle("/websocket/{key}", http.HandlerFunc(h.WebsocketHandler))
+
+	h.rtmm.AddRoutes(ctx, v1, wrapper)
+	h.mcum.AddRoutes(ctx, v1, wrapper)
 
 	return router
-}
-
-// RTMConnectHandler implements the HTTP handler for rtm.connect.
-func (h *HTTPService) RTMConnectHandler(rw http.ResponseWriter, req *http.Request) {
-	// TODO(longsleep): check authentication
-	req.ParseForm()
-	user := req.Form.Get("user")
-	if user == "" {
-		http.Error(rw, "missing user parameter", http.StatusBadRequest)
-	}
-
-	// create random URL to websocket endpoint
-	key, err := h.rtmm.Connect(req.Context(), user)
-	if err != nil {
-		h.logger.Errorln("connect failed", err)
-		http.Error(rw, "request failed", http.StatusInternalServerError)
-		return
-	}
-
-	response := &api.RTMConnectResponse{
-		ResponseOK: *api.ResponseOKValue,
-
-		URL: fmt.Sprintf("%s/websocket/%s", URIPrefix, key),
-		Self: &api.Self{
-			ID:   user,
-			Name: fmt.Sprintf("User %s", strings.ToUpper(user)),
-		},
-	}
-
-	rw.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(rw).Encode(response)
-}
-
-// WebsocketHandler implements the HTTP handler for websocket requests.
-func (h *HTTPService) WebsocketHandler(rw http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		http.Error(rw, "", http.StatusMethodNotAllowed)
-		return
-	}
-
-	vars := mux.Vars(req)
-	key, ok := vars["key"]
-	if !ok {
-		http.NotFound(rw, req)
-		return
-	}
-
-	err := h.rtmm.HandleWebsocketConnect(req.Context(), key, rw, req)
-	if err != nil {
-		h.logger.WithError(err).Errorln("websocket connection failed")
-		http.Error(rw, "", http.StatusInternalServerError)
-		return
-	}
 }
 
 // NumActive returns the number of the currently active connections at the
 // accociated api..
 func (h *HTTPService) NumActive() int {
-	return h.rtmm.NumActive()
+	return h.rtmm.NumActive() + h.mcum.NumActive()
+}
+
+// RTMM returns the accociated rtm Manager.
+func (h *HTTPService) RTMM() *rtm.Manager {
+	return h.rtmm
+}
+
+// MCUM geturns the accociated MCU Manager.
+func (h *HTTPService) MCUM() *mcu.Manager {
+	return h.mcum
 }

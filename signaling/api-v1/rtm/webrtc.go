@@ -28,6 +28,7 @@ import (
 	"stash.kopano.io/kc/konnect/rndm"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
 
 var webrtcChannelHashKey []byte
@@ -70,19 +71,21 @@ func checkWebRTCChannelHash(source string, msg *api.RTMTypeWebRTC) error {
 	return nil
 }
 
-func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
+func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) error {
 	switch msg.Subtype {
 	case api.RTMSubtypeNameWebRTCCall:
 		// Connection must have a user.
-		if c.user == nil {
+		bound := c.Bound()
+		if bound == nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "connection has no user", msg.ID)
 		}
+		ur := bound.(*userRecord)
 		// Target must always be not empty.
 		if msg.Target == "" {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target is empty", msg.ID)
 		}
 		// Target cannot be the same as source.
-		if msg.Target == c.user.id {
+		if msg.Target == ur.id {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target same as source", msg.ID)
 		}
 		// State must always be not empty.
@@ -110,7 +113,7 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			if err != nil {
 				return fmt.Errorf("failed to create channel: %v", err)
 			}
-			channel.Add(c.user.id, c)
+			channel.Add(ur.id, c)
 			record := &channelRecord{
 				when:    time.Now(),
 				channel: channel,
@@ -118,10 +121,10 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			m.channels.SetIfAbsent(channel.id, record)
 
 			// Create hash for channel.
-			hash := computeWebRTCChannelHash(msg.Type, c.user.id, msg.Target, channel.id)
+			hash := computeWebRTCChannelHash(msg.Type, ur.id, msg.Target, channel.id)
 
 			// Add source, channel and hash.
-			msg.Source = c.user.id
+			msg.Source = ur.id
 			msg.Channel = channel.id
 			msg.Hash = base64.StdEncoding.EncodeToString(hash)
 
@@ -155,7 +158,7 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			}
 
 			// check hash
-			err := checkWebRTCChannelHash(c.user.id, msg)
+			err := checkWebRTCChannelHash(ur.id, msg)
 			if err != nil {
 				return err
 			}
@@ -176,15 +179,15 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 
 			if msgData.Accept {
 				// Add to channel when accept.
-				err = channel.Add(c.user.id, c)
+				err = channel.Add(ur.id, c)
 				if err != nil {
 					return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
 				}
 			}
 
-			if c.user != nil {
+			if ur != nil {
 				// Notify users other connetions, which might have received the call.
-				connections, exists := m.LookupConnectionsByUserID(c.user.id)
+				connections, exists := m.LookupConnectionsByUserID(ur.id)
 				if exists {
 					clearedMsg := &api.RTMTypeWebRTC{
 						RTMTypeSubtypeEnvelope: &api.RTMTypeSubtypeEnvelope{
@@ -204,7 +207,7 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			}
 
 			// Add source and send modified message.
-			msg.Source = c.user.id
+			msg.Source = ur.id
 			msg.ID = 0
 
 			// Lookup target and send modified message.
@@ -219,8 +222,9 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 		fallthrough
 
 	case api.RTMSubtypeNameWebRTCSignal:
+		bound := c.Bound()
 		// Connection must have a user.
-		if c.user == nil {
+		if bound == nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "connection has no user", msg.ID)
 		}
 		// State must always be not empty.
@@ -235,8 +239,10 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel hash or data is empty", msg.ID)
 		}
 
+		ur := bound.(*userRecord)
+
 		// check hash
-		err := checkWebRTCChannelHash(c.user.id, msg)
+		err := checkWebRTCChannelHash(ur.id, msg)
 		if err != nil {
 			return err
 		}
@@ -249,14 +255,14 @@ func (m *Manager) onWebRTC(c *Connection, msg *api.RTMTypeWebRTC) error {
 		channel := record.(*channelRecord).channel
 
 		// Add source and send modified message.
-		msg.Source = c.user.id
+		msg.Source = ur.id
 		msg.ID = 0
 
 		// Lookup target and send modified message.
 		connection, ok := channel.Get(msg.Target)
 		if msg.Subtype == api.RTMSubtypeNameWebRTCHangup {
 			// XXX(longsleep): Find a better way to remove ourselves from channels.
-			channel.Remove(c.user.id)
+			channel.Remove(ur.id)
 			if !ok {
 				// Lookup target and send hangup to all user connections.
 				connections, exists := m.LookupConnectionsByUserID(msg.Target)

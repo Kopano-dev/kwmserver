@@ -15,18 +15,20 @@
  *
  */
 
-package janus
+package plugins
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
+
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/janus"
 )
 
-// Consts for know plugins.
 const (
-	PluginVideoCallName = "janus.plugin.videocall"
-
-	videoCallQueueSize = 100
+	pluginNameVideoCall = "janus.plugin.videocall"
+	videoCallQueueSize  = 100
 )
 
 type pluginVideoCall struct {
@@ -36,11 +38,21 @@ type pluginVideoCall struct {
 	users map[string]*videoCallUser
 }
 
-func newPluginVideoCall(id int64) *pluginVideoCall {
+func newPluginVideoCall(id int64) janus.Plugin {
 	return &pluginVideoCall{
 		handleID: id,
 
 		users: make(map[string]*videoCallUser),
+	}
+}
+
+// VideoCallFactory returns the factory function to create new videoCall plugins.
+func VideoCallFactory() (string, func(string, *janus.Manager) (janus.Plugin, error)) {
+	return pluginNameVideoCall, func(name string, m *janus.Manager) (janus.Plugin, error) {
+		if name != pluginNameVideoCall {
+			return nil, fmt.Errorf("invalid plugin name, %s != %s", name, pluginNameVideoCall)
+		}
+		return newPluginVideoCall(m.NewHandle()), nil
 	}
 }
 
@@ -51,24 +63,26 @@ type videoCallResult struct {
 type videoCallUser struct {
 	sync.Mutex
 	username   string
-	connection *Connection
-	queue      chan *Response
+	connection *connection.Connection
+	queue      chan *janus.ResponseData
 }
 
 func (p *pluginVideoCall) Name() string {
-	return PluginVideoCallName
+	return pluginNameVideoCall
 }
 
 func (p *pluginVideoCall) HandleID() int64 {
 	return p.handleID
 }
 
-func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessageMessage) error {
+func (p *pluginVideoCall) OnMessage(m *janus.Manager, c *connection.Connection, msg *janus.MessageMessageData) error {
 	var body map[string]interface{}
 	err := json.Unmarshal(*msg.Body, &body)
 	if err != nil {
 		return err
 	}
+
+	cr := c.Bound().(*janus.ConnectionRecord)
 
 	request, _ := body["request"]
 	switch request {
@@ -91,7 +105,7 @@ func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessage
 			if user.connection != nil {
 				// XXX(longsleep): For now, forget about old stuff.
 				user.queue = nil
-				m.logger.Warnf("janus videocall plugin user already registered %v", username)
+				m.Logger().Warnf("janus videocall plugin user already registered %v", username)
 			}
 
 			user.connection = c
@@ -99,7 +113,7 @@ func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessage
 				close(user.queue)
 				user.Unlock()
 				// Flush queue now.
-				m.logger.Debugln("janus video call plugin flushing channel %v", username)
+				m.Logger().Debugln("janus video call plugin flushing channel %v", username)
 				for message := range user.queue {
 					c.Send(message)
 				}
@@ -108,12 +122,12 @@ func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessage
 			}
 		}
 
-		response := &Response{
-			Type:   TypeNameEvent,
+		response := &janus.ResponseData{
+			Type:   janus.TypeNameEvent,
 			ID:     msg.ID,
-			Sender: c.plugin.HandleID(),
-			PluginData: &PluginData{
-				PluginName: c.plugin.Name(),
+			Sender: cr.Plugin.HandleID(),
+			PluginData: &janus.PluginData{
+				PluginName: cr.Plugin.Name(),
 				Data: &videoCallResult{
 					Result: map[string]interface{}{
 						"event":    "registered",
@@ -134,21 +148,21 @@ func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessage
 			// NOTE(longsleep): It takes a while for the other target to register ... crap!
 			user = &videoCallUser{
 				username: username,
-				queue:    make(chan *Response, videoCallQueueSize),
+				queue:    make(chan *janus.ResponseData, videoCallQueueSize),
 			}
 			p.users[username] = user
 		}
 
-		message := &Response{
-			Type:   TypeNameEvent,
+		message := &janus.ResponseData{
+			Type:   janus.TypeNameEvent,
 			ID:     msg.ID,
 			Sender: p.HandleID(),
-			PluginData: &PluginData{
+			PluginData: &janus.PluginData{
 				PluginName: p.Name(),
 				Data: &videoCallResult{
 					Result: map[string]interface{}{
 						"event":    "incomingcall",
-						"username": c.username,
+						"username": cr.Username,
 					},
 				},
 			},
@@ -163,7 +177,7 @@ func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessage
 			case user.queue <- message:
 				//breaks
 			default:
-				m.logger.Warnf("janus videocall plugin user queue full")
+				m.Logger().Warnf("janus videocall plugin user queue full")
 			}
 			user.Unlock()
 		} else {
@@ -174,7 +188,7 @@ func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessage
 	case "accept":
 		// XXX(longsleep): Bind connections together rather than just using the other one.
 		p.Lock()
-		var connection *Connection
+		var connection *connection.Connection
 		for _, user := range p.users {
 			if user.connection != c {
 				connection = user.connection
@@ -184,20 +198,20 @@ func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessage
 		p.Unlock()
 
 		if connection == nil {
-			m.logger.Warnf("janus videocall plugin user for accept not found")
+			m.Logger().Warnf("janus videocall plugin user for accept not found")
 			break
 		}
 
-		message := &Response{
-			Type:   TypeNameEvent,
+		message := &janus.ResponseData{
+			Type:   janus.TypeNameEvent,
 			ID:     msg.ID,
 			Sender: p.HandleID(),
-			PluginData: &PluginData{
+			PluginData: &janus.PluginData{
 				PluginName: p.Name(),
 				Data: &videoCallResult{
 					Result: map[string]interface{}{
 						"event":    "accepted",
-						"username": c.username,
+						"username": cr.Username,
 					},
 				},
 			},
@@ -206,25 +220,27 @@ func (p *pluginVideoCall) onMessage(m *Manager, c *Connection, msg *janusMessage
 		connection.Send(message)
 
 	default:
-		m.logger.Warnf("janus videocall plugin unknown request type %v", request)
+		m.Logger().Debugf("janus videocall plugin unknown request type %v", request)
 	}
 
 	return err
 }
 
-func (p *pluginVideoCall) onDetach(m *Manager, c *Connection, msg *janusEnvelope) error {
-	if c.username == "" {
+func (p *pluginVideoCall) OnDetach(m *janus.Manager, c *connection.Connection, msg *janus.EnvelopeData) error {
+	cr := c.Bound().(*janus.ConnectionRecord)
+
+	if cr.Username == "" {
 		return nil
 	}
 
 	p.Lock()
-	user, found := p.users[c.username]
-	c.username = ""
+	user, found := p.users[cr.Username]
+	cr.Username = ""
 	if !found {
 		p.Unlock()
 		return nil
 	}
-	delete(p.users, c.username)
+	delete(p.users, cr.Username)
 	p.Unlock()
 
 	user.Lock()
@@ -233,6 +249,22 @@ func (p *pluginVideoCall) onDetach(m *Manager, c *Connection, msg *janusEnvelope
 		close(user.queue)
 	}
 	user.Unlock()
+
+	return nil
+}
+
+func (p *pluginVideoCall) Attach(m *janus.Manager, c *connection.Connection, msg *janus.AttachMessageData, cb func(janus.Plugin), cleanup func(janus.Plugin)) error {
+	if cb != nil {
+		cb(p)
+	}
+
+	return nil
+}
+
+func (p *pluginVideoCall) OnAttached(m *janus.Manager, cb func(janus.Plugin)) error {
+	if cb != nil {
+		cb(p)
+	}
 
 	return nil
 }

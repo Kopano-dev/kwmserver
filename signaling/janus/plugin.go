@@ -17,10 +17,16 @@
 
 package janus
 
+import (
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+)
+
 // Plugin is thje interface for janus plugin implementations.
 type Plugin interface {
-	onMessage(m *Manager, c *Connection, msg *janusMessageMessage) error
-	onDetach(m *Manager, c *Connection, msg *janusEnvelope) error
+	OnMessage(m *Manager, c *connection.Connection, msg *MessageMessageData) error
+	OnDetach(m *Manager, c *connection.Connection, msg *EnvelopeData) error
 	Name() string
 	HandleID() int64
+	Attach(m *Manager, c *connection.Connection, msg *AttachMessageData, cb func(Plugin), cleanup func(Plugin)) error
+	OnAttached(m *Manager, cb func(Plugin)) error
 }

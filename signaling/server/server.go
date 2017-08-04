@@ -52,13 +52,12 @@ func NewServer(c *Config) (*Server, error) {
 	return s, nil
 }
 
-// AddContext adds the accociated server context with cancel to the the provided
-// httprouter.Handle. When the handler is done, the per Request context is
-// cancelled.
-func (s *Server) AddContext(parent context.Context, next http.Handler) http.Handler {
+// WithMetrics adds metrics logging to the provided http.Handler. When the
+// handler is done, the context is cancelled, logging metrics.
+func (s *Server) WithMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		// Create per request context.
-		ctx, cancel := context.WithCancel(parent)
+		// Create per request cancel context.
+		ctx, cancel := context.WithCancel(req.Context())
 		loggedWriter := metrics.NewLoggedResponseWriter(rw)
 
 		// Create per request context.
@@ -84,14 +83,22 @@ func (s *Server) AddContext(parent context.Context, next http.Handler) http.Hand
 	})
 }
 
+// AddContext adds the accociated server's context to the provided http.Hander
+// request.
+func (s *Server) AddContext(parent context.Context, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		next.ServeHTTP(rw, req.WithContext(parent))
+	})
+}
+
 // AddRoutes add the accociated Servers URL routes to the provided router with
 // the provided context.Context.
 func (s *Server) AddRoutes(ctx context.Context, router *mux.Router, services []signaling.Service) http.Handler {
 	// TODO(longsleep): Add subpath support to all handlers and paths.
-	router.Handle("/health-check", s.AddContext(ctx, http.HandlerFunc(s.HealthCheckHandler)))
+	router.Handle("/health-check", s.WithMetrics(http.HandlerFunc(s.HealthCheckHandler)))
 
 	for _, service := range services {
-		service.AddRoutes(ctx, router, s.AddContext)
+		service.AddRoutes(ctx, router, s.WithMetrics)
 	}
 
 	return router
@@ -106,7 +113,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	logger := s.logger
 	apiv1Service := kwmAPIv1Service.NewHTTPService(serveCtx, logger, nil)
-	janusService := kwmJanusService.NewHTTPService(serveCtx, logger)
+	janusService := kwmJanusService.NewHTTPService(serveCtx, logger, apiv1Service.MCUM())
 	services := []signaling.Service{
 		apiv1Service,
 		janusService,
@@ -121,7 +128,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// HTTP listener.
 	srv := &http.Server{
-		Handler: router,
+		Handler: s.AddContext(serveCtx, router),
 	}
 
 	logger.WithField("listenAddr", s.listenAddr).Infoln("starting http listener")

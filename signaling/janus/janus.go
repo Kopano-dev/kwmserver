@@ -19,7 +19,6 @@ package janus
 
 import (
 	"encoding/json"
-	"time"
 )
 
 const (
@@ -27,22 +26,8 @@ const (
 	websocketReadBufferSize  = 1024
 	websocketWriteBufferSize = 1024
 
-	// Maximum message size allowed from peer.
-	websocketMaxMessageSize = 1048576 // 100 KiB
-
-	// Time allowed to write a message to the peer.
-	websocketWriteWait = 10 * time.Second
-
-	// Time allowed to read the next pong message from the peer.
-	websocketPongWait = 60 * time.Second
-
-	// Send pings to peer with this period. Must be less than pongWait.
-	websocketPingPeriod = (websocketPongWait * 9) / 10
-
 	websocketSubProtocolName = "janus-protocol"
 )
-
-var rawZeroBytes []byte
 
 // Public constants.
 const (
@@ -54,10 +39,11 @@ const (
 	TypeNameMessage   = "message"
 	TypeNameKeepAlive = "keepalive"
 	TypeNameDestroy   = "destroy"
+	TypeNameTrickle   = "trickle"
 )
 
-// Response is a JSON response with status.
-type Response struct {
+// ResponseData is a JSON response with status.
+type ResponseData struct {
 	Type       string      `json:"janus"`
 	ID         string      `json:"transaction,omitempty"`
 	Sender     int64       `json:"sender"`
@@ -66,31 +52,54 @@ type Response struct {
 	JSEP       interface{} `json:"jsep,omitempty"`
 }
 
+// TransactionID is a getter for the transaction ID.
+func (r *ResponseData) TransactionID() string {
+	return r.ID
+}
+
 // PluginData is a JSON plugin respoinse data.
 type PluginData struct {
 	PluginName string      `json:"plugin"`
 	Data       interface{} `json:"data"`
 }
 
-type janusEnvelope struct {
+// EnvelopeData is the base Janus JSON payload container.
+type EnvelopeData struct {
 	Type    string           `json:"janus"`
 	ID      string           `json:"transaction"`
 	Token   string           `json:"token"`
 	Session int64            `json:"session_id"`
 	Handle  int64            `json:"handle_id"`
-	JSEP    *json.RawMessage `json:"jsep"`
+	JSEP    *json.RawMessage `json:"jsep,omitempty"`
+
+	// Extra data, MCU backend specific.
+	TargetSession int64 `json:"target_session_id,omitempty"`
 }
 
-type janusCreateMessage struct {
-	*janusEnvelope
+// TransactionID is a getter for the transaction ID.
+func (je *EnvelopeData) TransactionID() string {
+	return je.ID
 }
 
-type janusAttachMessage struct {
-	*janusEnvelope
+// CreateMessageData is the Janus JSON payload for create messages.
+type CreateMessageData struct {
+	*EnvelopeData
+}
+
+// AttachMessageData is the Janus JSON payload for attach messages.
+type AttachMessageData struct {
+	*EnvelopeData
 	PluginName string `json:"plugin"`
 }
 
-type janusMessageMessage struct {
-	*janusEnvelope
+// MessageMessageData is the Janus JSON payload for message messages.
+type MessageMessageData struct {
+	*EnvelopeData
 	Body *json.RawMessage `json:"body"`
+}
+
+// TrickleMessageData is the Janus JSON payload for trickle messages.
+type TrickleMessageData struct {
+	*EnvelopeData
+	Candidate *json.RawMessage `json:"candidate"`
 }
