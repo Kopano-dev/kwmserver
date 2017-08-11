@@ -27,26 +27,29 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
+	"stash.kopano.io/kwm/kwmserver/signaling"
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 	rtm "stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 )
 
 const (
-	// APIv1URIPrefix defines the URL prefixed uses for API v1 requests.
-	APIv1URIPrefix = "/api/v1"
+	// URIPrefix defines the URL prefixed uses for API v1 requests.
+	URIPrefix = "/api/v1"
 )
 
-// APIv1 binds the HTTP router with handlers for API version 1.
-type APIv1 struct {
-	logger logrus.FieldLogger
+// HTTPService binds the HTTP router with handlers for kwm API v1.
+type HTTPService struct {
+	logger   logrus.FieldLogger
+	services []signaling.Service
 
 	rtmm *rtm.Manager
 }
 
-// NewAPIv1 creates a new APIv1 with the provided options.
-func NewAPIv1(ctx context.Context, logger logrus.FieldLogger) *APIv1 {
-	return &APIv1{
-		logger: logger,
+// NewHTTPService creates a new APIv1 with the provided options.
+func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services []signaling.Service) *HTTPService {
+	return &HTTPService{
+		logger:   logger,
+		services: services,
 
 		rtmm: rtm.NewManager(ctx, "", logger),
 	}
@@ -54,8 +57,11 @@ func NewAPIv1(ctx context.Context, logger logrus.FieldLogger) *APIv1 {
 
 // AddRoutes add the accociated Servers URL routes to the provided router with
 // the provided context.Context.
-func (h *APIv1) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(context.Context, http.Handler) http.Handler) http.Handler {
-	v1 := router.PathPrefix(APIv1URIPrefix).Subrouter()
+func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(context.Context, http.Handler) http.Handler) http.Handler {
+	v1 := router.PathPrefix(URIPrefix).Subrouter()
+	for _, service := range h.services {
+		service.AddRoutes(ctx, v1, wrapper)
+	}
 	v1.Handle("/rtm.connect", wrapper(ctx, http.HandlerFunc(h.RTMConnectHandler)))
 	v1.Handle("/websocket/{key}", http.HandlerFunc(h.WebsocketHandler))
 
@@ -63,7 +69,7 @@ func (h *APIv1) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(
 }
 
 // RTMConnectHandler implements the HTTP handler for rtm.connect.
-func (h *APIv1) RTMConnectHandler(rw http.ResponseWriter, req *http.Request) {
+func (h *HTTPService) RTMConnectHandler(rw http.ResponseWriter, req *http.Request) {
 	// TODO(longsleep): check authentication
 	req.ParseForm()
 	user := req.Form.Get("user")
@@ -82,7 +88,7 @@ func (h *APIv1) RTMConnectHandler(rw http.ResponseWriter, req *http.Request) {
 	response := &api.RTMConnectResponse{
 		ResponseOK: *api.ResponseOKValue,
 
-		URL: fmt.Sprintf("%s/websocket/%s", APIv1URIPrefix, key),
+		URL: fmt.Sprintf("%s/websocket/%s", URIPrefix, key),
 		Self: &api.Self{
 			ID:   user,
 			Name: fmt.Sprintf("User %s", strings.ToUpper(user)),
@@ -94,7 +100,7 @@ func (h *APIv1) RTMConnectHandler(rw http.ResponseWriter, req *http.Request) {
 }
 
 // WebsocketHandler implements the HTTP handler for websocket requests.
-func (h *APIv1) WebsocketHandler(rw http.ResponseWriter, req *http.Request) {
+func (h *HTTPService) WebsocketHandler(rw http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		http.Error(rw, "", http.StatusMethodNotAllowed)
 		return
@@ -117,6 +123,6 @@ func (h *APIv1) WebsocketHandler(rw http.ResponseWriter, req *http.Request) {
 
 // NumActive returns the number of the currently active connections at the
 // accociated api..
-func (h *APIv1) NumActive() int {
+func (h *HTTPService) NumActive() int {
 	return h.rtmm.NumActive()
 }

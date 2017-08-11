@@ -16,3 +16,15 @@
  */
 
 package signaling
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/gorilla/mux"
+)
+
+// Service is an interface for services providing routing.
+type Service interface {
+	AddRoutes(context.Context, *mux.Router, func(context.Context, http.Handler) http.Handler) http.Handler
+}

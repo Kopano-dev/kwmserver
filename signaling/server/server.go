@@ -31,15 +31,14 @@ import (
 	"github.com/longsleep/go-metrics/timing"
 	"github.com/sirupsen/logrus"
 
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/handler"
+	"stash.kopano.io/kwm/kwmserver/signaling"
+	kwmAPIv1Service "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
 )
 
 // Server is our HTTP server implementation.
 type Server struct {
 	listenAddr string
 	logger     logrus.FieldLogger
-
-	APIv1 *handler.APIv1
 }
 
 // NewServer constructs a server from the provided parameters.
@@ -86,11 +85,13 @@ func (s *Server) AddContext(parent context.Context, next http.Handler) http.Hand
 
 // AddRoutes add the accociated Servers URL routes to the provided router with
 // the provided context.Context.
-func (s *Server) AddRoutes(ctx context.Context, router *mux.Router) http.Handler {
+func (s *Server) AddRoutes(ctx context.Context, router *mux.Router, services []signaling.Service) http.Handler {
 	// TODO(longsleep): Add subpath support to all handlers and paths.
 	router.Handle("/health-check", s.AddContext(ctx, http.HandlerFunc(s.HealthCheckHandler)))
 
-	s.APIv1.AddRoutes(ctx, router, s.AddContext)
+	for _, service := range services {
+		service.AddRoutes(ctx, router, s.AddContext)
+	}
 
 	return router
 }
@@ -103,14 +104,17 @@ func (s *Server) Serve(ctx context.Context) error {
 	defer serveCtxCancel()
 
 	logger := s.logger
-	s.APIv1 = handler.NewAPIv1(serveCtx, logger)
+	apiv1Service := kwmAPIv1Service.NewHTTPService(serveCtx, logger, nil)
+	services := []signaling.Service{
+		apiv1Service,
+	}
 
 	errCh := make(chan error, 2)
 	exitCh := make(chan bool, 1)
 	signalCh := make(chan os.Signal)
 
 	router := mux.NewRouter()
-	s.AddRoutes(serveCtx, router)
+	s.AddRoutes(serveCtx, router, services)
 
 	// HTTP listener.
 	srv := &http.Server{
@@ -155,7 +159,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	serveCtxCancel()
 	func() {
 		for {
-			numActive := s.APIv1.NumActive()
+			numActive := apiv1Service.NumActive()
 			if numActive == 0 {
 				select {
 				case <-exitCh:
