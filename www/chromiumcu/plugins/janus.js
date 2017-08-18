@@ -56,7 +56,7 @@ export class JanusVideoCall {
 		}
 		if (!active.ready) {
 			if (active.trickles === undefined) {
-				console.warn('janus videocall trickle received unexpectd');
+				console.warn('janus videocall trickle received unexpected');
 				return;
 			}
 			active.trickles.push(msg);
@@ -391,7 +391,7 @@ export class JanusVideoCall {
 			}
 		});
 		active.peers = {};
-		delete active[sessionID];
+		delete this.active[sessionID];
 	}
 
 	onclose() {
