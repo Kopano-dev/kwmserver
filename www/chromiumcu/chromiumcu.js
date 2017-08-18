@@ -99,11 +99,15 @@ export class ChromiuMCU {
 					// For now never reconnect handler connections.
 					return;
 				}
-				let reconnectDelay = this.reconnectInterval * Math.pow(this.reconnectFactor, this.reconnectAttempts);
+				let reconnectDelay = this.reconnectInterval *
+					Math.trunc(Math.pow(this.reconnectFactor, this.reconnectAttempts));
+				if (reconnectDelay > this.maxReconnectInterval) {
+					reconnectDelay = this.maxReconnectInterval;
+				}
 				setTimeout(() => {
 					this.reconnectAttempts++;
 					this.connect(true);
-				}, reconnectDelay > this.maxReconnectInterval ? this.maxReconnectInterval : reconnectDelay);
+				}, reconnectDelay);
 				console.info('websocket reconnecting in', reconnectDelay);
 			};
 
