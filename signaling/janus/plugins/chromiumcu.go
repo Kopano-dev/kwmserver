@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/janus"
@@ -32,22 +34,30 @@ const (
 )
 
 type pluginChromiuMCU struct {
-	sync.Mutex
+	sync.RWMutex
+
 	name     string
 	handleID int64
-	mcum     *mcu.Manager
-	janus    *janus.Manager
+
+	logger logrus.FieldLogger
+
+	mcum  *mcu.Manager
+	janus *janus.Manager
 
 	connection          *connection.Connection
+	connecting          bool
 	onAttachedCallbacks []func(janus.Plugin)
 }
 
-func newPluginChromiuMCU(name string, id int64, mcum *mcu.Manager, janusManager *janus.Manager) janus.Plugin {
+func newPluginChromiuMCU(name string, handleID int64, mcum *mcu.Manager, janusManager *janus.Manager) janus.Plugin {
 	return &pluginChromiuMCU{
 		name:     name,
-		handleID: id,
-		mcum:     mcum,
-		janus:    janusManager,
+		handleID: handleID,
+
+		logger: janusManager.Logger().WithField("handle_id", handleID),
+
+		mcum:  mcum,
+		janus: janusManager,
 	}
 }
 
@@ -66,17 +76,21 @@ func (p *pluginChromiuMCU) HandleID() int64 {
 	return p.handleID
 }
 
+func (p *pluginChromiuMCU) Logger() logrus.FieldLogger {
+	return p.logger
+}
+
 func (p *pluginChromiuMCU) OnMessage(m *janus.Manager, c *connection.Connection, msg *janus.MessageMessageData) error {
 	p.Lock()
 	mcu := p.connection
 	p.Unlock()
 	if mcu == nil {
-		m.Logger().Errorf("no mcu connection available: %s", []byte(*msg.Body))
+		p.Logger().Errorf("no mcu connection available: %s", []byte(*msg.Body))
 		return fmt.Errorf("no mcu connection")
 	}
 
 	return mcu.SendTransaction(msg, func(reply []byte) error {
-		//m.logger.Debugf("received transaction reply %s, %v", reply, c.ID())
+		//p.Logger().Debugf("received transaction reply %s, %v", reply, c.ID())
 		return p.OnReply(c, reply)
 	})
 }
@@ -112,72 +126,114 @@ func (p *pluginChromiuMCU) OnDetach(m *janus.Manager, c *connection.Connection, 
 	return nil
 }
 
-func (p *pluginChromiuMCU) setConnection(c *connection.Connection, cb func(janus.Plugin)) {
-	p.Lock()
-	p.connection = c
-	if cb != nil {
-		cb(p)
-	}
-	p.Unlock()
-}
-
 func (p *pluginChromiuMCU) Attach(m *janus.Manager, c *connection.Connection, msg *janus.AttachMessageData, cb func(janus.Plugin), cleanup func(janus.Plugin)) error {
+	p.Lock()
+	if p.connection != nil || p.connecting {
+		p.Unlock()
+		return p.onAttached(m, c, msg, cb, cleanup)
+	}
+	p.connecting = true
+	p.Unlock()
+
+	p.Logger().Debugln("attaching with mcu")
 	mcu, err := p.mcum.Attach(p.Name(), p.HandleID(), func(conn *connection.Connection) error {
-		p.setConnection(conn, func(_ janus.Plugin) {
-			onAttachedCallbacks := p.onAttachedCallbacks
-			p.onAttachedCallbacks = nil
-			go func() {
-				if cb != nil {
-					cb(p)
-				}
-				for _, attachedCb := range onAttachedCallbacks {
-					attachedCb(p)
-				}
-			}()
+		// connect callback.
+		p.Lock()
+		if !p.connecting {
+			p.Unlock()
+			conn.Close()
+			errAttaching := fmt.Errorf("lost mcu connection while attaching")
+			p.Logger().Debugln(errAttaching)
+			return errAttaching
+		}
+
+		p.Logger().WithField("mcu_connection", conn.ID()).Debugln("attached with mcu")
+		p.connection = conn
+		p.connecting = false
+		onAttachedCallbacks := p.onAttachedCallbacks
+		p.onAttachedCallbacks = nil
+		p.Unlock()
+		conn.OnClosed(func(closedConnection *connection.Connection) {
+			// closed callback
+			p.Logger().WithField("mcu_connection", closedConnection.ID()).Debugln("attached mcu connection(a) has closed")
+			p.onClosed()
+			if cleanup != nil {
+				cleanup(p)
+			}
 		})
+
+		go func() {
+			if cb != nil {
+				cb(p)
+			}
+			for _, attachedCb := range onAttachedCallbacks {
+				attachedCb(p)
+			}
+		}()
 		return nil
 	}, p.OnText)
 	if err != nil {
-		m.Logger().Errorf("no mcu connection available for attaching")
+		p.Logger().Errorf("no mcu connection available for attaching")
 		return err
 	}
 
-	if cleanup != nil {
-		mcu.OnClosed(func(conn *connection.Connection) {
-			cleanup(p)
-		})
-	}
+	mcu.OnClosed(func(conn *connection.Connection) {
+		// closed callback.
+		p.Logger().WithField("mcu_connection", conn.ID()).Warnln("mcu connection has closed")
+		p.Lock()
+		if p.connection != nil {
+			p.connection.RawSend(nil) // This closes.
+		} else {
+			p.connecting = false
+		}
+		p.Unlock()
+	})
 
 	return nil
 }
 
-func (p *pluginChromiuMCU) OnAttached(m *janus.Manager, c *connection.Connection, msg *janus.AttachMessageData, cb func(janus.Plugin), cleanup func(janus.Plugin)) error {
+func (p *pluginChromiuMCU) onAttached(m *janus.Manager, c *connection.Connection, msg *janus.AttachMessageData, cb func(janus.Plugin), cleanup func(janus.Plugin)) error {
 	if cb == nil && cleanup == nil {
 		return nil
 	}
 
 	p.Lock()
-	mcu := p.connection
+	attachedConnection := p.connection
+	if attachedConnection == nil && !p.connecting {
+		p.Unlock()
+		return p.Attach(m, c, msg, cb, cleanup)
+	}
 
 	if cleanup != nil {
-		if mcu != nil {
-			mcu.OnClosed(func(conn *connection.Connection) {
-				cleanup(p)
+		if attachedConnection != nil {
+			attachedConnection.OnClosed(func(closedConnection *connection.Connection) {
+				// closed callback.
+				p.Logger().WithField("mcu_connection", closedConnection.ID()).Debugln("attached mcu  connection(b) has closed ")
+				p.onClosed()
+				if cleanup != nil {
+					cleanup(p)
+				}
 			})
 		} else {
 			p.onAttachedCallbacks = append(p.onAttachedCallbacks, func(_ janus.Plugin) {
-				p.Lock()
-				attachedMcu := p.connection
-				p.Unlock()
-				attachedMcu.OnClosed(func(conn *connection.Connection) {
-					cleanup(p)
+				// attached callback.
+				p.RLock()
+				attachedConnection2 := p.connection
+				p.RUnlock()
+				attachedConnection2.OnClosed(func(closedConnection *connection.Connection) {
+					// closed callback.
+					p.Logger().WithField("mcu_connection", closedConnection.ID()).Debugln("attached mcu  connection(c) has closed")
+					p.onClosed()
+					if cleanup != nil {
+						cleanup(p)
+					}
 				})
 			})
 		}
 	}
 
 	if cb != nil {
-		if mcu != nil {
+		if attachedConnection != nil {
 			p.Unlock()
 			go cb(p)
 		} else {
@@ -189,4 +245,16 @@ func (p *pluginChromiuMCU) OnAttached(m *janus.Manager, c *connection.Connection
 	}
 
 	return nil
+}
+
+func (p *pluginChromiuMCU) onClosed() {
+	p.Lock()
+	p.connection = nil
+	p.Unlock()
+}
+
+func (p *pluginChromiuMCU) Enabled() bool {
+	p.RLock()
+	defer p.RUnlock()
+	return p.connection != nil || p.connecting
 }

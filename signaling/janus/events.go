@@ -84,44 +84,21 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 		}
 
 		m.plugins.Upsert(attach.PluginName, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+			var plugin Plugin
+			var errPlugin error
 			if exist && valueInMap != nil {
-				plugin := valueInMap.(Plugin)
-				errPlugin := plugin.OnAttached(m, c, &attach, func(_ Plugin) {
-					// Send back success
-					response := &ResponseData{
-						Type: TypeNameSuccess,
-						ID:   envelope.ID,
-						Data: map[string]interface{}{
-							"id": plugin.HandleID(),
-						},
-					}
-					errSuccess := c.Send(response)
-					if errSuccess != nil {
-						m.Logger().WithError(errSuccess).Errorf("failed to send success after plugin on attach")
-					}
-				}, func(p Plugin) {
-					// Cleanup when plugin wants to.
-					cr.Lock()
-					cr.Plugin = nil
-					cr.Unlock()
-				})
-				if errPlugin != nil {
-					m.Logger().WithError(err).Errorf("failed to attach existing plugin")
-					err = errPlugin
-				} else {
-					cr.Lock()
-					cr.Plugin = plugin
-					cr.Unlock()
-				}
-
-				return valueInMap
+				plugin = valueInMap.(Plugin)
 			}
 
-			plugin, errPlugin := m.LaunchPlugin(attach.PluginName)
-			if errPlugin != nil {
-				m.Logger().WithError(err).Errorf("failed to launch plugin")
-				err = errPlugin
-				return nil
+			if plugin == nil {
+				// Launch new plugin instance.
+				plugin, errPlugin = m.LaunchPlugin(attach.PluginName)
+				if errPlugin != nil {
+					m.Logger().WithError(err).Errorf("failed to launch plugin")
+					err = errPlugin
+					return nil
+				}
+				m.Logger().WithField("handle_id", plugin.HandleID()).Debugln("launched new plugin")
 			}
 
 			errPlugin = plugin.Attach(m, c, &attach, func(p Plugin) {
@@ -137,17 +114,11 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 				if errSuccess != nil {
 					m.Logger().WithError(errSuccess).Errorf("failed to send success after plugin attach")
 				}
-			}, func(p Plugin) {
-				// Cleanup when plugin wants to.
-				cr.Lock()
-				cr.Plugin = nil
-				cr.Unlock()
-				m.plugins.Remove(attach.PluginName)
-			})
+			}, nil)
 			if errPlugin != nil {
 				m.Logger().WithError(errPlugin).Errorf("failed to attach plugin")
 				err = errPlugin
-				return nil
+				return plugin
 			}
 
 			cr.Lock()
