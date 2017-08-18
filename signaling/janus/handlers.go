@@ -19,15 +19,24 @@ package janus
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+)
+
+const (
+	maxRequestSize = 1024 * 5
 )
 
 // ConnectionRecord is used as binder between janus data and connections.
@@ -37,6 +46,54 @@ type ConnectionRecord struct {
 	Session  int64
 	Username string
 	Plugin   Plugin
+}
+
+// HandleAdmin handles Janus admin connections.
+func (m *Manager) HandleAdmin(ctx context.Context, rw http.ResponseWriter, req *http.Request) error {
+	// TODO(longsleep): Reuse msg []byte slices / put into pool.
+	msg, err := ioutil.ReadAll(io.LimitReader(req.Body, maxRequestSize))
+	if err != nil {
+		m.Logger().WithError(err).Debugln("janus failed to read admin request body")
+		http.Error(rw, fmt.Errorf("failed to read request: %v", err).Error(), http.StatusBadRequest)
+		return nil
+	}
+
+	var envelope EnvelopeData
+	err = json.Unmarshal(msg, &envelope)
+	if err != nil {
+		m.Logger().WithError(err).Debugln("janus failed to parse admin request")
+		http.Error(rw, fmt.Errorf("failed to parse: %v", err).Error(), http.StatusBadRequest)
+		return nil
+	}
+
+	//TODO(longsleep): Validate admin_secret.
+
+	switch envelope.Type {
+	case TypeNameAdminAddToken:
+		var addToken AdminAddTokenData
+		err = json.Unmarshal(msg, &addToken)
+		if err != nil {
+			m.Logger().WithError(err).Debugln("janus failed to parse admin add_token request")
+			http.Error(rw, fmt.Errorf("failed to parse: %v", err).Error(), http.StatusBadRequest)
+			return nil
+		}
+
+		m.tokens.Set(addToken.Token, &tokenRecord{time.Now()})
+
+		response := &ResponseData{
+			Type: TypeNameSuccess,
+			ID:   addToken.ID,
+		}
+
+		rw.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(rw).Encode(response)
+
+	default:
+		m.logger.Warnf("janus unknown incoming admin janus type %v", envelope.Type)
+		http.Error(rw, "unknown janus type", http.StatusBadRequest)
+	}
+
+	return nil
 }
 
 // HandleWebsocketConnect handles Janus protocol websocket connections.

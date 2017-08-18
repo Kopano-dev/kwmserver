@@ -19,7 +19,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -68,9 +67,9 @@ func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, mcum *mcu.Ma
 func dumpRequest(req *http.Request) {
 	requestDump, err := httputil.DumpRequest(req, true)
 	if err != nil {
-		fmt.Println("mmjanus dump err", err)
+		fmt.Println("janus dump err", err)
 	}
-	fmt.Println("mmjanus request", string(requestDump))
+	fmt.Println("janus request", string(requestDump))
 }
 
 // AddRoutes add the accociated Servers URL routes to the provided router with
@@ -86,12 +85,13 @@ func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper
 
 func (h *HTTPService) adminHandler(rw http.ResponseWriter, req *http.Request) {
 	//dumpRequest(req)
-	response := &janus.ResponseData{
-		Type: janus.TypeNameSuccess,
-	}
 
-	rw.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(rw).Encode(response)
+	err := h.janus.HandleAdmin(req.Context(), rw, req)
+	if err != nil {
+		h.logger.WithError(err).Errorln("admin request failed")
+		http.Error(rw, "", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *HTTPService) websocketHandler(rw http.ResponseWriter, req *http.Request) {

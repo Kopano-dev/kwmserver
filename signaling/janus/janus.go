@@ -19,9 +19,13 @@ package janus
 
 import (
 	"encoding/json"
+	"time"
 )
 
 const (
+	tokenCleanupInterval = time.Duration(30) * time.Second
+	tokenExpiration      = time.Duration(1) * time.Minute
+
 	// Buffer sizes.
 	websocketReadBufferSize  = 1024
 	websocketWriteBufferSize = 1024
@@ -40,6 +44,8 @@ const (
 	TypeNameKeepAlive = "keepalive"
 	TypeNameDestroy   = "destroy"
 	TypeNameTrickle   = "trickle"
+
+	TypeNameAdminAddToken = "add_token"
 )
 
 // ResponseData is a JSON response with status.
@@ -102,4 +108,11 @@ type MessageMessageData struct {
 type TrickleMessageData struct {
 	*EnvelopeData
 	Candidate *json.RawMessage `json:"candidate"`
+}
+
+// AdminAddTokenData is the Janus JSON payload for admin add_token messages.
+type AdminAddTokenData struct {
+	*EnvelopeData
+	AdminSecret string `json:"admin_secret"`
+	Token       string `json:"token"`
 }

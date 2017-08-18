@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/orcaman/concurrent-map"
@@ -44,6 +46,8 @@ type Manager struct {
 
 	count       uint64
 	handles     uint64
+	tokens      cmap.ConcurrentMap
+	tokensMutex sync.RWMutex
 	connections cmap.ConcurrentMap
 	plugins     cmap.ConcurrentMap
 }
@@ -67,11 +71,48 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, mcum 
 			},
 		},
 
+		tokens:      cmap.New(),
 		connections: cmap.New(),
 		plugins:     cmap.New(),
 	}
 
+	// Cleanup function.
+	go func() {
+		ticker := time.NewTicker(tokenCleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				m.purgeExpiredTokens()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	return m
+}
+
+type tokenRecord struct {
+	when time.Time
+}
+
+func (m *Manager) purgeExpiredTokens() {
+	m.tokensMutex.Lock()
+	defer m.tokensMutex.Unlock()
+
+	expired := make([]string, 0)
+	deadline := time.Now().Add(-tokenExpiration)
+	var record *tokenRecord
+	for entry := range m.tokens.IterBuffered() {
+		record = entry.Val.(*tokenRecord)
+		if record.when.Before(deadline) {
+			expired = append(expired, entry.Key)
+		}
+	}
+	for _, token := range expired {
+		m.tokens.Remove(token)
+	}
 }
 
 // Context Returns the Context of the associated manager.
