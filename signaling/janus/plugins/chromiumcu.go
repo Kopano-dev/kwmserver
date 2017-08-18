@@ -124,13 +124,16 @@ func (p *pluginChromiuMCU) setConnection(c *connection.Connection, cb func(janus
 func (p *pluginChromiuMCU) Attach(m *janus.Manager, c *connection.Connection, msg *janus.AttachMessageData, cb func(janus.Plugin), cleanup func(janus.Plugin)) error {
 	mcu, err := p.mcum.Attach(p.Name(), p.HandleID(), func(conn *connection.Connection) error {
 		p.setConnection(conn, func(_ janus.Plugin) {
-			if cb != nil {
-				cb(p)
-			}
-			for _, attachedCb := range p.onAttachedCallbacks {
-				attachedCb(p)
-			}
+			onAttachedCallbacks := p.onAttachedCallbacks
 			p.onAttachedCallbacks = nil
+			go func() {
+				if cb != nil {
+					cb(p)
+				}
+				for _, attachedCb := range onAttachedCallbacks {
+					attachedCb(p)
+				}
+			}()
 		})
 		return nil
 	}, p.OnText)
@@ -148,20 +151,42 @@ func (p *pluginChromiuMCU) Attach(m *janus.Manager, c *connection.Connection, ms
 	return nil
 }
 
-func (p *pluginChromiuMCU) OnAttached(m *janus.Manager, cb func(janus.Plugin)) error {
-	if cb == nil {
+func (p *pluginChromiuMCU) OnAttached(m *janus.Manager, c *connection.Connection, msg *janus.AttachMessageData, cb func(janus.Plugin), cleanup func(janus.Plugin)) error {
+	if cb == nil && cleanup == nil {
 		return nil
 	}
 
 	p.Lock()
-	if p.connection != nil {
-		p.Unlock()
-		cb(p)
-		return nil
+	mcu := p.connection
+
+	if cleanup != nil {
+		if mcu != nil {
+			mcu.OnClosed(func(conn *connection.Connection) {
+				cleanup(p)
+			})
+		} else {
+			p.onAttachedCallbacks = append(p.onAttachedCallbacks, func(_ janus.Plugin) {
+				p.Lock()
+				attachedMcu := p.connection
+				p.Unlock()
+				attachedMcu.OnClosed(func(conn *connection.Connection) {
+					cleanup(p)
+				})
+			})
+		}
 	}
 
-	p.onAttachedCallbacks = append(p.onAttachedCallbacks, cb)
-	p.Unlock()
+	if cb != nil {
+		if mcu != nil {
+			p.Unlock()
+			go cb(p)
+		} else {
+			p.onAttachedCallbacks = append(p.onAttachedCallbacks, cb)
+			p.Unlock()
+		}
+	} else {
+		p.Unlock()
+	}
 
 	return nil
 }

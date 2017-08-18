@@ -21,6 +21,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
 
 	"github.com/gorilla/websocket"
@@ -31,10 +32,11 @@ import (
 
 // ConnectionRecord is used as binder between janus data and connections.
 type ConnectionRecord struct {
+	sync.RWMutex
+
 	Session  int64
 	Username string
 	Plugin   Plugin
-	Mcu      *connection.Connection
 }
 
 // HandleWebsocketConnect handles Janus protocol websocket connections.

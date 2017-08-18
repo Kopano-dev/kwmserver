@@ -80,7 +80,7 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 		m.plugins.Upsert(attach.PluginName, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
 			if exist && valueInMap != nil {
 				plugin := valueInMap.(Plugin)
-				errPlugin := plugin.OnAttached(m, func(_ Plugin) {
+				errPlugin := plugin.OnAttached(m, c, &attach, func(_ Plugin) {
 					// Send back success
 					response := &ResponseData{
 						Type: TypeNameSuccess,
@@ -89,13 +89,23 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 							"id": plugin.HandleID(),
 						},
 					}
-					c.Send(response)
+					errSuccess := c.Send(response)
+					if errSuccess != nil {
+						m.Logger().WithError(errSuccess).Errorf("failed to send success after plugin on attach")
+					}
+				}, func(p Plugin) {
+					// Cleanup when plugin wants to.
+					cr.Lock()
+					cr.Plugin = nil
+					cr.Unlock()
 				})
 				if errPlugin != nil {
 					m.Logger().WithError(err).Errorf("failed to attach existing plugin")
 					err = errPlugin
 				} else {
+					cr.Lock()
 					cr.Plugin = plugin
+					cr.Unlock()
 				}
 
 				return valueInMap
@@ -123,7 +133,9 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 				}
 			}, func(p Plugin) {
 				// Cleanup when plugin wants to.
+				cr.Lock()
 				cr.Plugin = nil
+				cr.Unlock()
 				m.plugins.Remove(attach.PluginName)
 			})
 			if errPlugin != nil {
@@ -132,7 +144,9 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 				return nil
 			}
 
+			cr.Lock()
 			cr.Plugin = plugin
+			cr.Unlock()
 
 			return plugin
 		})
@@ -150,20 +164,34 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 			c.RawSend(nil) // This closes, once everything has been sent.
 		}()
 
+		cr.RLock()
 		if cr.Plugin == nil {
+			cr.RUnlock()
 			break
 		}
+
+		cr.RUnlock()
 		// Fall through to detach if with plugin.
 		fallthrough
 
 	case TypeNameDetach:
+		cr.RLock()
 		if cr.Plugin == nil {
+			cr.Unlock()
 			m.logger.Warnln("janus detach without attached plugin")
 			break
 		}
-		err = cr.Plugin.OnDetach(m, c, &envelope)
+
+		plugin := cr.Plugin
+		cr.RUnlock()
+
+		err = plugin.OnDetach(m, c, &envelope)
 		if err != nil {
-			cr.Plugin = nil
+			cr.Lock()
+			if cr.Plugin == plugin {
+				cr.Plugin = nil
+			}
+			cr.Unlock()
 		}
 
 	case TypeNameMessage:
@@ -173,11 +201,17 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 			break
 		}
 
+		cr.RLock()
 		if cr.Plugin == nil {
+			cr.RUnlock()
 			m.logger.Warnln("janus message without attached plugin")
 			break
 		}
-		err = cr.Plugin.OnMessage(m, c, &message)
+
+		plugin := cr.Plugin
+		cr.RUnlock()
+
+		err = plugin.OnMessage(m, c, &message)
 
 	case TypeNameTrickle:
 		var trickle TrickleMessageData
@@ -186,12 +220,18 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 			break
 		}
 
+		cr.RLock()
 		if cr.Plugin == nil {
+			cr.RUnlock()
 			m.logger.Warnln("janus trickle without attached plugin")
 			break
 		}
+
+		plugin := cr.Plugin
+		cr.RUnlock()
+
 		trickle.ID = "" // We do not want a transaction for trickle.
-		err = cr.Plugin.OnMessage(m, c, &MessageMessageData{
+		err = plugin.OnMessage(m, c, &MessageMessageData{
 			EnvelopeData: trickle.EnvelopeData,
 			Body:         trickle.Candidate,
 		})

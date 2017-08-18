@@ -261,7 +261,7 @@ func (p *pluginVideoCall) Attach(m *janus.Manager, c *connection.Connection, msg
 	return nil
 }
 
-func (p *pluginVideoCall) OnAttached(m *janus.Manager, cb func(janus.Plugin)) error {
+func (p *pluginVideoCall) OnAttached(m *janus.Manager, c *connection.Connection, msg *janus.AttachMessageData, cb func(janus.Plugin), cleanup func(janus.Plugin)) error {
 	if cb != nil {
 		cb(p)
 	}

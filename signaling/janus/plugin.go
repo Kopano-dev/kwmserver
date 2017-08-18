@@ -28,5 +28,5 @@ type Plugin interface {
 	Name() string
 	HandleID() int64
 	Attach(m *Manager, c *connection.Connection, msg *AttachMessageData, cb func(Plugin), cleanup func(Plugin)) error
-	OnAttached(m *Manager, cb func(Plugin)) error
+	OnAttached(m *Manager, c *connection.Connection, msg *AttachMessageData, cb func(Plugin), cleanup func(Plugin)) error
 }

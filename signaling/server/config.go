@@ -25,6 +25,9 @@ import (
 type Config struct {
 	ListenAddr string
 
+	WithPprof       bool
+	PprofListenAddr string
+
 	EnableMcuAPI   bool
 	EnableJanusAPI bool
 

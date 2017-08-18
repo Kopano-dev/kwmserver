@@ -261,11 +261,13 @@ func (c *Connection) Close() error {
 
 	c.mutex.Lock()
 	c.duration = time.Since(c.start)
-	for _, cb := range c.onClosedCallbacks {
-		cb(c)
-	}
+	onClosedCallbacks := c.onClosedCallbacks
 	c.onClosedCallbacks = nil
 	c.mutex.Unlock()
+
+	for _, cb := range onClosedCallbacks {
+		cb(c)
+	}
 
 	return nil
 }

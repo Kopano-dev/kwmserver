@@ -124,7 +124,9 @@ func (m *Manager) Context() context.Context {
 func (m *Manager) NumActive() uint64 {
 	m.connectionsMutex.RLock()
 	defer m.connectionsMutex.RUnlock()
-	return uint64(m.connections.Len())
+	n := m.connections.Len()
+	m.logger.Debugf("active connections: %d", n)
+	return uint64(n)
 }
 
 // GetConnection returns a connection from the accociated connections table

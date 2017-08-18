@@ -20,6 +20,7 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -41,6 +42,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("listen", "127.0.0.1:8778", "TCP listen address")
 	serveCmd.Flags().Bool("enableMcuAPI", false, "Enables the MCU API endpoints")
 	serveCmd.Flags().Bool("enableJanusAPI", false, "Enables the Janus API endpoints")
+	serveCmd.Flags().Bool("withPprof", false, "With pprof enabled")
+	serveCmd.Flags().String("pprofListen", "127.0.0.1:6060", "TCP listen address for pprof")
 
 	return serveCmd
 }
@@ -64,6 +67,10 @@ func serve(cmd *cobra.Command, args []string) error {
 	config.EnableMcuAPI = enableMcuAPI
 	enableJanusAPI, _ := cmd.Flags().GetBool("enableJanusAPI")
 	config.EnableJanusAPI = enableJanusAPI
+	withPprof, _ := cmd.Flags().GetBool("withPprof")
+	config.WithPprof = withPprof
+	pprofListenAddr, _ := cmd.Flags().GetString("pprofListen")
+	config.PprofListenAddr = pprofListenAddr
 
 	srv, err := server.NewServer(config)
 	if err != nil {
