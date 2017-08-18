@@ -27,4 +27,5 @@ import (
 // Service is an interface for services providing routing.
 type Service interface {
 	AddRoutes(context.Context, *mux.Router, func(http.Handler) http.Handler) http.Handler
+	NumActive() uint64
 }

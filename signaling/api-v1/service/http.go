@@ -25,8 +25,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 )
 
 const (
@@ -39,8 +37,8 @@ type HTTPService struct {
 	logger   logrus.FieldLogger
 	services []signaling.Service
 
-	rtmm *rtm.Manager
-	mcum *mcu.Manager
+	//	rtmm *rtm.Manager
+	//	mcum *mcu.Manager
 }
 
 // NewHTTPService creates a new APIv1 with the provided options.
@@ -48,9 +46,6 @@ func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services []s
 	return &HTTPService{
 		logger:   logger,
 		services: services,
-
-		rtmm: rtm.NewManager(ctx, "", logger),
-		mcum: mcu.NewManager(ctx, "", logger),
 	}
 }
 
@@ -63,24 +58,15 @@ func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper
 		service.AddRoutes(ctx, v1, wrapper)
 	}
 
-	h.rtmm.AddRoutes(ctx, v1, wrapper)
-	h.mcum.AddRoutes(ctx, v1, wrapper)
-
 	return router
 }
 
 // NumActive returns the number of the currently active connections at the
 // accociated api..
-func (h *HTTPService) NumActive() int {
-	return h.rtmm.NumActive() + h.mcum.NumActive()
-}
+func (h *HTTPService) NumActive() (active uint64) {
+	for _, service := range h.services {
+		active = active + service.NumActive()
+	}
 
-// RTMM returns the accociated rtm Manager.
-func (h *HTTPService) RTMM() *rtm.Manager {
-	return h.rtmm
-}
-
-// MCUM geturns the accociated MCU Manager.
-func (h *HTTPService) MCUM() *mcu.Manager {
-	return h.mcum
+	return active
 }

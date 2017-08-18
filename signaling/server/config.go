@@ -25,5 +25,8 @@ import (
 type Config struct {
 	ListenAddr string
 
+	EnableMcuAPI   bool
+	EnableJanusAPI bool
+
 	Logger logrus.FieldLogger
 }

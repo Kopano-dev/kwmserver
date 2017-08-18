@@ -39,6 +39,8 @@ func commandServe() *cobra.Command {
 		},
 	}
 	serveCmd.Flags().String("listen", "127.0.0.1:8778", "TCP listen address")
+	serveCmd.Flags().Bool("enableMcuAPI", false, "Enables the MCU API endpoints")
+	serveCmd.Flags().Bool("enableJanusAPI", false, "Enables the Janus API endpoints")
 
 	return serveCmd
 }
@@ -58,6 +60,10 @@ func serve(cmd *cobra.Command, args []string) error {
 
 	listenAddr, _ := cmd.Flags().GetString("listen")
 	config.ListenAddr = listenAddr
+	enableMcuAPI, _ := cmd.Flags().GetBool("enableMcuAPI")
+	config.EnableMcuAPI = enableMcuAPI
+	enableJanusAPI, _ := cmd.Flags().GetBool("enableJanusAPI")
+	config.EnableJanusAPI = enableJanusAPI
 
 	srv, err := server.NewServer(config)
 	if err != nil {

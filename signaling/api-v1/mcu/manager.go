@@ -121,10 +121,10 @@ func (m *Manager) Context() context.Context {
 
 // NumActive returns the number of the currently active connections at the
 // accociated manager.
-func (m *Manager) NumActive() int {
+func (m *Manager) NumActive() uint64 {
 	m.connectionsMutex.RLock()
 	defer m.connectionsMutex.RUnlock()
-	return m.connections.Len()
+	return uint64(m.connections.Len())
 }
 
 // GetConnection returns a connection from the accociated connections table

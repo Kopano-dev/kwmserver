@@ -19,6 +19,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -32,12 +33,16 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
-	kwmAPIv1Service "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
-	kwmJanusService "stash.kopano.io/kwm/kwmserver/signaling/janus/service"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
+	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
+	janus "stash.kopano.io/kwm/kwmserver/signaling/janus/service"
 )
 
 // Server is our HTTP server implementation.
 type Server struct {
+	config *Config
+
 	listenAddr string
 	logger     logrus.FieldLogger
 }
@@ -45,6 +50,8 @@ type Server struct {
 // NewServer constructs a server from the provided parameters.
 func NewServer(c *Config) (*Server, error) {
 	s := &Server{
+		config: c,
+
 		listenAddr: c.ListenAddr,
 		logger:     c.Logger,
 	}
@@ -112,19 +119,41 @@ func (s *Server) Serve(ctx context.Context) error {
 	defer serveCtxCancel()
 
 	logger := s.logger
-	apiv1Service := kwmAPIv1Service.NewHTTPService(serveCtx, logger, nil)
-	janusService := kwmJanusService.NewHTTPService(serveCtx, logger, apiv1Service.MCUM())
-	services := []signaling.Service{
-		apiv1Service,
-		janusService,
+	httpServices := []signaling.Service{}
+	apiServices := []signaling.Service{}
+
+	// API services.
+	rtmm := rtm.NewManager(serveCtx, "", logger)
+	apiServices = append(apiServices, rtmm)
+
+	var mcum *mcu.Manager
+	if s.config.EnableMcuAPI {
+		mcum = mcu.NewManager(serveCtx, "", logger)
+		apiServices = append(apiServices, mcum)
+		logger.Infoln("API endpoint mcu enabled")
 	}
 
+	// HTTP services.
+	apiv1Service := apiv1.NewHTTPService(serveCtx, logger, apiServices)
+	httpServices = append(httpServices, apiv1Service)
+
+	if s.config.EnableJanusAPI {
+		if mcum == nil {
+			return fmt.Errorf("unable to enable janus API without mcu")
+		}
+
+		janusService := janus.NewHTTPService(serveCtx, logger, mcum)
+		httpServices = append(httpServices, janusService)
+		logger.Infoln("API endpoint janus enabled")
+	}
+
+	// Main runner.
 	errCh := make(chan error, 2)
 	exitCh := make(chan bool, 1)
 	signalCh := make(chan os.Signal)
 
 	router := mux.NewRouter()
-	s.AddRoutes(serveCtx, router, services)
+	s.AddRoutes(serveCtx, router, httpServices)
 
 	// HTTP listener.
 	srv := &http.Server{
@@ -169,7 +198,10 @@ func (s *Server) Serve(ctx context.Context) error {
 	serveCtxCancel()
 	func() {
 		for {
-			numActive := apiv1Service.NumActive()
+			var numActive uint64
+			for _, service := range httpServices {
+				numActive = numActive + service.NumActive()
+			}
 			if numActive == 0 {
 				select {
 				case <-exitCh:

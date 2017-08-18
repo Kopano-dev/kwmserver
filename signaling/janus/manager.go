@@ -81,8 +81,8 @@ func (m *Manager) Context() context.Context {
 
 // NumActive returns the number of the currently active connections at the
 // accociated manager.
-func (m *Manager) NumActive() int {
-	return m.connections.Count()
+func (m *Manager) NumActive() uint64 {
+	return uint64(m.connections.Count())
 }
 
 // GetConnectionBySessionID returns the connection identified by the provided

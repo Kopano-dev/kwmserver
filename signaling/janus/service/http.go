@@ -114,3 +114,9 @@ func (h *HTTPService) DebugHandler(rw http.ResponseWriter, req *http.Request) {
 
 	http.Error(rw, "not_implemented", http.StatusNotImplemented)
 }
+
+// NumActive returns the number of the currently active connections at the
+// accociated api..
+func (h *HTTPService) NumActive() uint64 {
+	return h.janus.NumActive()
+}
