@@ -40,10 +40,10 @@ func commandServe() *cobra.Command {
 		},
 	}
 	serveCmd.Flags().String("listen", "127.0.0.1:8778", "TCP listen address")
-	serveCmd.Flags().Bool("enableMcuAPI", false, "Enables the MCU API endpoints")
-	serveCmd.Flags().Bool("enableJanusAPI", false, "Enables the Janus API endpoints")
-	serveCmd.Flags().Bool("withPprof", false, "With pprof enabled")
-	serveCmd.Flags().String("pprofListen", "127.0.0.1:6060", "TCP listen address for pprof")
+	serveCmd.Flags().Bool("enable-mcu-api", false, "Enables the MCU API endpoints")
+	serveCmd.Flags().Bool("enable-janus-api", false, "Enables the Janus API endpoints")
+	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
+	serveCmd.Flags().String("pprof-listen", "127.0.0.1:6060", "TCP listen address for pprof")
 
 	return serveCmd
 }
@@ -63,13 +63,13 @@ func serve(cmd *cobra.Command, args []string) error {
 
 	listenAddr, _ := cmd.Flags().GetString("listen")
 	config.ListenAddr = listenAddr
-	enableMcuAPI, _ := cmd.Flags().GetBool("enableMcuAPI")
+	enableMcuAPI, _ := cmd.Flags().GetBool("enable-mcu-api")
 	config.EnableMcuAPI = enableMcuAPI
-	enableJanusAPI, _ := cmd.Flags().GetBool("enableJanusAPI")
+	enableJanusAPI, _ := cmd.Flags().GetBool("enable-janus-api")
 	config.EnableJanusAPI = enableJanusAPI
-	withPprof, _ := cmd.Flags().GetBool("withPprof")
+	withPprof, _ := cmd.Flags().GetBool("with-pprof")
 	config.WithPprof = withPprof
-	pprofListenAddr, _ := cmd.Flags().GetString("pprofListen")
+	pprofListenAddr, _ := cmd.Flags().GetString("pprof-listen")
 	config.PprofListenAddr = pprofListenAddr
 
 	srv, err := server.NewServer(config)
