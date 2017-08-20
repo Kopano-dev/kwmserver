@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -151,20 +150,6 @@ func (s *Server) Serve(ctx context.Context) error {
 	errCh := make(chan error, 2)
 	exitCh := make(chan bool, 1)
 	signalCh := make(chan os.Signal)
-
-	// Profiling support.
-	if s.config.WithPprof && s.config.PprofListenAddr != "" {
-		runtime.SetMutexProfileFraction(5)
-		go func() {
-			pprofListen := s.config.PprofListenAddr
-			logger.WithField("listenAddr", pprofListen).Infoln("starting pprof listener")
-			err := http.ListenAndServe(pprofListen, nil)
-			if err != nil {
-				errCh <- err
-			}
-			logger.Debugln("pprof listener stopped")
-		}()
-	}
 
 	router := mux.NewRouter()
 	s.AddRoutes(serveCtx, router, httpServices)

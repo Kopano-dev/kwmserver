@@ -20,8 +20,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
 
@@ -42,6 +44,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("listen", "127.0.0.1:8778", "TCP listen address")
 	serveCmd.Flags().Bool("enable-mcu-api", false, "Enables the MCU API endpoints")
 	serveCmd.Flags().Bool("enable-janus-api", false, "Enables the Janus API endpoints")
+
+	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
 	serveCmd.Flags().String("pprof-listen", "127.0.0.1:6060", "TCP listen address for pprof")
 
@@ -60,21 +64,31 @@ func serve(cmd *cobra.Command, args []string) error {
 	config := &server.Config{
 		Logger: logger,
 	}
-
 	listenAddr, _ := cmd.Flags().GetString("listen")
 	config.ListenAddr = listenAddr
 	enableMcuAPI, _ := cmd.Flags().GetBool("enable-mcu-api")
 	config.EnableMcuAPI = enableMcuAPI
 	enableJanusAPI, _ := cmd.Flags().GetBool("enable-janus-api")
 	config.EnableJanusAPI = enableJanusAPI
-	withPprof, _ := cmd.Flags().GetBool("with-pprof")
-	config.WithPprof = withPprof
-	pprofListenAddr, _ := cmd.Flags().GetString("pprof-listen")
-	config.PprofListenAddr = pprofListenAddr
 
 	srv, err := server.NewServer(config)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %v", err)
+	}
+
+	// Profiling support.
+	withPprof, _ := cmd.Flags().GetBool("with-pprof")
+	pprofListenAddr, _ := cmd.Flags().GetString("pprof-listen")
+	if withPprof && pprofListenAddr != "" {
+		runtime.SetMutexProfileFraction(5)
+		go func() {
+			pprofListen := pprofListenAddr
+			logger.WithField("listenAddr", pprofListen).Infoln("pprof enabled, starting listener")
+			err := http.ListenAndServe(pprofListen, nil)
+			if err != nil {
+				logger.WithError(err).Errorln("unable to start pprof listener")
+			}
+		}()
 	}
 
 	logger.Infoln("serve started")
