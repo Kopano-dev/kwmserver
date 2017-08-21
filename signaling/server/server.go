@@ -37,6 +37,7 @@ import (
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
 	janus "stash.kopano.io/kwm/kwmserver/signaling/janus/service"
+	"stash.kopano.io/kwm/kwmserver/signaling/www"
 )
 
 // Server is our HTTP server implementation.
@@ -145,6 +146,15 @@ func (s *Server) Serve(ctx context.Context) error {
 		janusService := janus.NewHTTPService(serveCtx, logger, mcum)
 		httpServices = append(httpServices, janusService)
 		logger.Infoln("API endpoint janus enabled")
+	}
+
+	if s.config.EnableWww {
+		if s.config.WwwRoot == "" {
+			return fmt.Errorf("unable to enable www API without www root")
+		}
+		wwwService := www.NewHTTPService(serveCtx, logger, "/", s.config.WwwRoot)
+		httpServices = append(httpServices, wwwService)
+		logger.Infof("WWW endpoints from %s enabled", s.config.WwwRoot)
 	}
 
 	errCh := make(chan error, 2)
