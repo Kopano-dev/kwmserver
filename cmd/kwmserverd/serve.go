@@ -23,6 +23,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -44,6 +45,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("listen", "127.0.0.1:8778", "TCP listen address")
 	serveCmd.Flags().Bool("enable-mcu-api", false, "Enables the MCU API endpoints")
 	serveCmd.Flags().Bool("enable-janus-api", false, "Enables the Janus API endpoints")
+	serveCmd.Flags().Bool("enable-www", false, "Enables serving static files")
+	serveCmd.Flags().String("www-root", "./www", "Full path for static files to be served when --enable-www is used, defaults to ./www")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -70,6 +73,21 @@ func serve(cmd *cobra.Command, args []string) error {
 	config.EnableMcuAPI = enableMcuAPI
 	enableJanusAPI, _ := cmd.Flags().GetBool("enable-janus-api")
 	config.EnableJanusAPI = enableJanusAPI
+	enableWww, _ := cmd.Flags().GetBool("enable-www")
+	config.EnableWww = enableWww
+	wwwRoot, _ := cmd.Flags().GetString("www-root")
+	if wwwRoot != "" {
+		wwwRoot, err = filepath.Abs(wwwRoot)
+		if err != nil {
+			return err
+		}
+		if stat, errStat := os.Stat(wwwRoot); errStat != nil {
+			return fmt.Errorf("unable to access www-root: %v", errStat)
+		} else if !stat.IsDir() {
+			return fmt.Errorf("www-root must be a directory")
+		}
+		config.WwwRoot = wwwRoot
+	}
 
 	srv, err := server.NewServer(config)
 	if err != nil {

@@ -31,5 +31,8 @@ type Config struct {
 	EnableMcuAPI   bool
 	EnableJanusAPI bool
 
+	EnableWww bool
+	WwwRoot   string
+
 	Logger logrus.FieldLogger
 }
