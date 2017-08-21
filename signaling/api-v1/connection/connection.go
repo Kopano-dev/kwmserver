@@ -15,7 +15,7 @@
  *
  */
 
-package rtm
+package connection
 
 import (
 	"context"
@@ -25,35 +25,77 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
-
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
-// Connection binds the websocket connection to the manager.
+const (
+	// Maximum message size allowed from peer.
+	websocketMaxMessageSize = 1048576 // 100 KiB
+
+	// Time allowed to write a message to the peer.
+	websocketWriteWait = 10 * time.Second
+
+	// Time allowed to read the next pong message from the peer.
+	websocketPongWait = 60 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
+	websocketPingPeriod = (websocketPongWait * 9) / 10
+)
+
+// A Connection binds the websocket connection to a manager.
 type Connection struct {
 	ws     *websocket.Conn
-	ctx    context.Context
-	mgr    *Manager
+	mgr    Manager
 	logger logrus.FieldLogger
 
 	// TODO(longsleep): Make this a doubly link list.
-	send chan []byte
+	send   chan []byte
+	mutex  sync.RWMutex
+	closed bool
 
 	id       string
 	start    time.Time
 	duration time.Duration
 	ping     chan *pingRecord
 
-	user *userRecord
+	binder interface{}
 
-	onClosedCallbacks []connectionClosedFunc
+	onClosedCallbacks []ClosedFunc
+
+	transactions      map[string]TransactionCallbackFunc
+	transactionsMutex sync.Mutex
 }
 
-type connectionClosedFunc func(*Connection)
+// New creates a new Connection with the provided options and settings.
+func New(ctx context.Context, ws *websocket.Conn, mgr Manager, logger logrus.FieldLogger, id string) (*Connection, error) {
+	return &Connection{
+		ws:     ws,
+		mgr:    mgr,
+		logger: logger,
+		id:     id,
+
+		start: time.Now(),
+		send:  make(chan []byte, 256),
+		ping:  make(chan *pingRecord, 5),
+
+		transactions: make(map[string]TransactionCallbackFunc),
+	}, nil
+}
+
+// ClosedFunc is a type for functions usable as closed callback.
+type ClosedFunc func(*Connection)
+
+// TransactionCallbackFunc is a tyoe for functions usable as transaction callback.
+type TransactionCallbackFunc func([]byte) error
+
+// PayloadWithTransactionID is an interface for data with a transaction ID.
+type PayloadWithTransactionID interface {
+	TransactionID() string
+}
 
 type pingRecord struct {
 	id   uint64
@@ -63,8 +105,8 @@ type pingRecord struct {
 // readPump reads from the underlaying websocket connection until close.
 func (c *Connection) readPump(ctx context.Context) error {
 	defer func() {
-		c.mgr.onDisconnect(c)
 		c.Close()
+		c.mgr.OnDisconnect(c)
 	}()
 
 	c.ws.SetReadLimit(websocketMaxMessageSize)
@@ -97,7 +139,7 @@ func (c *Connection) readPump(ctx context.Context) error {
 		return nil
 	})
 
-	c.mgr.onConnect(c)
+	c.mgr.OnConnect(c)
 
 	for {
 		// Wait on incoming data from websocket.
@@ -122,15 +164,10 @@ func (c *Connection) readPump(ctx context.Context) error {
 				return err
 			}
 			// Process incoming text message..
-			err = c.mgr.onText(c, b)
+			err = c.mgr.OnText(c, b)
 			if err != nil {
-				switch err.(type) {
-				case *api.RTMTypeError:
-					// Send out known errors to connection.
-					c.Send(err)
-					// breaks
-				default:
-					// Exit for all other errors.
+				err = c.mgr.OnError(c, err)
+				if err != nil {
 					c.logger.Debugln("websocket text error", err)
 					return err
 				}
@@ -151,7 +188,12 @@ func (c *Connection) writePump(ctx context.Context) error {
 	ticker := time.NewTicker(websocketPingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.mgr.onBeforeDisconnect(c, err)
+		c.mgr.OnBeforeDisconnect(c, err)
+		errClose := c.ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseGoingAway, ""), time.Now().Add(websocketWriteWait))
+		if errClose != nil {
+			c.Logger().WithError(errClose).Debugln("websocket close write error")
+		}
+
 		c.ws.Close()
 	}()
 
@@ -163,14 +205,13 @@ func (c *Connection) writePump(ctx context.Context) error {
 			return nil
 
 		case payload, ok := <-c.send:
-			if !ok {
-				c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
-				c.ws.WriteMessage(websocket.CloseMessage, rawZeroBytes)
+			if !ok || payload == nil {
+				c.logger.Debugln("websocket send channel closed or nil sent")
 				err = errors.New("send channel closed")
 				return nil
 			}
 
-			err = c.write(payload, websocket.TextMessage)
+			err = c.Write(payload, websocket.TextMessage)
 			if err != nil {
 				c.logger.WithError(err).Debugln("websocket write pump error")
 				return err
@@ -203,25 +244,47 @@ func (c *Connection) writePump(ctx context.Context) error {
 }
 
 // Close closes the underlaying websocket connection.
-func (c *Connection) Close() {
-	c.ws.Close()
+func (c *Connection) Close() error {
+	c.logger.Debugln("close() called")
+	c.mutex.Lock()
+	if c.closed {
+		c.logger.Debugln("close() already closed")
+		c.mutex.Unlock()
+		return nil
+	}
+	c.closed = true
+	c.mutex.Unlock()
+
+	// Close send channel, this aborts writePump, which closes our underlaying
+	// websocket which then will result in abort of readPump.
 	close(c.send)
+
+	c.mutex.Lock()
 	c.duration = time.Since(c.start)
-	for _, cb := range c.onClosedCallbacks {
+	onClosedCallbacks := c.onClosedCallbacks
+	c.onClosedCallbacks = nil
+	c.mutex.Unlock()
+
+	for _, cb := range onClosedCallbacks {
 		cb(c)
 	}
-	c.onClosedCallbacks = nil
+
+	return nil
 }
 
 // OnClosed registers a callback to be caled after the connection has closed.
-func (c *Connection) OnClosed(cb connectionClosedFunc) {
+func (c *Connection) OnClosed(cb ClosedFunc) {
+	c.mutex.Lock()
 	c.onClosedCallbacks = append(c.onClosedCallbacks, cb)
+	c.mutex.Unlock()
 }
 
 // Duration returns the duration since the start of the connection until the
 // client was closed or until now when the accociated connection is not yet
 // closed.
 func (c *Connection) Duration() time.Duration {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 	if c.duration > 0 {
 		return c.duration
 	}
@@ -240,22 +303,46 @@ func (c *Connection) Send(message interface{}) error {
 	return c.RawSend(b)
 }
 
+// SendTransaction encodes the provided transaction message with JSON, registers
+// the transaction ID with the provided callback. When the transaction ID is
+// seen again, for the incoming messagge, the callback is run.
+func (c *Connection) SendTransaction(message PayloadWithTransactionID, cb TransactionCallbackFunc) error {
+	tid := message.TransactionID()
+	if tid == "" {
+		return c.Send(message)
+	}
+
+	c.transactionsMutex.Lock()
+	c.transactions[tid] = cb
+	c.transactionsMutex.Unlock()
+
+	return c.Send(message)
+}
+
 // RawSend adds the pprovided payload data into the send queue in a non blocking
 // way.
 func (c *Connection) RawSend(payload []byte) error {
+	c.mutex.RLock()
+	if c.closed {
+		c.mutex.RUnlock()
+		return fmt.Errorf("send to closed connection")
+	}
+
 	select {
 	case c.send <- payload:
 		// ok
 	default:
+		c.mutex.RUnlock()
 		// channel full?
 		c.logger.Warnln("websocket send channel full")
 		return fmt.Errorf("queue full")
 	}
+	c.mutex.RUnlock()
 
 	return nil
 }
 
-func (c *Connection) write(payload []byte, messageType int) error {
+func (c *Connection) Write(payload []byte, messageType int) error {
 	c.ws.SetWriteDeadline(time.Now().Add(websocketWriteWait))
 
 	w, err := c.ws.NextWriter(messageType)
@@ -268,6 +355,26 @@ func (c *Connection) write(payload []byte, messageType int) error {
 	}
 
 	return nil
+}
+
+// Transaction returns the accociated transaction callback for the provided id.
+func (c *Connection) Transaction(msg PayloadWithTransactionID) (TransactionCallbackFunc, bool) {
+	tid := msg.TransactionID()
+	if tid == "" {
+		return nil, false
+	}
+
+	c.transactionsMutex.Lock()
+	cb, ok := c.transactions[tid]
+	if ok {
+		delete(c.transactions, tid)
+	}
+	c.transactionsMutex.Unlock()
+
+	if !ok {
+		return nil, false
+	}
+	return cb, true
 }
 
 // ServeWS serves the Websocket protocol for the accociated client connections
@@ -283,4 +390,27 @@ func (c *Connection) ServeWS(ctx context.Context) {
 	if err != nil {
 		c.logger.WithError(err).Warn("websocket read pump exit")
 	}
+}
+
+// Logger returns the accociated connection's logger.
+func (c *Connection) Logger() logrus.FieldLogger {
+	return c.logger
+}
+
+// Bound returns the accociated connection's binder property which was set by
+// a previous call to Bind().
+func (c *Connection) Bound() interface{} {
+	return c.binder
+}
+
+// Bind stores the provided binder with the connection. The stored value can
+// be received with a calll to Bound().
+func (c *Connection) Bind(binder interface{}) error {
+	c.binder = binder
+	return nil
+}
+
+// ID returns the connection's ID.
+func (c *Connection) ID() string {
+	return c.id
 }

@@ -1,3 +1,4 @@
 /vendor
 /bin
 /.gopath
+/chromiumcu/node_modules

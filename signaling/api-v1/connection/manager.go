@@ -15,16 +15,13 @@
  *
  */
 
-package signaling
+package connection
 
-import (
-	"context"
-	"net/http"
-
-	"github.com/gorilla/mux"
-)
-
-// Service is an interface for services providing routing.
-type Service interface {
-	AddRoutes(context.Context, *mux.Router, func(context.Context, http.Handler) http.Handler) http.Handler
+// Manager is an interface to bind event handlers with connections.
+type Manager interface {
+	OnConnect(*Connection) error
+	OnDisconnect(*Connection) error
+	OnBeforeDisconnect(*Connection, error) error
+	OnText(*Connection, []byte) error
+	OnError(*Connection, error) error
 }

@@ -15,7 +15,7 @@
  *
  */
 
-package rtm
+package mcu
 
 import (
 	"context"
@@ -29,14 +29,23 @@ import (
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
 
-// HandleWebsocketConnect checks the presence of the key in cache and starts
-// the websocket connection in a new go routine. Returns with nil when the
-// websocket connection was successfully started, otherwise with error.
-func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw http.ResponseWriter, req *http.Request) error {
-	record, ok := m.keys.Pop(key)
-	if !ok {
-		http.NotFound(rw, req)
-		return nil
+// HandleWebsocketConnect checks the presence of the key in cache and returns a
+// new connection if key is found.
+func (m *Manager) HandleWebsocketConnect(ctx context.Context, transaction string, rw http.ResponseWriter, req *http.Request) error {
+	var ar *attachedRecord
+	if transaction != "" {
+		record, ok := m.attached.Get(transaction)
+		if !ok {
+			http.NotFound(rw, req)
+			return nil
+		}
+		ar = record.(*attachedRecord)
+		ar.Lock()
+		defer ar.Unlock()
+		if ar.connection != nil || ar.onConnect == nil {
+			http.NotFound(rw, req)
+			return nil
+		}
 	}
 
 	ws, err := m.upgrader.Upgrade(rw, req, nil)
@@ -46,28 +55,48 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 	} else if err != nil {
 		return err
 	}
+	if ws.Subprotocol() != websocketSubProtocolName {
+		m.logger.Debugln("websocket bad subprotocol")
+		return nil
+	}
 
-	kr := record.(*keyRecord)
 	id := strconv.FormatUint(atomic.AddUint64(&m.count, 1), 10)
 
 	loggerFields := logrus.Fields{
-		"rtm_connection": id,
+		"mcu_connection": id,
 	}
-	if kr.user != nil {
-		loggerFields["user_id"] = kr.user.id
-	}
+
 	c, err := connection.New(ctx, ws, m, m.logger.WithFields(loggerFields), id)
 	if err != nil {
 		return err
 	}
-	c.Bind(kr.user)
-	go m.serveWebsocketConnection(c, id)
+
+	if ar == nil {
+		go m.serveWebsocketConnection(c, id)
+	} else {
+		ar.connection = c
+		ar.onConnect(c)
+		ar.onConnect = nil
+		c.OnClosed(func(conn *connection.Connection) {
+			ar.Lock()
+			ar.connection = nil
+			ar.Unlock()
+		})
+		c.Bind(ar)
+		go c.ServeWS(m.Context())
+	}
 
 	return nil
 }
 
 func (m *Manager) serveWebsocketConnection(c *connection.Connection, id string) {
-	m.connections.Set(id, c)
+	m.connectionsMutex.Lock()
+	element := m.connections.PushBack(c)
+	m.connectionsMutex.Unlock()
+
 	c.ServeWS(m.Context())
-	m.connections.Remove(id)
+
+	m.connectionsMutex.Lock()
+	m.connections.Remove(element)
+	m.connectionsMutex.Unlock()
 }

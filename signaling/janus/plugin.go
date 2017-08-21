@@ -15,21 +15,18 @@
  *
  */
 
-package server
+package janus
 
 import (
-	"github.com/sirupsen/logrus"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
 
-// Config defines a Server's configuration settings.
-type Config struct {
-	ListenAddr string
-
-	WithPprof       bool
-	PprofListenAddr string
-
-	EnableMcuAPI   bool
-	EnableJanusAPI bool
-
-	Logger logrus.FieldLogger
+// Plugin is thje interface for janus plugin implementations.
+type Plugin interface {
+	OnMessage(m *Manager, c *connection.Connection, msg *MessageMessageData) error
+	OnDetach(m *Manager, c *connection.Connection, msg *EnvelopeData) error
+	Name() string
+	HandleID() int64
+	Attach(m *Manager, c *connection.Connection, msg *AttachMessageData, cb func(Plugin), cleanup func(Plugin)) error
+	Enabled() bool
 }

@@ -15,44 +15,40 @@
  *
  */
 
-package rtm
+package mcu
 
 import (
-	"encoding/json"
 	"time"
-
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
 const (
 	connectExpiration      = time.Duration(30) * time.Second
 	connectCleanupInterval = time.Duration(1) * time.Minute
-	connectKeySize         = 24
-	connectionIDSize       = 24
-	channelIDSize          = 24
-	channelExpiration      = time.Duration(1) * time.Minute
-	activeUserExpiration   = time.Duration(30) * time.Second
 
 	// Buffer sizes.
 	websocketReadBufferSize  = 1024
 	websocketWriteBufferSize = 1024
+
+	websocketSubProtocolName = "kwmmcu-protocol"
 )
 
-var (
-	rawRTMTypeHelloMessage   []byte
-	rawRTMTypeGoodbyeMessage []byte
-)
+type transactionMessage struct {
+	ID string `json:"transaction"`
+}
 
-func init() {
-	helloMessage, err := json.MarshalIndent(api.RTMTypeHelloMessage, "", "\t")
-	if err != nil {
-		panic(err)
-	}
-	rawRTMTypeHelloMessage = helloMessage
+func (m *transactionMessage) TransactionID() string {
+	return m.ID
+}
 
-	goodbyeMessage, err := json.MarshalIndent(api.RTMTypeGoodbyeMessage, "", "\t")
-	if err != nil {
-		panic(err)
-	}
-	rawRTMTypeGoodbyeMessage = goodbyeMessage
+// WebsocketMessage is the container for basic mcu websocket messages.
+type WebsocketMessage struct {
+	Type   string `json:"type"`
+	ID     string `json:"transaction"`
+	Plugin string `json:"plugin"`
+	Handle int64  `json:"handle_id"`
+}
+
+// TransactionID returns the transaction ID of the accociated message.
+func (m *WebsocketMessage) TransactionID() string {
+	return m.ID
 }

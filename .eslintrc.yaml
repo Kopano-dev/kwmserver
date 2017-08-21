@@ -1,4 +1,5 @@
 ---
+root: true
 env:
   browser: true
   es6: true
@@ -22,3 +23,6 @@ rules:
     - never
   dot-notation:
     - error
+  semi:
+    - error
+    - always

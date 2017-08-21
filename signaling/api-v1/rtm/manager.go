@@ -27,6 +27,8 @@ import (
 	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
 	"stash.kopano.io/kc/konnect/rndm"
+
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
 
 // Manager handles RTM connect state.
@@ -48,7 +50,7 @@ type Manager struct {
 func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Manager {
 	m := &Manager{
 		id:     id,
-		logger: logger,
+		logger: logger.WithField("manager", "rtm"),
 		ctx:    ctx,
 
 		keys: cmap.New(),
@@ -79,7 +81,6 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Mana
 			case <-ctx.Done():
 				return
 			}
-
 		}
 	}()
 
@@ -111,7 +112,7 @@ type userRecord struct {
 	id          string
 	when        time.Time
 	exit        time.Time
-	connections []*Connection
+	connections []*connection.Connection
 }
 
 func (m *Manager) purgeInactiveUsers() {
@@ -196,7 +197,7 @@ func (m *Manager) Connect(ctx context.Context, userID string) (string, error) {
 
 // LookupConnectionsByUserID returns a copy slice of the active connections for
 // the user accociated with the provided userID.
-func (m *Manager) LookupConnectionsByUserID(userID string) ([]*Connection, bool) {
+func (m *Manager) LookupConnectionsByUserID(userID string) ([]*connection.Connection, bool) {
 	entry, ok := m.users.Get(userID)
 	if !ok {
 		return nil, false
@@ -204,7 +205,7 @@ func (m *Manager) LookupConnectionsByUserID(userID string) ([]*Connection, bool)
 
 	ur := entry.(*userRecord)
 	ur.RLock()
-	connections := make([]*Connection, len(ur.connections))
+	connections := make([]*connection.Connection, len(ur.connections))
 	copy(connections, ur.connections)
 	ur.RUnlock()
 
@@ -218,6 +219,8 @@ func (m *Manager) Context() context.Context {
 
 // NumActive returns the number of the currently active connections at the
 // accociated manager.
-func (m *Manager) NumActive() int {
-	return m.connections.Count()
+func (m *Manager) NumActive() uint64 {
+	n := m.connections.Count()
+	m.logger.Debugf("active connections: %d", n)
+	return uint64(n)
 }

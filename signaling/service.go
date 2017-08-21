@@ -15,21 +15,17 @@
  *
  */
 
-package server
+package signaling
 
 import (
-	"github.com/sirupsen/logrus"
+	"context"
+	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
-// Config defines a Server's configuration settings.
-type Config struct {
-	ListenAddr string
-
-	WithPprof       bool
-	PprofListenAddr string
-
-	EnableMcuAPI   bool
-	EnableJanusAPI bool
-
-	Logger logrus.FieldLogger
+// Service is an interface for services providing routing.
+type Service interface {
+	AddRoutes(context.Context, *mux.Router, func(http.Handler) http.Handler) http.Handler
+	NumActive() uint64
 }
