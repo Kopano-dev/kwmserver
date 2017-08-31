@@ -196,6 +196,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 						},
 						Initiator: true,
 						Channel:   msg.Channel,
+						Source:    msg.Target,
 					}
 					for _, connection := range connections {
 						if connection == c {

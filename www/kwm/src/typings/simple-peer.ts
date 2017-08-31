@@ -15,39 +15,17 @@
  *
  */
 
-#remote-video-container {
-	position: fixed;
-	top: 10px;
-	right: 10px;
-	max-width: 640px;
-	min-width: 320px;
-	width: 35%;
-	background: #222;
-	bottom: 35%;
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-	grid-gap: 1px;
-	overflow: hidden;
-}
-#remote-video-container > div {
-	position: relative;
-}
+'use strict';
 
-#local-video-container {
-	position: fixed;
-	bottom: 10px;
-	right: 10px;
-	height: 35%;
-	max-width: 640px;
-	min-width: 320px;
-	width: 35%;
-	background: black;
-	border-top: 5px solid black;
-}
+declare module 'simple-peer' {
+	class Peer {
+		constructor(options: any);
 
-video {
-	display: block;
-	width: 100%;
-	height: 100%;
-	background: black;
+		public on(name: string, handler: (event: any) => void): void;
+		public signal(jsep: any): void;
+		public destroy(): void;
+	}
+
+	namespace Peer {}
+	export = Peer;
 }

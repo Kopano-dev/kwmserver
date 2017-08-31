@@ -2,3 +2,5 @@
 /bin
 /.gopath
 /chromiumcu/node_modules
+/www/kwm/node_modules
+/www/kwm/dist
