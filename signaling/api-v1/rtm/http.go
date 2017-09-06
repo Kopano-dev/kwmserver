@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
@@ -33,10 +34,15 @@ const (
 	websocketRouteIdentifier = "rtm-websocket-by-key"
 )
 
-// AddRoutes adds HTTP routes to the provided wrouter, wrapped with the provided
+// AddRoutes adds HTTP routes to the provided router, wrapped with the provided
 // wrapper where appropriate.
 func (m *Manager) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
-	router.Handle("/rtm.connect", wrapper(m.MakeHTTPConnectHandler(router)))
+	c := cors.New(cors.Options{
+		// TODO(longsleep): Add to configuration.
+		AllowedOrigins: []string{"*"},
+	})
+
+	router.Handle("/rtm.connect", c.Handler(wrapper(m.MakeHTTPConnectHandler(router))))
 	router.Handle("/websocket/{key}", wrapper(http.HandlerFunc(m.HTTPWebsocketHandler))).Name(websocketRouteIdentifier)
 
 	return router

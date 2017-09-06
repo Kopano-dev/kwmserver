@@ -9,8 +9,9 @@ module.exports = {
 		filename: 'kwm.js',
 		path: path.resolve(__dirname, 'dist'),
 		publicPath: '/dist/',
-		library: 'kwmjs',
-		libraryTarget: 'var'
+		library: 'KWM',
+		libraryExport: 'KWM',
+		libraryTarget: 'umd'
 	},
 	module: {
 		rules: [

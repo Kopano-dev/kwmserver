@@ -1,5 +1,5 @@
-hash: c54ba8f0f4878357910f754bc0429a86575cebbbdfcca45cdb8e025a598e5644
-updated: 2017-07-18T09:36:48.10573118+02:00
+hash: 383c28fc4ef84fc9647b5155896ea519f1fd7d6dfe69d0ce89025ee8da917ec7
+updated: 2017-09-07T19:15:38.539151484+02:00
 imports:
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
@@ -16,6 +16,8 @@ imports:
   - timing
 - name: github.com/orcaman/concurrent-map
   version: 2ae17bc4c860c83513ee50feb9746f3e50d7515d
+- name: github.com/rs/cors
+  version: 7af7a1e09ba336d2ea14b1ce73bf693c6837dbf6
 - name: github.com/sirupsen/logrus
   version: 202f25545ea4cf9b191ff7f846df5d87c9382c2b
 - name: github.com/spf13/cobra

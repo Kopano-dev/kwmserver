@@ -1,7 +1,6 @@
 {
   "name": "kwmjs",
   "version": "1.0.0",
-  "main": "kwm.js",
   "devDependencies": {
     "ts-loader": "^2.3.4",
     "typedoc": "^0.8.0",
