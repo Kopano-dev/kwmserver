@@ -89,7 +89,7 @@ window.app = new Vue({
 				stream: function(mediaStream) {
 					const video = this.$refs.video;
 					if (!mediaStream) {
-						video.src = '';
+						video.srcObject = undefined;
 						return;
 					}
 					video.srcObject = mediaStream;
