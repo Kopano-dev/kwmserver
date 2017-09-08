@@ -143,25 +143,33 @@ export class VideoCall {
 	}
 
 	public detach() {
-		console.log('detach');
+		console.debug('detach');
 
 		this.kwm.webrtc.setLocalStream(undefined);
 	}
 
 	public unmuteVideo() {
-		console.log('unmuteVideo');
+		console.debug('unmuteVideo');
+
+		this.kwm.webrtc.mute(true, true);
 	}
 
 	public muteVideo() {
-		console.log('muteVideo');
+		console.debug('muteVideo');
+
+		this.kwm.webrtc.mute(true, false);
 	}
 
 	public unmuteAudio() {
-		console.log('unmuteAudio');
+		console.debug('unmuteAudio');
+
+		this.kwm.webrtc.mute(false, true);
 	}
 
 	public muteAudio() {
-		console.log('muteAudio');
+		console.debug('muteAudio');
+
+		this.kwm.webrtc.mute(false, false);
 	}
 
 	private dispatchMessage(message: any, async: boolean = true): void {

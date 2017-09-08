@@ -192,6 +192,38 @@ export class WebRTCManager {
 	}
 
 	/**
+	 * Mute first track of the accociated local video or audio stream.
+	 * @param video If true, control first video track, else first audio track.
+	 * @param mute flag to enable/disable first track.
+	 * @returns true when matching track was found, false otherwise.
+	 */
+	public mute(video: boolean, mute: boolean): boolean {
+		if (!this.localStream) {
+			return false;
+		}
+
+		let firstTrack: MediaStreamTrack;
+		if (video) {
+			if (!this.localStream.getVideoTracks()) {
+				return false;
+			}
+			firstTrack = this.localStream.getVideoTracks()[0];
+		} else {
+			if (!this.localStream.getAudioTracks()) {
+				return false;
+			}
+			firstTrack = this.localStream.getAudioTracks()[0];
+		}
+
+		if (!firstTrack) {
+			return false;
+		}
+		firstTrack.enabled = !mute;
+
+		return true;
+	}
+
+	/**
 	 * Process incoming KWM RTM API WebRTC related payload data.
 	 *
 	 * @private
