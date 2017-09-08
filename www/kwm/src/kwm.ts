@@ -18,6 +18,7 @@
 'use strict';
 
 import { KWMErrorEvent, KWMStateChangedEvent } from './events';
+import { Plugins } from './plugins';
 import { IRTMConnectResponse, IRTMDataError, IRTMTypeEnvelope, IRTMTypeEnvelopeReply, IRTMTypeError,
 	IRTMTypeWebRTC, RTMDataError } from './rtm';
 import { getRandomString, makeAbsoluteURL } from './utils';
@@ -40,10 +41,52 @@ interface IReplyTimeoutRecord {
 }
 
 /**
+ * KWMInit is a helper constructor to create KWM interface with settings and
+ * callbacks.
+ */
+class KWMInit {
+	public static options: any = {};
+
+	public static init(options: any) {
+		this.options = options;
+	}
+
+	constructor(callbacks: any = {}) {
+		let url = callbacks.server || '';
+		if (url) {
+			const urlParser = document.createElement('a');
+			urlParser.href = url;
+			if (urlParser.protocol === 'wss:' || urlParser.protocol === 'ws:') {
+				// Convert Websocket URLs to HTTP/HTTPS.
+				urlParser.protocol = 'http' + urlParser.protocol.substr(2);
+				url = urlParser.href;
+			}
+		}
+
+		const kwm = new KWM(url);
+		kwm.webrtc.config = {
+			iceServers: callbacks.iceServers || [],
+		};
+
+		if (callbacks.success) {
+			setTimeout(() => {
+				callbacks.success();
+			}, 0);
+		}
+		return kwm;
+	}
+}
+
+/**
  * KWM is the main Kopano Web Meetings Javascript library entry point. It holds
  * the status and connections to KWM.
  */
 export class KWM {
+	/**
+	 * Alternative constructor which provides asynchrous callbacks.
+	 */
+	public static KWMInit: KWMInit = KWMInit;
+
 	/**
 	 * Boolean flag wether KWM is currently trying to establish a connection.
 	 */
@@ -84,19 +127,71 @@ export class KWM {
 
 		this.webrtc = new WebRTCManager(this);
 
-		this.baseURI = baseURI;
+		this.baseURI = baseURI.replace(/\/$/, '');
 		this.replyHandlers = new Map<number, IReplyTimeoutRecord>();
 	}
 
-	public attach(callbacks: any): void {
-		switch (callbacks.plugin) {
-			default:
-				throw new Error('unknown plugin: ' + callbacks.plugin);
+	/**
+	 * Allows attaching plugins with callbacks to the accociated [[KWM]] instance.
+	 *
+	 * @param callbacks Object with callbacks.
+	 */
+	public attach(callbacks: any = {}): void {
+		let plugin: any;
+		let err: any;
+
+		const pluginFactory = Plugins.get(callbacks.plugin);
+		if (pluginFactory) {
+			plugin = new pluginFactory(this, callbacks);
+		} else {
+			err = new Error('unknown plugin: ' + callbacks.plugin);
+		}
+
+		if (err) {
+			if (callbacks.error) {
+				setTimeout(() => {
+					callbacks.error(err);
+				}, 0);
+				return;
+			}
+
+			throw err;
+		}
+
+		if (callbacks.success) {
+			setTimeout(() => {
+				callbacks.success(plugin);
+			}, 0);
 		}
 	}
 
-	public destroy() {
-		console.log('KWM destroy');
+	/**
+	 * Global destruction of all accociated resources.
+	 *
+	 * @param callbacks Object with callbacks.
+	 */
+	public destroy(callbacks: any = {}): void {
+		this.webrtc.doHangup().then(() => {
+			if (this.socket) {
+				this.socket.close();
+			}
+
+			if (callbacks.success) {
+				setTimeout(() => {
+					callbacks.success();
+				}, 0);
+			}
+		}).catch((reason: any) => {
+			const err = new Error('failed to destroy: ' + reason);
+			if (callbacks.error) {
+				setTimeout(() => {
+					callbacks.error(err);
+				}, 0);
+				return;
+			}
+
+			throw err;
+		});
 	}
 
 	/**
@@ -117,7 +212,12 @@ export class KWM {
 			throw new RTMDataError({code: 'unknown_error', msg: ''});
 		}
 
-		this.createWebSocket(connectResult.url);
+		let url = connectResult.url;
+		if (!url.includes('://')) {
+			// Prefix with base when not absolute already.
+			url = this.baseURI + url;
+		}
+		this.createWebSocket(url);
 	}
 
 	/**

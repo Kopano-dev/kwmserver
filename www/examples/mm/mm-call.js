@@ -20,6 +20,7 @@
 window.app = new Vue({
 	el: '#app',
 	data: {
+		mm: undefined,
 		source: '',
 		target: '',
 		error: null,
@@ -40,72 +41,7 @@ window.app = new Vue({
 		// local components.
 	}),
 	created: function() {
-		console.info('welcome to simple-call');
-		this.kwm = new KWM();
-		this.kwm.onstatechanged = event => {
-			this.connecting = event.connecting;
-			this.connected = event.connected;
-		};
-		this.kwm.onerror = event => {
-			this.error = event;
-		};
-		this.kwm.webrtc.config = this.$data.webrtcConfig;
-		this.kwm.webrtc.onpeer = event => {
-			console.debug('onpeer', event);
-			switch (event.event) {
-				case 'incomingcall':
-					this.peercallPending = event.record;
-					if (this.settings.accept) {
-						console.info('auto accepting incoming call');
-						this.accept();
-					}
-					break;
-				case 'newcall':
-					if (!this.peercall || this.peercall.user !== event.record.user) {
-						throw new Error('invalid peer call');
-					}
-					this.peercall = event.record;
-					break;
-				case 'destroycall':
-					if (event.record === this.peercall || event.record === this.peercallPending) {
-						this.remoteStream = undefined;
-						this.hangup();
-					}
-					break;
-				case 'abortcall':
-					if (event.details) {
-						this.error = {
-							code: 'aborted',
-							msg: event.details
-						};
-					}
-					this.hangup();
-					break;
-				case 'pc.error':
-					console.error('peerconnection error', event);
-					this.error = {
-						code: 'peerconnection_error',
-						msg: event.details
-					};
-					this.hangup();
-					break;
-				default:
-					console.debug('unknown peer event', event.event, event);
-					break;
-			}
-		};
-		this.kwm.webrtc.onstream = event => {
-			console.debug('onstream', event);
-			if (event.record !== this.peercall) {
-				console.warn('received stream for wrong peer', event.record);
-				return;
-			}
-			if (this.remoteStream) {
-				console.warn('received stream but have one already', event.stream);
-				return;
-			}
-			this.remoteStream = event.stream;
-		};
+		console.info('welcome to mm-call');
 
 		const queryValues = parseParams(location.search.substr(1));
 		console.log('URL query values on load', queryValues);
@@ -128,12 +64,10 @@ window.app = new Vue({
 	methods: {
 		connect: function() {
 			console.log('connect clicked');
+			this.mm = new FakeMM(this);
+			this.getUserMedia();
 
-			this.kwm.connect(this.source).then(() => {
-				console.log('connected');
-			}).catch(err => {
-				console.error('connect failed', err);
-			});
+			this.mm.onConnectCall();
 		},
 		reload: function() {
 			window.location.reload();
@@ -152,17 +86,8 @@ window.app = new Vue({
 				user: this.target
 			};
 			this.peercall = peercall;
-			this.getUserMedia().then(ok => {
-				if (!ok || !this.peercall) {
-					this.hangup();
-					return;
-				}
 
-				this.kwm.webrtc.setLocalStream(this.localStream);
-				this.kwm.webrtc.doCall(peercall.user).then(channel => {
-					console.log('doCall sent', channel);
-				});
-			});
+			this.mm.doCall();
 		},
 		hangup: function() {
 			console.log('hangup clicked');
@@ -171,16 +96,10 @@ window.app = new Vue({
 				return;
 			}
 
-			this.kwm.webrtc.doHangup().then(channel => {
-				console.log('doHangup sent', channel);
-			});
 			this.peercall = undefined;
 			this.peercallPending = undefined;
 
-			if (this.localStream) {
-				this.stopUserMedia(this.localStream);
-				this.localStream = undefined;
-			}
+			this.mm.doHangup();
 		},
 		accept: function() {
 			console.log('accept clicked');
@@ -192,30 +111,22 @@ window.app = new Vue({
 			const peercall = this.peercallPending;
 			this.peercall = peercall;
 			this.peercallPending = undefined;
-			this.getUserMedia().then(ok => {
-				if (!ok) {
-					this.hangup();
-					return;
-				}
 
-				this.kwm.webrtc.setLocalStream(this.localStream);
-				this.kwm.webrtc.doAnswer(peercall.user).then(channel => {
-					console.log('doAnwser sent', channel);
-				});
-			});
+			this.mm.doAnswer(peercall);
 		},
-		reject: function() {
-			console.log('reject clicked');
+		destroy: function() {
+			console.log('destroy clicked');
 
-			if (!this.$data.peercallPending) {
-				return;
+			if (this.mm) {
+				this.hangup();
+
+				this.mm.close();
+				this.mm = undefined;
 			}
-			const peercall = this.peercallPending;
-			this.peercallPending = undefined;
-
-			this.kwm.webrtc.doHangup(peercall.user, 'reject').then(channel => {
-				console.log('doHangup reject sent', channel);
-			});
+			if (this.localStream) {
+				this.stopUserMedia(this.localStream);
+				this.localStream = undefined;
+			}
 		},
 		getUserMedia: function() {
 			var constraints = this.gUMconstraints;
@@ -241,6 +152,37 @@ window.app = new Vue({
 			console.log('stopping getUserMedia');
 
 			return commonGumHelper.stopUserMedia(localStream);
+		},
+		onSessionCreated: function() {
+			// UI integration.
+			this.mm.session.onstatechanged = event => {
+				this.connecting = event.connecting;
+				this.connected = event.connected;
+			};
+			this.mm.session.onerror = event => {
+				this.error = event;
+			};
+		},
+		onIncomingCall: function(event, jsep) {
+			this.peercallPending = jsep;
+			if (this.settings.accept) {
+				console.info('auto accepting incoming call');
+				this.accept(jsep);
+			}
+		},
+		handleRemoteStream: function(stream) {
+			if (this.remoteStream) {
+				console.warn('received stream but have one already', event.stream);
+				return;
+			}
+			this.remoteStream = stream;
+		},
+		onHangup: function() {
+			this.remoteStream = undefined;
+
+			if (this.peercall || this.peercallPending) {
+				this.hangup();
+			}
 		}
 	}
 });
