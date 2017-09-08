@@ -72,11 +72,11 @@ test: fmt lint vendor | $(BASE) ; $(info running $(NAME:%=% )tests ...)	@
 
 # Glide
 
-glide.lock: glide.yaml | $(BASE) ; $(info updating dependencies ...)
+glide.lock: glide.yaml | $(BASE) ; $(info updating dependencies ...) @
 	@cd $(BASE) && $(GLIDE) update
 	@touch $@
 
-vendor: glide.lock | $(BASE) ; $(info retrieving dependencies ...)
+vendor: glide.lock | $(BASE) ; $(info retrieving dependencies ...) @
 	@cd $(BASE) && $(GLIDE) --quiet install
 	@ln -nsf . vendor/src
 	@touch $@

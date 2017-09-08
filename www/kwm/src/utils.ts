@@ -15,39 +15,31 @@
  *
  */
 
-#remote-video-container {
-	position: fixed;
-	top: 10px;
-	right: 10px;
-	max-width: 640px;
-	min-width: 320px;
-	width: 35%;
-	background: #222;
-	bottom: 35%;
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-	grid-gap: 1px;
-	overflow: hidden;
-}
-#remote-video-container > div {
-	position: relative;
+'use strict';
+
+/**
+ * @private
+ */
+export function makeAbsoluteURL(url: string): string {
+	const a = document.createElement('a');
+	a.href = url;
+	return a. href;
 }
 
-#local-video-container {
-	position: fixed;
-	bottom: 10px;
-	right: 10px;
-	height: 35%;
-	max-width: 640px;
-	min-width: 320px;
-	width: 35%;
-	background: black;
-	border-top: 5px solid black;
+/**
+ * @private
+ */
+export function toHexString(byteArray: number[]) {
+	return byteArray.map(byte => {
+		return ('0' + (/* tslint:disable */byte & 0xFF/* tslint:enable */).toString(16)).slice(-2);
+	}).join('');
 }
 
-video {
-	display: block;
-	width: 100%;
-	height: 100%;
-	background: black;
+/**
+ * @private
+ */
+export function getRandomString(length?: number) {
+	const bytes = new Uint8Array((length || 32) / 2);
+	window.crypto.getRandomValues(bytes);
+	return toHexString(Array.from(bytes));
 }
