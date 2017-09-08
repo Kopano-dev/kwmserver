@@ -317,9 +317,10 @@ export class KWM {
 
 		if (this.socket) {
 			console.log('closing existing socket');
-			this.socket.close();
+			const oldSocket = this.socket;
 			this.socket = undefined;
 			this.connected = false;
+			oldSocket.close();
 		}
 		this.connecting = true;
 		this.dispatchStateChangedEvent();
@@ -398,7 +399,6 @@ export class KWM {
 			case 'goodbye':
 				console.log('server said goodbye, close connection', message);
 				this.socket.close();
-				this.socket = undefined;
 				this.connected = false;
 				break;
 			case 'webrtc':
