@@ -1,5 +1,5 @@
-hash: 383c28fc4ef84fc9647b5155896ea519f1fd7d6dfe69d0ce89025ee8da917ec7
-updated: 2017-09-07T19:15:38.539151484+02:00
+hash: 3e83351f3adf3a639dd5ce42d540bb8d0ef23c0a5f8fd6db44489a848bf32ef9
+updated: 2017-09-11T13:32:13.533941323+02:00
 imports:
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
@@ -28,8 +28,6 @@ imports:
   version: 833a04a10549a95dc34458c195cbad61bbb6cb4d
   subpackages:
   - unix
-- name: stash.kopano.io/kc/konnect
-  version: 74a0e51ac54cbe51d2758c0cf69abaaa82c175ec
-  subpackages:
-  - rndm
+- name: stash.kopano.io/kgol/rndm
+  version: 69ff9c69d5ce12d2fb19a552eab58ad657a5e8b2
 testImports: []

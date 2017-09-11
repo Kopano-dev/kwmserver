@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
-	"stash.kopano.io/kc/konnect/rndm"
+	"stash.kopano.io/kgol/rndm"
 
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
@@ -50,10 +50,7 @@ func NewChannel(id string, logger logrus.FieldLogger) *Channel {
 
 // CreateChannel creates a new channel with random id.
 func CreateChannel(m *Manager) (*Channel, error) {
-	id, err := rndm.GenerateRandomString(channelIDSize)
-	if err != nil {
-		return nil, err
-	}
+	id := rndm.GenerateRandomString(channelIDSize)
 
 	return NewChannel(id, m.logger.WithField("channel", id)), nil
 }

@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"time"
 
-	"stash.kopano.io/kc/konnect/rndm"
+	"stash.kopano.io/kgol/rndm"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
@@ -34,11 +34,7 @@ import (
 var webrtcChannelHashKey []byte
 
 func init() {
-	var err error
-	webrtcChannelHashKey, err = rndm.GenerateRandomBytes(32)
-	if err != nil {
-		panic(err)
-	}
+	webrtcChannelHashKey = rndm.GenerateRandomBytes(32)
 }
 
 func computeWebRTCChannelHash(msgType, source, target, channel string) []byte {

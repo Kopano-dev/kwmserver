@@ -9,11 +9,10 @@ import:
 - package: github.com/sirupsen/logrus
   version: 1.0.0
 - package: github.com/spf13/cobra
-- package: stash.kopano.io/kc/konnect
-  subpackages:
-  - rndm
 - package: github.com/gorilla/websocket
   version: v1.2.0
 - package: github.com/orcaman/concurrent-map
 - package: github.com/rs/cors
   version: v1.2
+- package: stash.kopano.io/kgol/rndm
+  version: ^1.0.0

@@ -26,7 +26,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
-	"stash.kopano.io/kc/konnect/rndm"
+	"stash.kopano.io/kgol/rndm"
 
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
@@ -176,10 +176,7 @@ func (m *Manager) purgeEmptyChannels() {
 
 // Connect adds a new connect entry to the managers table with random key.
 func (m *Manager) Connect(ctx context.Context, userID string) (string, error) {
-	key, err := rndm.GenerateRandomString(connectKeySize)
-	if err != nil {
-		return "", err
-	}
+	key := rndm.GenerateRandomString(connectKeySize)
 
 	// Add key to table.
 	record := &keyRecord{

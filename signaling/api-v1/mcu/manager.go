@@ -28,7 +28,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
-	"stash.kopano.io/kc/konnect/rndm"
+	"stash.kopano.io/kgol/rndm"
 
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
@@ -149,17 +149,14 @@ func (m *Manager) GetConnection() *connection.Connection {
 
 // Attach sends the attach message with the provided parameters.
 func (m *Manager) Attach(plugin string, handle int64, onConnect func(*connection.Connection) error, onText func(*connection.Connection, []byte) error) (*connection.Connection, error) {
-	transaction, err := rndm.GenerateRandomString(12)
-	if err != nil {
-		return nil, err
-	}
+	transaction := rndm.GenerateRandomString(12)
 
 	c := m.GetConnection()
 	if c == nil {
 		return nil, fmt.Errorf("no mcu connection available for attaching")
 	}
 
-	err = c.Send(&WebsocketMessage{
+	err := c.Send(&WebsocketMessage{
 		Type:   "attach",
 		ID:     transaction,
 		Plugin: plugin,
