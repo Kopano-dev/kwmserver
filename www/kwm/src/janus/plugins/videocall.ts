@@ -98,8 +98,8 @@ export class VideoCall {
 					this.dispatchMessage({
 						event: 'registered',
 					});
-				}).catch(() => {
-					console.log('failed to connect');
+				}).catch(err => {
+					console.log('failed to connect', err);
 				});
 				break;
 			case 'call':

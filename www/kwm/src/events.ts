@@ -41,12 +41,14 @@ export class KWMStateChangedEvent extends BaseEvent {
 
 	public connecting: boolean;
 	public connected: boolean;
+	public reconnecting: boolean;
 
 	constructor(target: any) {
 		super(target);
 
 		this.connecting = target.connecting;
 		this.connected = target.connected;
+		this.reconnecting = target.reconnecting;
 	}
 }
 

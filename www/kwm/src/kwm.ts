@@ -20,7 +20,7 @@
 import { KWMErrorEvent, KWMStateChangedEvent } from './events';
 import { Plugins } from './plugins';
 import { IRTMConnectResponse, IRTMDataError, IRTMTypeEnvelope, IRTMTypeEnvelopeReply, IRTMTypeError,
-	IRTMTypeWebRTC, RTMDataError } from './rtm';
+	IRTMTypePingPong, IRTMTypeWebRTC, RTMDataError } from './rtm';
 import { getRandomString, makeAbsoluteURL } from './utils';
 import { WebRTCManager } from './webrtc';
 
@@ -45,10 +45,18 @@ interface IReplyTimeoutRecord {
  * callbacks.
  */
 class KWMInit {
-	public static options: any = {};
+	public static options: any = {
+		connectTimeout: 5000,
+		heartbeatInterval: 5000,
+		maxReconnectInterval: 30000,
+		reconnectEnabled: true,
+		reconnectFactor: 1.5,
+		reconnectInterval: 1000,
+		reconnectSpreader: 500,
+	};
 
 	public static init(options: any) {
-		this.options = options;
+		Object.assign(this.options, options);
 	}
 
 	constructor(callbacks: any = {}) {
@@ -98,6 +106,11 @@ export class KWM {
 	public connected: boolean = false;
 
 	/**
+	 * Boolean flag wether KWM is automatically reconnecting or not.
+	 */
+	public reconnecting: boolean = false;
+
+	/**
 	 * Event handler for [[KWMStateChangedEvent]]. Set to a function to get called
 	 * whenever [[KWMStateChangedEvent]]s are triggered.
 	 */
@@ -115,6 +128,10 @@ export class KWM {
 
 	private baseURI: string;
 	private socket?: WebSocket;
+	private reconnector: number;
+	private heartbeater: number;
+	private latency: number = 0;
+	private reconnectAttempts: number = 0;
 	private replyHandlers: Map<number, IReplyTimeoutRecord>;
 
 	/**
@@ -171,6 +188,7 @@ export class KWM {
 	 * @param callbacks Object with callbacks.
 	 */
 	public destroy(callbacks: any = {}): void {
+		this.reconnecting = false;
 		this.webrtc.doHangup().then(() => {
 			if (this.socket) {
 				this.socket.close();
@@ -203,21 +221,133 @@ export class KWM {
 	public async connect(user: string): Promise<void> {
 		console.log('KWM connect', user);
 
-		const connectResult = await this.rtmConnect(user);
-		console.debug('connect result', connectResult);
-		if (!connectResult.ok) {
-			if (connectResult.error) {
-				throw new RTMDataError(connectResult.error);
+		clearTimeout(this.reconnector);
+		clearTimeout(this.heartbeater);
+		const reconnector = (fast: boolean = false): void => {
+			clearTimeout(this.reconnector);
+			if (!this.reconnecting) {
+				return;
 			}
-			throw new RTMDataError({code: 'unknown_error', msg: ''});
-		}
+			let reconnectTimeout = KWMInit.options.reconnectInterval;
+			if (!fast) {
+				reconnectTimeout *= Math.trunc(Math.pow(KWMInit.options.reconnectFactor, this.reconnectAttempts));
+				if (reconnectTimeout > KWMInit.options.maxReconnectInterval) {
+					reconnectTimeout = KWMInit.options.maxReconnectInterval;
+				}
+				reconnectTimeout += Math.floor(Math.random() * KWMInit.options.reconnectSpreader);
+			}
+			this.reconnector = window.setTimeout(() => {
+				this.connect(user);
+			}, reconnectTimeout);
+			this.reconnectAttempts++;
+		};
+		const latencyMeter: number[] = [];
+		const heartbeater = (init: boolean = false): void => {
+			clearTimeout(this.heartbeater);
+			if (!this.connected) {
+				return;
+			}
+			this.heartbeater = window.setTimeout(() => {
+				heartbeater();
+			}, KWMInit.options.heartbeatInterval);
+			if (init) {
+				return;
+			}
 
-		let url = connectResult.url;
-		if (!url.includes('://')) {
-			// Prefix with base when not absolute already.
-			url = this.baseURI + url;
-		}
-		this.createWebSocket(url);
+			const payload: IRTMTypePingPong = {
+				id: 0,
+				ts: new Date().getTime(),
+				type: 'ping',
+			};
+			const replyTimeout = KWMInit.options.heartbeatInterval / 100 * 90 ;
+			const socket = this.socket;
+			this.sendWebSocketPayload(payload, replyTimeout).then((message: IRTMTypePingPong) => {
+				if (message.type !== 'pong') {
+					// Ignore unknow stuff.
+					return;
+				}
+				let latency = (new Date().getTime()) - message.ts;
+				latencyMeter.push(latency);
+				if (latencyMeter.length > 10) {
+					latencyMeter.shift();
+				}
+				latency = latencyMeter.reduce((a, b) => {
+					return a + b;
+				});
+				latency = Math.floor(latency / latencyMeter.length);
+				if (socket === this.socket && latency !== this.latency) {
+					console.debug('latency changed', latency, latencyMeter);
+					this.latency = latency;
+				}
+			}).catch(err => {
+				if (socket && this.socket === socket) {
+					console.log('heartbeat failed', err);
+					// NOTE(longsleep): Close the socket asynchronously and directly trigger a
+					// close event. This avoids issues where the socket is in a state which
+					// cannot be closed yet.
+					setTimeout(socket.close.bind(socket), 0);
+					const event = new CloseEvent('close', {
+						reason: 'client heartbeat timeout',
+					});
+					socket.dispatchEvent(event);
+				}
+			});
+		};
+
+		this.reconnecting = KWMInit.options.reconnectEnabled;
+		this.connecting = true;
+		this.dispatchStateChangedEvent();
+
+		return new Promise<void>(async (resolve, reject) => {
+			let connectResult: IRTMConnectResponse;
+			try {
+				connectResult = await this.rtmConnect(user);
+			} catch (err) {
+				console.log('failed to fetch connection details', err);
+				connectResult = {
+					error: {
+						code: 'request_failed',
+						msg: '' + err,
+					},
+					ok: false,
+				};
+			}
+			console.debug('connect result', connectResult);
+			if (!connectResult.ok || !connectResult.url) {
+				this.connecting = false;
+				this.dispatchStateChangedEvent();
+				if (this.reconnecting) {
+					reconnector();
+				} else if (connectResult.error) {
+					reject(new RTMDataError(connectResult.error));
+				} else {
+					reject(new RTMDataError({code: 'unknown_error', msg: ''}));
+				}
+				return;
+			}
+
+			let url = connectResult.url;
+			if (!url.includes('://')) {
+				// Prefix with base when not absolute already.
+				url = this.baseURI + url;
+			}
+			const start = new Date().getTime();
+			this.createWebSocket(url, this.reconnecting ? reconnector : undefined).then(() => {
+				this.reconnectAttempts = 0;
+				this.latency = (new Date().getTime()) - start;
+				latencyMeter.push(this.latency);
+				console.log('connection established', this.reconnectAttempts, this.latency);
+				heartbeater(true);
+				resolve();
+			}, err => {
+				console.log('connection failed', err);
+				if (this.reconnecting) {
+					reconnector();
+				} else {
+					reject(err);
+				}
+			});
+		});
 	}
 
 	/**
@@ -312,58 +442,99 @@ export class KWM {
 	 *        already absolute. The scheme will be transformed to `ws:` or `wss:`
 	 *        if `http:` or `https:`.
 	 */
-	private createWebSocket(uri: string): void {
+	private async createWebSocket(uri: string, reconnector?: (fast?: boolean) => void): Promise<WebSocket> {
 		console.debug('create websocket', uri);
-
-		if (this.socket) {
-			console.log('closing existing socket');
-			const oldSocket = this.socket;
-			this.socket = undefined;
-			this.connected = false;
-			oldSocket.close();
-		}
-		this.connecting = true;
-		this.dispatchStateChangedEvent();
-
-		const url = makeAbsoluteURL(uri).replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
-		console.log('connecting socket URL', url);
-		const socket = new WebSocket(url);
-		socket.onopen = (event: Event) => {
-			if (event.target !== this.socket) {
-				return;
+		return new Promise<WebSocket>((resolve, reject) => {
+			if (this.socket) {
+				console.log('closing existing socket');
+				const oldSocket = this.socket;
+				this.socket = undefined;
+				this.connected = false;
+				oldSocket.close();
 			}
-			console.log('socket connected', event);
-			this.connected = true;
-			this.connecting = false;
-			this.dispatchStateChangedEvent();
-			this.socket.onmessage = this.handleWebSocketMessage.bind(this);
-		};
-		socket.onclose = (event: CloseEvent) => {
-			if (event.target !== this.socket) {
-				return;
-			}
-			console.log('socket closed', event);
-			this.socket = undefined;
-			this.connected = false;
-			this.connecting = false;
-			this.dispatchStateChangedEvent();
-		};
-		socket.onerror = (event: Event) => {
-			if (event.target !== this.socket) {
-				return;
-			}
-			console.log('socket error', event);
-			this.socket = undefined;
-			this.connected = false;
-			this.connecting = false;
-			this.dispatchErrorEvent({
-				code: 'websocket_error',
-				msg: '' + event,
-			});
-			this.dispatchStateChangedEvent();
-		};
 
-		this.socket = socket;
+			const url = makeAbsoluteURL(uri).replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
+			console.log('connecting socket URL', url);
+			const socket = new WebSocket(url);
+
+			let isTimeout = false;
+			const timeout = setTimeout(() => {
+				isTimeout = true;
+				if (socket === this.socket) {
+					this.socket = undefined;
+					this.connected = false;
+					this.connecting = false;
+					this.dispatchStateChangedEvent();
+				}
+				setTimeout(socket.close.bind(socket), 0);
+				reject(new Error('connect_timeout'));
+			}, KWMInit.options.connectTimeout);
+
+			socket.onopen = (event: Event) => {
+				clearTimeout(timeout);
+				if (isTimeout) {
+					return;
+				}
+				setTimeout(() => {
+					resolve(event.target as WebSocket);
+				}, 0);
+				if (event.target !== this.socket) {
+					return;
+				}
+				console.log('socket connected', event);
+				this.connected = true;
+				this.connecting = false;
+				this.dispatchStateChangedEvent();
+				this.socket.onmessage = this.handleWebSocketMessage.bind(this);
+			};
+			socket.onclose = (event: CloseEvent) => {
+				clearTimeout(timeout);
+				if (isTimeout) {
+					return;
+				}
+				if (event.target !== this.socket) {
+					if (!this.socket && !this.connecting && reconnector) {
+						console.log('socket closed, retry immediate reconnect now', event);
+						// Directly try to reconnect. This makes reconnects fast
+						// in the case where the connection was lost on the client
+						// and has come back.
+						reconnector(true);
+					}
+					return;
+				}
+				console.log('socket closed', event);
+				this.socket = undefined;
+				this.connected = false;
+				this.connecting = false;
+				this.dispatchStateChangedEvent();
+				if (reconnector) {
+					reconnector();
+				}
+			};
+			socket.onerror = (event: Event) => {
+				clearTimeout(timeout);
+				if (isTimeout) {
+					return;
+				}
+				setTimeout(() => {
+					reject(event);
+				}, 0);
+				if (event.target !== this.socket) {
+					return;
+				}
+				console.log('socket error', event);
+				this.socket = undefined;
+				this.connected = false;
+				this.connecting = false;
+				this.dispatchErrorEvent({
+					code: 'websocket_error',
+					msg: '' + event,
+				});
+				this.dispatchStateChangedEvent();
+			};
+
+			this.socket = socket;
+		});
 	}
 
 	/**
@@ -380,6 +551,10 @@ export class KWM {
 		console.debug('socket message', event);
 		const message: IRTMTypeEnvelope = JSON.parse(event.data);
 		const reply = message as IRTMTypeEnvelopeReply;
+		if (reply.type === 'pong') {
+			// Special case for pongs, which just reply back everything.
+			reply.reply_to = reply.id;
+		}
 		if (reply.reply_to) {
 			const replyTimeout = this.replyHandlers.get(reply.reply_to);
 			if (replyTimeout) {
@@ -398,6 +573,7 @@ export class KWM {
 				break;
 			case 'goodbye':
 				console.log('server said goodbye, close connection', message);
+				this.reconnectAttempts = 1; // NOTE(longsleep): avoid instant reconnect.
 				this.socket.close();
 				this.connected = false;
 				break;
