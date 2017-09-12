@@ -1,8 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const BannerPlugin = require('webpack').BannerPlugin;
+const DefinePlugin = require('webpack').DefinePlugin;
 const UglifyJsPlugin = require('webpack').optimize.UglifyJsPlugin;
 const LicenseWebpackPlugin = require('license-webpack-plugin').LicenseWebpackPlugin;
+const buildVersion = process.env.BUILD_VERSION || 'v0.0.0-no-proper-build';
+const buildDate = process.env.BUILD_DATE || new Date();
 
 module.exports = {
 	resolve: {
@@ -27,6 +30,9 @@ module.exports = {
 	},
 	devtool: 'source-map',
 	plugins: [
+		new DefinePlugin({
+			__VERSION__: JSON.stringify(buildVersion)
+		}),
 		new LicenseWebpackPlugin({
 			pattern: /^(MIT|ISC|BSD.*)$/,
 			unacceptablePattern: /GPL/,
@@ -34,6 +40,9 @@ module.exports = {
 			perChunkOutput: false,
 			outputFilename: 'kwm.3rdpartylicenses.txt'
 		}),
-		new BannerPlugin(fs.readFileSync(path.resolve(__dirname, '..', '..', 'LICENSE.txt')).toString())
+		new BannerPlugin(
+			fs.readFileSync(path.resolve(__dirname, '..', '..', 'LICENSE.txt')).toString()
+			+ '\n\n@version ' + buildVersion + ' (' + buildDate + ')'
+		)
 	]
 };

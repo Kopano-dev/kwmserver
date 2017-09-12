@@ -90,6 +90,8 @@ class KWMInit {
  * the status and connections to KWM.
  */
 export class KWM {
+	public static version: string = __VERSION__;
+
 	/**
 	 * Alternative constructor which provides asynchrous callbacks.
 	 */
