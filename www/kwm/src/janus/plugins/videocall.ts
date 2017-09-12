@@ -89,17 +89,17 @@ export class VideoCall {
 	}
 
 	public send(data: any): void {
-		console.debug('send', data);
+		// console.debug('send', data);
 
 		switch (data.message.request) {
 			case 'register':
 				this.kwm.connect(data.message.username).then(() => {
-					console.log('connected');
+					console.debug('connected');
 					this.dispatchMessage({
 						event: 'registered',
 					});
 				}).catch(err => {
-					console.log('failed to connect', err);
+					console.warn('failed to connect', err);
 				});
 				break;
 			case 'call':
@@ -125,14 +125,14 @@ export class VideoCall {
 	}
 
 	public createOffer(options: any) {
-		console.log('createOffer');
+		console.debug('createOffer');
 
 		this.kwm.webrtc.setLocalStream(options.stream);
 		options.success();
 	}
 
 	public createAnswer(options: any) {
-		console.log('createAnswer');
+		console.debug('createAnswer');
 
 		this.kwm.webrtc.setLocalStream(options.stream);
 		options.success(options.jsep);

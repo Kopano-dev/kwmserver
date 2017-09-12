@@ -142,8 +142,6 @@ export class KWM {
 	 * @param baseURI The base URI to the KWM server API.
 	 */
 	constructor(baseURI: string = '') {
-		console.log('new KWM', this, baseURI);
-
 		this.webrtc = new WebRTCManager(this);
 
 		this.baseURI = baseURI.replace(/\/$/, '');
@@ -221,7 +219,7 @@ export class KWM {
 	 * @returns Promise which resolves when the connection was established.
 	 */
 	public async connect(user: string): Promise<void> {
-		console.log('KWM connect', user);
+		console.debug('KWM connect', user);
 
 		clearTimeout(this.reconnector);
 		clearTimeout(this.heartbeater);
@@ -278,12 +276,11 @@ export class KWM {
 				});
 				latency = Math.floor(latency / latencyMeter.length);
 				if (socket === this.socket && latency !== this.latency) {
-					console.debug('latency changed', latency, latencyMeter);
 					this.latency = latency;
 				}
 			}).catch(err => {
 				if (socket && this.socket === socket) {
-					console.log('heartbeat failed', err);
+					console.warn('heartbeat failed', err);
 					// NOTE(longsleep): Close the socket asynchronously and directly trigger a
 					// close event. This avoids issues where the socket is in a state which
 					// cannot be closed yet.
@@ -305,7 +302,7 @@ export class KWM {
 			try {
 				connectResult = await this.rtmConnect(user);
 			} catch (err) {
-				console.log('failed to fetch connection details', err);
+				console.warn('failed to fetch connection details', err);
 				connectResult = {
 					error: {
 						code: 'request_failed',
@@ -314,7 +311,7 @@ export class KWM {
 					ok: false,
 				};
 			}
-			console.debug('connect result', connectResult);
+			// console.debug('connect result', connectResult);
 			if (!connectResult.ok || !connectResult.url) {
 				this.connecting = false;
 				this.dispatchStateChangedEvent();
@@ -338,11 +335,11 @@ export class KWM {
 				this.reconnectAttempts = 0;
 				this.latency = (new Date().getTime()) - start;
 				latencyMeter.push(this.latency);
-				console.log('connection established', this.reconnectAttempts, this.latency);
+				console.debug('connection established', this.reconnectAttempts, this.latency);
 				heartbeater(true);
 				resolve();
 			}, err => {
-				console.log('connection failed', err);
+				console.warn('connection failed', err, !!this.reconnecting);
 				if (this.reconnecting) {
 					reconnector();
 				} else {
@@ -410,8 +407,6 @@ export class KWM {
 	 * @returns Promise with the unmarshalled response data once received.
 	 */
 	private async rtmConnect(user: string): Promise<IRTMConnectResponse> {
-		console.log('KWM rtmConnect');
-
 		const url = this.baseURI + '/api/v1/rtm.connect';
 		const params = new URLSearchParams();
 		params.set('user', user);
@@ -446,9 +441,10 @@ export class KWM {
 	 */
 	private async createWebSocket(uri: string, reconnector?: (fast?: boolean) => void): Promise<WebSocket> {
 		console.debug('create websocket', uri);
+
 		return new Promise<WebSocket>((resolve, reject) => {
 			if (this.socket) {
-				console.log('closing existing socket');
+				console.warn('closing existing socket connection');
 				const oldSocket = this.socket;
 				this.socket = undefined;
 				this.connected = false;
@@ -456,7 +452,7 @@ export class KWM {
 			}
 
 			const url = makeAbsoluteURL(uri).replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
-			console.log('connecting socket URL', url);
+			console.debug('connecting socket URL', url);
 			const socket = new WebSocket(url);
 
 			let isTimeout = false;
@@ -483,7 +479,7 @@ export class KWM {
 				if (event.target !== this.socket) {
 					return;
 				}
-				console.log('socket connected', event);
+				console.debug('socket connected', event);
 				this.connected = true;
 				this.connecting = false;
 				this.dispatchStateChangedEvent();
@@ -496,7 +492,7 @@ export class KWM {
 				}
 				if (event.target !== this.socket) {
 					if (!this.socket && !this.connecting && reconnector) {
-						console.log('socket closed, retry immediate reconnect now', event);
+						console.debug('socket closed, retry immediate reconnect now', event);
 						// Directly try to reconnect. This makes reconnects fast
 						// in the case where the connection was lost on the client
 						// and has come back.
@@ -504,7 +500,7 @@ export class KWM {
 					}
 					return;
 				}
-				console.log('socket closed', event);
+				console.debug('socket closed', event);
 				this.socket = undefined;
 				this.connected = false;
 				this.connecting = false;
@@ -524,7 +520,7 @@ export class KWM {
 				if (event.target !== this.socket) {
 					return;
 				}
-				console.log('socket error', event);
+				console.debug('socket error', event);
 				this.socket = undefined;
 				this.connected = false;
 				this.connecting = false;
@@ -550,7 +546,7 @@ export class KWM {
 			return;
 		}
 
-		console.debug('socket message', event);
+		// console.debug('socket message', event);
 		const message: IRTMTypeEnvelope = JSON.parse(event.data);
 		const reply = message as IRTMTypeEnvelopeReply;
 		if (reply.type === 'pong') {
@@ -571,10 +567,10 @@ export class KWM {
 
 		switch (message.type) {
 			case 'hello':
-				console.log('server said hello', message);
+				console.debug('server hello', message);
 				break;
 			case 'goodbye':
-				console.log('server said goodbye, close connection', message);
+				console.debug('server goodbye, close connection', message);
 				this.reconnectAttempts = 1; // NOTE(longsleep): avoid instant reconnect.
 				this.socket.close();
 				this.connected = false;
@@ -583,7 +579,7 @@ export class KWM {
 				this.webrtc.handleWebRTCMessage(message as IRTMTypeWebRTC);
 				break;
 			case 'error':
-				console.log('server said error', message);
+				console.warn('server error', message);
 				this.dispatchErrorEvent((message as IRTMTypeError).error);
 				break;
 			default:

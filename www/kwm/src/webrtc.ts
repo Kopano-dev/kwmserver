@@ -85,7 +85,7 @@ export class WebRTCManager {
 	 * @returns Promise providing the channel ID assigned to the new call.
 	 */
 	public async doCall(user: string): Promise<string> {
-		console.log('webrtc doCall', user);
+		console.debug('webrtc doCall', user);
 
 		if (this.channel) {
 			throw new Error('already have a channel');
@@ -126,7 +126,7 @@ export class WebRTCManager {
 	 * @returns Promise providing the channel ID assigned to the call.
 	 */
 	public async doAnswer(user: string): Promise<string> {
-		console.log('webrtc doAnswer', user);
+		console.debug('webrtc doAnswer', user);
 
 		if (!this.channel) {
 			throw new Error('no channel');
@@ -230,14 +230,14 @@ export class WebRTCManager {
 	 * @param message Payload message.
 	 */
 	public handleWebRTCMessage(message: IRTMTypeWebRTC): void {
-		console.debug('<<< webrtc', message);
+		// console.debug('<<< webrtc', message);
 		let record: PeerRecord;
 
 		switch (message.subtype) {
 			case 'webrtc_call':
 				if (message.initiator) {
 					if (!message.source) {
-						console.log('webrtc incoming call without source');
+						console.warn('webrtc incoming call without source');
 						return;
 					}
 
@@ -263,7 +263,7 @@ export class WebRTCManager {
 
 					if (this.channel) {
 						// busy
-						console.log('webrtc incoming call while already have a call');
+						console.warn('webrtc incoming call while already have a call');
 						this.sendWebrtc('webrtc_call', message.channel, record, {
 							accept: false,
 							reason: 'reject_busy',
@@ -272,7 +272,7 @@ export class WebRTCManager {
 						return;
 					}
 					if (this.channel && this.channel !== message.channel) {
-						console.log('webrtc incoming call with wrong channel', this.channel);
+						console.warn('webrtc incoming call with wrong channel', this.channel);
 						return;
 					}
 
@@ -287,19 +287,19 @@ export class WebRTCManager {
 					// check and start webrtc.
 					record = this.peers.get(message.source) as PeerRecord;
 					if (!record) {
-						console.log('webrtc unknown peer', message.source);
+						console.warn('webrtc unknown peer', message.source);
 						return;
 					}
 					if (record.state !== message.data.state) {
-						console.log('webbrtc peer data with wrong state', record.state);
+						console.warn('webbrtc peer data with wrong state', record.state);
 						return;
 					}
 					if (record.hash !== message.hash) {
-						console.log('webrtc peer data with wrong hash', record.hash);
+						console.warn('webrtc peer data with wrong hash', record.hash);
 						return;
 					}
 					if (!message.data.accept) {
-						console.log('webrtc peer did not accept call', message);
+						console.debug('webrtc peer did not accept call', message);
 						const abortEvent = new WebRTCPeerEvent(this, 'abortcall', record, message.data.reason || 'no reason given');
 						abortEvent.channel = this.channel;
 						this.dispatchEvent(abortEvent, true);
@@ -320,7 +320,7 @@ export class WebRTCManager {
 
 			case 'webrtc_channel':
 				if (this.channel) {
-					console.log('webrtc channel when already have one', this.channel, message.channel);
+					console.warn('webrtc channel when already have one', this.channel, message.channel);
 					return;
 				}
 
@@ -329,21 +329,21 @@ export class WebRTCManager {
 
 			case 'webrtc_hangup':
 				if (!message.channel || this.channel !== message.channel) {
-					console.log('webrtc hangup with wrong channel', this.channel, message.channel);
+					console.warn('webrtc hangup with wrong channel', this.channel, message.channel);
 					return;
 				}
 				if (!message.data) {
-					console.log('webrtc hangup data empty');
+					console.warn('webrtc hangup data empty');
 					return;
 				}
 
 				record = this.peers.get(message.source) as PeerRecord;
 				if (!record) {
-					console.log('webrtc hangup for unknown peer');
+					console.warn('webrtc hangup for unknown peer');
 					return;
 				}
 				if (record.ref !== message.state && record.ref) {
-					console.log('webrtc hangup with wrong state', record.ref);
+					console.warn('webrtc hangup with wrong state', record.ref);
 					return;
 				}
 				this.sendHangup(this.channel, record, '');
@@ -352,21 +352,21 @@ export class WebRTCManager {
 
 			case 'webrtc_signal':
 				if (!message.channel || this.channel !== message.channel) {
-					console.log('webrtc signal with wrong channel', this.channel, message.channel);
+					console.warn('webrtc signal with wrong channel', this.channel, message.channel);
 					return;
 				}
 				if (!message.data) {
-					console.log('webrtc signal data empty');
+					console.warn('webrtc signal data empty');
 					return;
 				}
 
 				record = this.peers.get(message.source) as PeerRecord;
 				if (!record) {
-					console.log('webrtc signal for unknown peer');
+					console.warn('webrtc signal for unknown peer');
 					return;
 				}
 				if (record.ref !== message.state && record.ref) {
-					console.log('webrtc signal with wrong state', record.ref);
+					console.warn('webrtc signal with wrong state', record.ref);
 					return;
 				}
 
@@ -455,7 +455,7 @@ export class WebRTCManager {
 				target: record.user,
 				type: 'webrtc',
 			};
-			console.debug('>>> send signal', payload);
+			// console.debug('>>> send signal', payload);
 			this.kwm.sendWebSocketPayload(payload);
 		});
 		pc.on('connect', () => {
