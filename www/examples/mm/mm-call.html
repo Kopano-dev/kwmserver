@@ -4,7 +4,7 @@
 	<title>MM Call</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.3.2/css/bulma.min.css" integrity="sha256-gFMi0ldgZQk7xqpcLc/KjAYdPTLqv5Nv5gOkIPxuZkY=" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.5.2/css/bulma.min.css" integrity="sha256-d+mgRrjtsPCjrT7ltuB1sZ2VybUn1Xgdf8piVG/Va/k=" crossorigin="anonymous" />
     <link rel="stylesheet" href="../common.css" />
 	<link rel="stylesheet" href="../simple-call.css" />
 </head>
@@ -21,7 +21,7 @@
 	</div>
 </div>
 
-<section class="hero is-primary">
+<section class="hero is-info">
   <div class="hero-body">
     <div class="container">
       <h1 class="title">
@@ -38,31 +38,37 @@
 <div class="container">
 	<h3 class="subtitle">Call by ID</h3>
 
-    <div class="control">
+    <div class="field">
 		<label class="label">Source</label>
-		<p class="control is-expanded">
-			<input class="input" type="text" v-model="source" :disabled="connected ? true : false">
-		</p>
+		<div class="control is-expanded">
+			<input class="input" type="text" v-model="source" :disabled="(connected || reconnecting) ? true : false">
+		</div>
 	</div>
-	<div class="control">
+	<div class="field">
 		<label class="label">Target</label>
-		<p class="control is-expanded">
+		<div class="control is-expanded">
 			<input class="input" type="text" v-model="target" :disabled="peercall ? true : false">
-		</p>
+		</div>
 	</div>
 
-    <button class="button is-primary" v-on:click="connect" v-if="!mm">Connect</button>
-    <button class="button is-info" v-on:click="call" v-if="connected && !peercall && !peercallPending">Call</button>
-	<button class="button is-success" v-on:click="accept" v-if="peercallPending">Accept</button>
-	<button class="button is-danger" v-on:click="hangup" v-if="peercall">Hangup</button>
-	<button class="button is-danger" v-on:click="destroy" v-if="mm">Destroy</button>
+	<div class="field">
+	    <button class="button is-primary" v-on:click="connect" v-if="!mm">Connect</button>
+	    <button class="button is-info" v-on:click="call" v-if="connected && !peercall && !peercallPending">Call</button>
+		<button class="button is-success" v-on:click="accept" v-if="peercallPending">Accept</button>
+		<button class="button is-danger" v-on:click="hangup" v-if="peercall">Hangup</button>
+		<button class="button is-danger" v-on:click="destroy" v-if="mm">Destroy</button>
+	</div>
 </div>
 </section>
 
 <section class="section">
-<div class="container">
+<div class="container field is-grouped is-grouped-multiline">
 	<span class="tag is-info" v-if="connecting">connecting</span>
-	<span class="tag is-success" v-if="connected">connected</span>
+	<span class="tags has-addons" v-if="connected">
+		<span class="tag is-success">connected</span>
+		<span class="tag" v-if="latency">Latency {{ latency }}ms</span>
+	</span>
+	<span class="tag is-warning" v-if="!connected && reconnecting">reconnecting</span>
 	<span class="tag is-success" v-if="peercall">in-call</span>
 </div>
 </section>

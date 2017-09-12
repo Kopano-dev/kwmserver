@@ -26,6 +26,8 @@ window.app = new Vue({
 		error: null,
 		connecting: false,
 		connected: false,
+		reconnecting: false,
+		latency: undefined,
 		peercallPending: undefined,
 		peercall: undefined,
 		localStream: undefined,
@@ -58,6 +60,15 @@ window.app = new Vue({
 			this.settings.connect = true;
 			this.$nextTick(this.connect);
 		}
+
+		setInterval(() => {
+			if (this.mm && this.mm.session) {
+				const latency = this.mm.session.latency;
+				this.$nextTick(() => {
+					this.latency = latency;
+				});
+			}
+		}, 500);
 	},
 	watch: {
 	},
@@ -158,6 +169,7 @@ window.app = new Vue({
 			this.mm.session.onstatechanged = event => {
 				this.connecting = event.connecting;
 				this.connected = event.connected;
+				this.reconnecting = event.reconnecting;
 			};
 			this.mm.session.onerror = event => {
 				this.error = event;
