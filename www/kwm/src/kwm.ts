@@ -130,6 +130,7 @@ export class KWM {
 
 	private baseURI: string;
 	private socket?: WebSocket;
+	private closing: boolean = false;
 	private reconnector: number;
 	private heartbeater: number;
 	private latency: number = 0;
@@ -191,7 +192,7 @@ export class KWM {
 		this.reconnecting = false;
 		this.webrtc.doHangup().then(() => {
 			if (this.socket) {
-				this.socket.close();
+				this.closeWebsocket(this.socket);
 			}
 
 			if (callbacks.success) {
@@ -244,7 +245,7 @@ export class KWM {
 		const latencyMeter: number[] = [];
 		const heartbeater = (init: boolean = false): void => {
 			clearTimeout(this.heartbeater);
-			if (!this.connected) {
+			if (!this.connected || this.closing) {
 				return;
 			}
 			this.heartbeater = window.setTimeout(() => {
@@ -284,7 +285,9 @@ export class KWM {
 					// NOTE(longsleep): Close the socket asynchronously and directly trigger a
 					// close event. This avoids issues where the socket is in a state which
 					// cannot be closed yet.
-					setTimeout(socket.close.bind(socket), 0);
+					setTimeout(() => {
+						this.closeWebsocket(socket);
+					}, 0);
 					const event = new CloseEvent('close', {
 						reason: 'client heartbeat timeout',
 					});
@@ -361,7 +364,7 @@ export class KWM {
 	 */
 	public async sendWebSocketPayload(payload: IRTMTypeEnvelope, replyTimeout: number = 0): Promise<IRTMTypeEnvelope> {
 		return new Promise<IRTMTypeEnvelope>((resolve, reject) => {
-			if (!this.connected || !this.socket) {
+			if (!this.connected || !this.socket || this.closing) {
 				reject(new Error('no_connection'));
 				return;
 			}
@@ -448,7 +451,7 @@ export class KWM {
 				const oldSocket = this.socket;
 				this.socket = undefined;
 				this.connected = false;
-				oldSocket.close();
+				this.closeWebsocket(oldSocket);
 			}
 
 			const url = makeAbsoluteURL(uri).replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
@@ -464,7 +467,9 @@ export class KWM {
 					this.connecting = false;
 					this.dispatchStateChangedEvent();
 				}
-				setTimeout(socket.close.bind(socket), 0);
+				setTimeout(() => {
+					this.closeWebsocket(socket);
+				}, 0);
 				reject(new Error('connect_timeout'));
 			}, KWMInit.options.connectTimeout);
 
@@ -502,6 +507,7 @@ export class KWM {
 				}
 				console.debug('socket closed', event);
 				this.socket = undefined;
+				this.closing = false;
 				this.connected = false;
 				this.connecting = false;
 				this.dispatchStateChangedEvent();
@@ -531,8 +537,21 @@ export class KWM {
 				this.dispatchStateChangedEvent();
 			};
 
+			this.closing = false;
 			this.socket = socket;
 		});
+	}
+
+	/**
+	 * Closes the provided websocket connection.
+	 *
+	 * @param socket Websocket to close.
+	 */
+	private closeWebsocket(socket: WebSocket): void {
+		if (socket === this.socket) {
+			this.closing = true;
+		}
+		socket.close();
 	}
 
 	/**
@@ -572,7 +591,7 @@ export class KWM {
 			case 'goodbye':
 				console.debug('server goodbye, close connection', message);
 				this.reconnectAttempts = 1; // NOTE(longsleep): avoid instant reconnect.
-				this.socket.close();
+				this.closeWebsocket(this.socket);
 				this.connected = false;
 				break;
 			case 'webrtc':
