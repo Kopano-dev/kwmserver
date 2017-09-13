@@ -47,6 +47,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().Bool("enable-janus-api", false, "Enables the Janus API endpoints")
 	serveCmd.Flags().Bool("enable-www", false, "Enables serving static files")
 	serveCmd.Flags().String("www-root", "./www", "Full path for static files to be served when --enable-www is used, defaults to ./www")
+	serveCmd.Flags().Bool("enable-docs", false, "Enables serving documentation")
+	serveCmd.Flags().String("docs-root", "./docs", "Full path to docs folder to be served when --enable-docs is used, defaults to ./docs")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -87,6 +89,21 @@ func serve(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("www-root must be a directory")
 		}
 		config.WwwRoot = wwwRoot
+	}
+	enableDocs, _ := cmd.Flags().GetBool("enable-docs")
+	config.EnableDocs = enableDocs
+	docsRoot, _ := cmd.Flags().GetString("docs-root")
+	if docsRoot != "" {
+		docsRoot, err = filepath.Abs(docsRoot)
+		if err != nil {
+			return err
+		}
+		if stat, errStat := os.Stat(docsRoot); errStat != nil {
+			return fmt.Errorf("unable to access docs-root: %v", errStat)
+		} else if !stat.IsDir() {
+			return fmt.Errorf("docs-root must be a directory")
+		}
+		config.DocsRoot = docsRoot
 	}
 
 	srv, err := server.NewServer(config)

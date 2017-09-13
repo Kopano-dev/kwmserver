@@ -34,5 +34,8 @@ type Config struct {
 	EnableWww bool
 	WwwRoot   string
 
+	EnableDocs bool
+	DocsRoot   string
+
 	Logger logrus.FieldLogger
 }

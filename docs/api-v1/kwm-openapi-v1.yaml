@@ -1,0 +1,326 @@
+swagger: '2.0'
+info:
+  version: 0.1.0
+  title: KWM API Reference
+  description: >-
+    The Kopano Webmeetings API can be used to interact with the Kopano
+    Webmeetings server.
+host: 'localhost:8778'
+basePath: /api/v1
+tags:
+  - name: rtm
+    x-displayName: RESTful
+    description: |
+      Allows receiving and sending messages in real time via a WebSocket based
+      API.
+
+      It is the basis of most operations of KWM.
+
+      ### Try it
+
+      One can use the tools [curl](https://curl.haxx.se/), [jq](https://stedolan.github.io/jq/) and [wsc](https://github.com/raphael/wsc) for testing.
+
+      ```bash
+      curl -v http://localhost:8778/api/v1/rtm.connect
+      > GET /api/v1/rtm.connect HTTP/1.1
+      > Host: localhost:8778
+      > User-Agent: curl/7.47.0
+      > Accept: */*
+      >
+      < HTTP/1.1 200 OK
+      < Content-Type: application/json
+      < Date: Mon, 17 Jul 2017 16:00:12 GMT
+      < Content-Length: 98
+      <
+      {
+        "ok": true,
+        "url": "/api/v1/websocket/MTU-g8XPVzEVYLzC7mlEbFgeJ0Q8L6Cz",
+        "self": {
+          "id": "",
+          "name": ""
+        }
+      }
+      ```
+
+      ```bash
+      wsc ws://localhost:8778/api/v1/websocket/MTU-g8XPVzEVYLzC7mlEbFgeJ0Q8L6Cz
+      << {
+              "type": "hello"
+      }
+      >>
+      ```
+
+      URLs expire after 30 seconds and can only be used once. For this reason, together
+      with jq and wsc:
+
+      ```bash
+      wsc ws://localhost:8778$(curl -s http://localhost:8778/api/v1/rtm.connect |jq -r '.url')
+      ```
+
+  - name: rtm websocket
+    x-displayName: WebSocket
+    description: |
+      The RTM WebSocket API exchanges JSON payload messages. Different message
+      types are identified by the `type` and `subtype` keys in received JSON
+      payload data.
+
+      ### Known `type` and `subtype` values
+
+      - hello
+      - error
+      - ping
+      - pong
+      - goodbye
+      - webrtc
+        - webrtc_call
+        - webrtc_channel
+        - webrtc_hangup
+        - webrtc_signal
+
+      ### WebRTC flow example (one to one peer call)
+
+      Initiator (simon) creates new JSON message and sends it to server
+
+      ```json
+      {
+        "type": "webrtc",
+        "subtype": "webrtc_call",
+        "id": client-created-sequence-number,
+        "target": "sean",
+        "initiator": true,
+        "state": "simons-random-client-state"
+      }
+      ```
+
+      Server check and adds server generated values
+
+      - `initiator` must be `true` if without `channel` and `hash`.
+      - `state` and `target` must not be empty.
+
+      Reply with `channel` and `hash` to sender
+
+      ```json
+      {
+        "type": "webrtc",
+        "subtype": "webrtc_channel",
+        "reply_to": client-created-sequence-number,
+        "channel":"server-made-random-string",
+        "hash": hmac(type,sorted(source,target),channel)
+      }
+      ```
+
+      Send initial message plus server generated values but without `id` to
+      `target` (sean)
+
+      ```json
+      {
+        "type": "webrtc",
+        "subtype": "webrtc_call",
+        "target": "sean",
+        "source": "simon",
+        "initiator": true,
+        "state": "simons-random-client-state",
+        "channel": "server-made-random-string",
+        "hash": hmac(type,sorted(source,target),channel)
+      }
+      ```
+
+      Receiver receives JSON message and prepares response
+
+      ```json
+      {
+        "type": "webrtc",
+        "subtype": "webrtc_call",
+        "target": "simon",
+        "state": "simons-random-client-state",
+        "channel": "server-made-random-string",
+        "hash": hmac(type,sorted(source,target),channel),
+        "data": {
+          "accept": true,
+        }
+      }
+      ```
+
+      Server checks response and sends it to `target` (simon)
+
+      - `hash` hmac needs to be valid.
+      - there must be `state`, `channel`, `hash` and `data`.
+      - `data.state` must be the previously generated `state` from the peer.
+
+      Send
+
+      ```json
+      {
+        "type": "webrtc",
+        "subtype": "webrtc_call",
+        "target": "simon",
+        "source": "sean",
+        "state": "seans-random-client-state",
+        "channel": "server-made-random-string",
+        "hash": hmac(type,sorted(source,target),channel),
+        "data": {
+          "accept": true,
+          "state": "simons-random-client-state"
+        }
+      }
+      ```
+
+      Simon receives response
+
+      Create WebRTC peer connection and exchange signals by sending the WebRTC
+      sdp data through the server to `target`.
+
+      - `channel` must match.
+      - `state` revceived must match the accepted `state` from corresponding
+        `webrtc_call` response.
+      - `source` must match the accepted `source` from corresponding
+        `webrtc_call` response.
+
+      Additional data can be sent in both ways, with knowlege of `channel`,
+      `target` and valid remote `state`
+
+      ```json
+      {
+        "type": "webrtc",
+        "subtype": "webrtc_signal",
+        "target": "sean",
+        "state": "simons-random-client-state",
+        "channel": "server-made-random-string",
+        "data": {
+          /*sdp*/
+        }
+      }
+      ```
+
+      ```json
+      {
+        "type": "webrtc",
+        "subtype": "webrtc_signal",
+        "target": "simon",
+        "state": "seans-random-client-state",
+        "channel": "server-made-random-string",
+        "data": {
+          /*sdp*/
+        }
+      }
+      ```
+
+      The `webrtc_signal` type can be sent by both parties. The peer connection is
+      created on the fly when none is yet there for the `source`/`target`.
+
+  - name: mcu websocket
+    x-displayName: WebSocket
+    description: >-
+      MCU related operations allow connection of backend MCUs which can handle
+      WebRTC offer/answer/candidate messages from peers.
+x-tagGroups:
+  - name: RTM
+    tags:
+      - rtm
+      - rtm websocket
+  - name: MCU
+    tags:
+      - mcu websocket
+paths:
+  /rtm.connect:
+    post:
+      tags:
+        - rtm
+      summary: Create session
+      description: >-
+        This method starts a RTM API session and and reserves the specific
+        session URL to connect via WebSocket.
+      operationId: rtmConnect
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      parameters:
+        - name: user
+          in: formData
+          required: true
+          type: string
+          description: >-
+            Identifier to use for the session. This is usually unique per user.
+            Certain events are sent to all active sessions which share the same
+            user identifier.
+      responses:
+        '200':
+          description: successful operation
+          schema:
+            $ref: '#/definitions/RTMConnectResponse'
+        '400':
+          description: invalid request
+  '/websocket/{key}':
+    get:
+      tags:
+        - rtm websocket
+      summary: Connect WebSocket
+      description: Connect here to start a RTM WebSocket session.
+      produces:
+        - WebSocket
+      parameters:
+        - name: key
+          in: path
+          description: ID of the WebSocket session to connect.
+          required: true
+          type: string
+      responses:
+        '201':
+          description: successful operation
+        '400':
+          description: invalid request
+        '404':
+          description: key not found
+  /mcu/websocket:
+    get:
+      tags:
+        - mcu websocket
+      summary: Connect WebSocket
+      produces:
+        - WebSocket
+      responses:
+        '201':
+          description: successful operation
+        '400':
+          description: invalid request
+  '/mcu/websocket/{transaction}':
+    get:
+      tags:
+        - mcu websocket
+      summary: Connect WebSocket transaction
+      produces:
+        - WebSocket
+      parameters:
+        - name: transaction
+          in: path
+          description: Transaction ID.
+          required: true
+          type: string
+      responses:
+        '201':
+          description: successful operation
+        '400':
+          description: invalid request
+        '404':
+          description: transaction not found
+definitions:
+  RTMConnectResponse:
+    type: object
+    properties:
+      ok:
+        type: boolean
+        title: Will be true when the request was successful, false otherwise.
+      self:
+        $ref: '#/definitions/Self'
+      url:
+        type: string
+        title: Contains a WebSocket server URL. Connecting to this URL Will iniate the RTM session.
+  Self:
+    type: object
+    title: A small amount of information about the session`s accociated user.
+    properties:
+      id:
+        type: string
+      name:
+        type: string

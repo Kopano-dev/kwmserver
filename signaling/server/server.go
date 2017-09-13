@@ -148,6 +148,15 @@ func (s *Server) Serve(ctx context.Context) error {
 		logger.Infoln("API endpoint janus enabled")
 	}
 
+	if s.config.EnableDocs {
+		if s.config.DocsRoot == "" {
+			return fmt.Errorf("unable to enable docs API without docs root")
+		}
+		docsService := www.NewHTTPService(serveCtx, logger, "/docs", s.config.DocsRoot)
+		httpServices = append(httpServices, docsService)
+		logger.Infof("Docs endpoints from %s enabled", s.config.DocsRoot)
+	}
+
 	if s.config.EnableWww {
 		if s.config.WwwRoot == "" {
 			return fmt.Errorf("unable to enable www API without www root")
