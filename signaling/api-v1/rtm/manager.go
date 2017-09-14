@@ -28,6 +28,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"stash.kopano.io/kgol/rndm"
 
+	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
 
@@ -36,6 +38,7 @@ type Manager struct {
 	id     string
 	logger logrus.FieldLogger
 	ctx    context.Context
+	adminm *admin.Manager
 
 	keys     cmap.ConcurrentMap
 	upgrader *websocket.Upgrader
@@ -47,11 +50,12 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Manager {
+func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, adminm *admin.Manager) *Manager {
 	m := &Manager{
 		id:     id,
 		logger: logger.WithField("manager", "rtm"),
 		ctx:    ctx,
+		adminm: adminm,
 
 		keys: cmap.New(),
 		upgrader: &websocket.Upgrader{
@@ -110,6 +114,7 @@ func (m *Manager) purgeExpiredKeys() {
 type userRecord struct {
 	sync.RWMutex
 	id          string
+	auth        *api.AdminAuthToken
 	when        time.Time
 	exit        time.Time
 	connections []*connection.Connection
@@ -175,7 +180,7 @@ func (m *Manager) purgeEmptyChannels() {
 }
 
 // Connect adds a new connect entry to the managers table with random key.
-func (m *Manager) Connect(ctx context.Context, userID string) (string, error) {
+func (m *Manager) Connect(ctx context.Context, userID string, auth *api.AdminAuthToken) (string, error) {
 	key := rndm.GenerateRandomString(connectKeySize)
 
 	// Add key to table.
@@ -184,7 +189,8 @@ func (m *Manager) Connect(ctx context.Context, userID string) (string, error) {
 	}
 	if userID != "" {
 		record.user = &userRecord{
-			id: userID,
+			id:   userID,
+			auth: auth,
 		}
 	}
 	m.keys.Set(key, record)

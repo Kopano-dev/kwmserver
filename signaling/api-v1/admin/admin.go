@@ -15,29 +15,8 @@
  *
  */
 
-package server
+package admin
 
-import (
-	"github.com/sirupsen/logrus"
+const (
+	maxRequestSize = 1024 * 5
 )
-
-// Config defines a Server's configuration settings.
-type Config struct {
-	ListenAddr string
-
-	WithPprof       bool
-	PprofListenAddr string
-
-	EnableMcuAPI   bool
-	EnableJanusAPI bool
-
-	EnableWww bool
-	WwwRoot   string
-
-	EnableDocs bool
-	DocsRoot   string
-
-	AdminTokensSigningKey []byte
-
-	Logger logrus.FieldLogger
-}

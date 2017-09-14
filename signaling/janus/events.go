@@ -20,7 +20,6 @@ package janus
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
@@ -58,7 +57,7 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 		return err
 	}
 
-	if !m.tokens.Has(envelope.Token) {
+	if !m.adminm.HasToken(getJanusTokenTokensRecordID(envelope.Token)) {
 		m.Logger().Debugln("message with uknown token")
 		return fmt.Errorf("unknown token")
 	}
@@ -140,7 +139,7 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 			c.Send(response)
 			c.RawSend(nil) // This closes, once everything has been sent.
 
-			m.tokens.Remove(envelope.Token)
+			m.adminm.RemoveToken(getJanusTokenTokensRecordID(envelope.Token))
 		}()
 
 		cr.RLock()
@@ -217,18 +216,8 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 
 	case TypeNameKeepAlive:
 		// breaks
-		m.tokens.Upsert(envelope.Token, nil, func(exists bool, valueInMap interface{}, newValue interface{}) interface{} {
-			if !exists {
-				m.logger.Warnln("janus unknown token during keep-alive", envelope.Token)
-				return &tokenRecord{}
-			}
-
-			record := valueInMap.(*tokenRecord)
-			m.tokensMutex.RLock()
-			record.when = time.Now()
-			m.tokensMutex.RUnlock()
-			return record
-		})
+		m.adminm.RefreshToken(getJanusTokenTokensRecordID(envelope.Token))
+		break
 
 	default:
 		m.logger.Warnf("janus unknown incoming janus type %v", envelope.Type)

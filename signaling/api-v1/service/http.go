@@ -36,9 +36,6 @@ const (
 type HTTPService struct {
 	logger   logrus.FieldLogger
 	services []signaling.Service
-
-	//	rtmm *rtm.Manager
-	//	mcum *mcu.Manager
 }
 
 // NewHTTPService creates a new APIv1 with the provided options.

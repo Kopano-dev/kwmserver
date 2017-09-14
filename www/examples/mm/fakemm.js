@@ -38,7 +38,7 @@ class FakeMM {
 	onConnectCall() {
 		console.log('onConnectCall');
 
-		setTimeout(() => {
+		setTimeout(async () => {
 			// NOTE(longsleep): Async in MM as info is received from server.
 			if (this.session) {
 				this.onSessionCreated();
@@ -46,12 +46,16 @@ class FakeMM {
 				const info = {
 					'gateway_url': ''
 				};
-				const iceServers =
+
+				const sessionID = getRandomHexString(32);
+				const token = await fetchAdminToken('', sessionID);
+				console.log('admin token registered', token);
 
 				KWM.KWMInit.init({debug: true});
 
 				this.session = new KWM.KWMInit({
 					server: info.gateway_url,
+					token: token.value,
 					iceServers: this.app.webrtcConfig.iceServers,
 					success: this.onSessionCreated,
 					error: this.onSessionError

@@ -22,14 +22,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
 
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 )
@@ -40,25 +39,25 @@ type Manager struct {
 	logger    logrus.FieldLogger
 	ctx       context.Context
 	mcum      *mcu.Manager
+	adminm    *admin.Manager
 	factories map[string]func(string, *Manager) (Plugin, error)
 
 	upgrader *websocket.Upgrader
 
 	count       uint64
 	handles     uint64
-	tokens      cmap.ConcurrentMap
-	tokensMutex sync.RWMutex
 	connections cmap.ConcurrentMap
 	plugins     cmap.ConcurrentMap
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, mcum *mcu.Manager, factories map[string]func(string, *Manager) (Plugin, error)) *Manager {
+func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, mcum *mcu.Manager, adminm *admin.Manager, factories map[string]func(string, *Manager) (Plugin, error)) *Manager {
 	m := &Manager{
 		id:        id,
 		logger:    logger.WithField("manager", "janus"),
 		ctx:       ctx,
 		mcum:      mcum,
+		adminm:    adminm,
 		factories: factories,
 
 		upgrader: &websocket.Upgrader{
@@ -71,48 +70,11 @@ func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, mcum 
 			},
 		},
 
-		tokens:      cmap.New(),
 		connections: cmap.New(),
 		plugins:     cmap.New(),
 	}
 
-	// Cleanup function.
-	go func() {
-		ticker := time.NewTicker(tokenCleanupInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				m.purgeExpiredTokens()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
 	return m
-}
-
-type tokenRecord struct {
-	when time.Time
-}
-
-func (m *Manager) purgeExpiredTokens() {
-	m.tokensMutex.Lock()
-	defer m.tokensMutex.Unlock()
-
-	expired := make([]string, 0)
-	deadline := time.Now().Add(-tokenExpiration)
-	var record *tokenRecord
-	for entry := range m.tokens.IterBuffered() {
-		record = entry.Val.(*tokenRecord)
-		if record.when.Before(deadline) {
-			expired = append(expired, entry.Key)
-		}
-	}
-	for _, token := range expired {
-		m.tokens.Remove(token)
-	}
 }
 
 // Context Returns the Context of the associated manager.

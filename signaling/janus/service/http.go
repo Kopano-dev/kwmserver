@@ -26,6 +26,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/janus"
 	"stash.kopano.io/kwm/kwmserver/signaling/janus/plugins"
@@ -44,7 +45,7 @@ type HTTPService struct {
 }
 
 // NewHTTPService creates a new HTTP Janus API service with the provided options.
-func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, mcum *mcu.Manager) *HTTPService {
+func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, mcum *mcu.Manager, adminm *admin.Manager) *HTTPService {
 	// create plugin factories
 	factories := make(map[string]func(string, *janus.Manager) (janus.Plugin, error))
 
@@ -60,7 +61,7 @@ func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, mcum *mcu.Ma
 	return &HTTPService{
 		logger: logger,
 
-		janus: janus.NewManager(ctx, "", logger, mcum, factories),
+		janus: janus.NewManager(ctx, "", logger, mcum, adminm, factories),
 	}
 }
 

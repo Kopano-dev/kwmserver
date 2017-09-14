@@ -39,7 +39,9 @@ const (
 func (m *Manager) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
 	c := cors.New(cors.Options{
 		// TODO(longsleep): Add to configuration.
-		AllowedOrigins: []string{"*"},
+		AllowedOrigins:   []string{"*"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization"},
+		AllowCredentials: true,
 	})
 
 	router.Handle("/rtm.connect", c.Handler(wrapper(m.MakeHTTPConnectHandler(router))))
@@ -52,14 +54,21 @@ func (m *Manager) AddRoutes(ctx context.Context, router *mux.Router, wrapper fun
 func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// TODO(longsleep): check authentication
+		auth, authOK := m.adminm.IsValidAdminAuthTokenRequest(req)
+		if !authOK {
+			http.Error(rw, "", http.StatusForbidden)
+			return
+		}
+
 		req.ParseForm()
 		user := req.Form.Get("user")
 		if user == "" {
 			http.Error(rw, "missing user parameter", http.StatusBadRequest)
+			return
 		}
 
 		// create random URL to websocket endpoint
-		key, err := m.Connect(req.Context(), user)
+		key, err := m.Connect(req.Context(), user, auth)
 		if err != nil {
 			m.logger.WithError(err).Errorln("rtm connect failed")
 			http.Error(rw, "request failed", http.StatusInternalServerError)
@@ -73,6 +82,8 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 			http.Error(rw, "request failed", http.StatusInternalServerError)
 			return
 		}
+
+		m.adminm.RefreshAdminAuthToken(auth)
 
 		response := &api.RTMConnectResponse{
 			ResponseOK: *api.ResponseOKValue,

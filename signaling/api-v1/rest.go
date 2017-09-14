@@ -38,3 +38,12 @@ func NewResponseError(s string) *ResponseError {
 		Error: s,
 	}
 }
+
+// An AdminAuthToken represents an auth token with type and value and an optional
+// session ID.
+type AdminAuthToken struct {
+	Subject   string `json:"sub,omitempty"`
+	Type      string `json:"type"`
+	Value     string `json:"value,omitempty"`
+	ExpiresAt int64  `json:"exp,omitempty"`
+}

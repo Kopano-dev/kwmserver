@@ -39,6 +39,16 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 		return nil
 	}
 
+	kr := record.(*keyRecord)
+	if kr.user == nil || kr.user.auth == nil {
+		http.Error(rw, "", http.StatusForbidden)
+		return nil
+	}
+	if !m.adminm.IsValidAdminAuthToken(kr.user.auth) {
+		http.Error(rw, "invalid or expired token", http.StatusForbidden)
+		return nil
+	}
+
 	ws, err := m.upgrader.Upgrade(rw, req, nil)
 	if _, ok := err.(websocket.HandshakeError); ok {
 		m.logger.WithError(err).Debugln("websocket handshake error")
@@ -47,7 +57,8 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 		return err
 	}
 
-	kr := record.(*keyRecord)
+	m.adminm.RefreshAdminAuthToken(kr.user.auth)
+
 	id := strconv.FormatUint(atomic.AddUint64(&m.count, 1), 10)
 
 	loggerFields := logrus.Fields{

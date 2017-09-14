@@ -15,29 +15,20 @@
  *
  */
 
-package server
+package admin
 
 import (
-	"github.com/sirupsen/logrus"
+	"context"
+	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
-// Config defines a Server's configuration settings.
-type Config struct {
-	ListenAddr string
+// AddRoutes adds HTTP routes to the provided router, wrapped with the provided
+// wrapper where appropriate.
+func (m *Manager) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
+	r := router.PathPrefix("/admin").Subrouter()
+	m.addAuthRoutes(ctx, r.PathPrefix("/auth").Subrouter(), wrapper)
 
-	WithPprof       bool
-	PprofListenAddr string
-
-	EnableMcuAPI   bool
-	EnableJanusAPI bool
-
-	EnableWww bool
-	WwwRoot   string
-
-	EnableDocs bool
-	DocsRoot   string
-
-	AdminTokensSigningKey []byte
-
-	Logger logrus.FieldLogger
+	return router
 }

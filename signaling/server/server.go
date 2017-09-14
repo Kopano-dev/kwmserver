@@ -31,8 +31,10 @@ import (
 	"github.com/longsleep/go-metrics/loggedwriter"
 	"github.com/longsleep/go-metrics/timing"
 	"github.com/sirupsen/logrus"
+	"stash.kopano.io/kgol/rndm"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
@@ -120,22 +122,31 @@ func (s *Server) Serve(ctx context.Context) error {
 	defer serveCtxCancel()
 
 	logger := s.logger
-	httpServices := []signaling.Service{}
-	apiServices := []signaling.Service{}
+
+	// Fill configuration as needed.
+	if s.config.AdminTokensSigningKey == nil {
+		s.config.AdminTokensSigningKey = make([]byte, 32)
+		if _, err := rndm.ReadRandomBytes(s.config.AdminTokensSigningKey); err != nil {
+			return fmt.Errorf("unable to create random key, %v", err)
+		}
+		logger.Warnln("using random admin tokens singing key")
+	}
 
 	// API services.
-	rtmm := rtm.NewManager(serveCtx, "", logger)
-	apiServices = append(apiServices, rtmm)
-
+	adminm := admin.NewManager(serveCtx, "", logger)
+	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
+	rtmm := rtm.NewManager(serveCtx, "", logger, adminm)
+	apiv1Services := []signaling.Service{rtmm, adminm}
 	var mcum *mcu.Manager
 	if s.config.EnableMcuAPI {
 		mcum = mcu.NewManager(serveCtx, "", logger)
-		apiServices = append(apiServices, mcum)
+		apiv1Services = append(apiv1Services, mcum)
 		logger.Infoln("API endpoint mcu enabled")
 	}
+	apiv1Service := apiv1.NewHTTPService(serveCtx, logger, apiv1Services)
 
 	// HTTP services.
-	apiv1Service := apiv1.NewHTTPService(serveCtx, logger, apiServices)
+	httpServices := []signaling.Service{}
 	httpServices = append(httpServices, apiv1Service)
 
 	if s.config.EnableJanusAPI {
@@ -143,7 +154,7 @@ func (s *Server) Serve(ctx context.Context) error {
 			return fmt.Errorf("unable to enable janus API without mcu")
 		}
 
-		janusService := janus.NewHTTPService(serveCtx, logger, mcum)
+		janusService := janus.NewHTTPService(serveCtx, logger, mcum, adminm)
 		httpServices = append(httpServices, janusService)
 		logger.Infoln("API endpoint janus enabled")
 	}

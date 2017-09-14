@@ -31,6 +31,14 @@ import { WebRTCManager } from './webrtc';
  */
 let websocketSequence = 0;
 
+const authorizationTypeToken = 'Token';
+const authorizationTypeBearer = 'Bearer';
+
+interface IKWMOptions {
+	authorizationType?: string;
+	authorizationValue?: string;
+}
+
 /**
  * IReplyTimeoutRecord is an interface to hold registered reply timeouts with a
  * resolve function.
@@ -71,7 +79,13 @@ class KWMInit {
 			}
 		}
 
-		const kwm = new KWM(url);
+		const options: IKWMOptions = {};
+		if (callbacks.token) {
+			options.authorizationType = authorizationTypeToken;
+			options.authorizationValue = callbacks.token;
+		}
+
+		const kwm = new KWM(url, options);
 		kwm.webrtc.config = {
 			iceServers: callbacks.iceServers || [],
 		};
@@ -81,6 +95,12 @@ class KWMInit {
 				callbacks.success();
 			}, 0);
 		}
+		if (callbacks.error) {
+			kwm.onerror = event => {
+				callbacks.error(event);
+			};
+		}
+
 		return kwm;
 	}
 }
@@ -129,6 +149,7 @@ export class KWM {
 	public webrtc: WebRTCManager;
 
 	private baseURI: string;
+	private options: IKWMOptions;
 	private socket?: WebSocket;
 	private closing: boolean = false;
 	private reconnector: number;
@@ -141,11 +162,13 @@ export class KWM {
 	 * Creates KWM instance with the provided parameters.
 	 *
 	 * @param baseURI The base URI to the KWM server API.
+	 * @param options Additional options.
 	 */
-	constructor(baseURI: string = '') {
+	constructor(baseURI: string = '', options?: IKWMOptions) {
 		this.webrtc = new WebRTCManager(this);
 
 		this.baseURI = baseURI.replace(/\/$/, '');
+		this.options = options || {};
 		this.replyHandlers = new Map<number, IReplyTimeoutRecord>();
 	}
 
@@ -279,6 +302,9 @@ export class KWM {
 				if (socket === this.socket && latency !== this.latency) {
 					this.latency = latency;
 				}
+				if (message.auth && this.options.authorizationType) {
+					this.options.authorizationValue = message.auth;
+				}
 			}).catch(err => {
 				if (socket && this.socket === socket) {
 					console.warn('heartbeat failed', err);
@@ -302,8 +328,12 @@ export class KWM {
 
 		return new Promise<void>(async (resolve, reject) => {
 			let connectResult: IRTMConnectResponse;
+			let authorizationHeader: string = '';
+			if (this.options.authorizationType && this.options.authorizationValue) {
+				authorizationHeader = this.options.authorizationType + ' ' + this.options.authorizationValue;
+			}
 			try {
-				connectResult = await this.rtmConnect(user);
+				connectResult = await this.rtmConnect(user, authorizationHeader);
 			} catch (err) {
 				console.warn('failed to fetch connection details', err);
 				connectResult = {
@@ -319,6 +349,12 @@ export class KWM {
 				this.connecting = false;
 				this.dispatchStateChangedEvent();
 				if (this.reconnecting) {
+					if (connectResult.error && connectResult.error.code === 'http_error_403') {
+						console.warn('giving up reconnect, as connect returned forbidden', connectResult.error.msg);
+						this.reconnecting = false;
+						this.dispatchStateChangedEvent();
+						this.dispatchErrorEvent(connectResult.error);
+					}
 					reconnector();
 				} else if (connectResult.error) {
 					reject(new RTMDataError(connectResult.error));
@@ -407,15 +443,21 @@ export class KWM {
 	 * Call KWM RTM rtm.connect via REST to retrieve Websocket endpoint details.
 	 *
 	 * @param user The user ID.
+	 * @param authorizataionHeader Authorization HTTP request header value.
 	 * @returns Promise with the unmarshalled response data once received.
 	 */
-	private async rtmConnect(user: string): Promise<IRTMConnectResponse> {
+	private async rtmConnect(user: string, authorizationHeader?: string): Promise<IRTMConnectResponse> {
 		const url = this.baseURI + '/api/v1/rtm.connect';
+		const headers = new Headers();
+		if (authorizationHeader) {
+			headers.set('Authorization', authorizationHeader);
+		}
 		const params = new URLSearchParams();
 		params.set('user', user);
 
 		return fetch(url, {
 			body: params,
+			headers,
 			method: 'POST',
 			mode: 'cors',
 		}).then(response => {

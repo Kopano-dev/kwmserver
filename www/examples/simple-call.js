@@ -36,14 +36,15 @@ window.app = new Vue({
 			accept: false
 		},
 		gUMconstraints: commonGumHelper.defaultConstraints,
-		webrtcConfig: commonWebRTCDefaultConfig
+		webrtcConfig: commonWebRTCDefaultConfig,
+		kwmOptions: {}
 	},
 	components: commonComponents({
 		// local components.
 	}),
 	created: function() {
 		console.info('welcome to simple-call');
-		this.kwm = new KWM();
+		this.kwm = new KWM('', this.kwmOptions);
 		this.kwm.onstatechanged = event => {
 			this.connecting = event.connecting;
 			this.connected = event.connected;
@@ -138,13 +139,24 @@ window.app = new Vue({
 	watch: {
 	},
 	methods: {
-		connect: function() {
+		connect: async function() {
 			console.log('connect clicked');
+			try {
+				// Get admin token.
+				const token = await fetchAdminToken();
+				console.log('admin token received', token);
+				this.kwmOptions.authorizationType = token.type;
+				this.kwmOptions.authorizationValue = token.value;
+			} catch (err) {
+				console.error('connect auth failed', err);
+				return;
+			}
 
 			this.kwm.connect(this.source).then(() => {
 				console.log('connected');
 			}).catch(err => {
 				console.error('connect failed', err);
+				this.error = err;
 			});
 		},
 		reload: function() {

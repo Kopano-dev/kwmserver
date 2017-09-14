@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
@@ -37,7 +36,13 @@ import (
 
 const (
 	maxRequestSize = 1024 * 5
+
+	janusTokenTokensRecordIDPrefix = "janus"
 )
+
+func getJanusTokenTokensRecordID(value string) string {
+	return fmt.Sprintf("%s-%s", janusTokenTokensRecordIDPrefix, value)
+}
 
 // ConnectionRecord is used as binder between janus data and connections.
 type ConnectionRecord struct {
@@ -78,7 +83,7 @@ func (m *Manager) HandleAdmin(ctx context.Context, rw http.ResponseWriter, req *
 			return nil
 		}
 
-		m.tokens.Set(addToken.Token, &tokenRecord{time.Now()})
+		m.adminm.SetToken(getJanusTokenTokensRecordID(addToken.Token), nil)
 
 		response := &ResponseData{
 			Type: TypeNameSuccess,

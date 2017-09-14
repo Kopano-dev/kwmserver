@@ -16,3 +16,5 @@ import:
   version: v1.2
 - package: stash.kopano.io/kgol/rndm
   version: ^1.0.0
+- package: github.com/dgrijalva/jwt-go
+  version: v3.0.0

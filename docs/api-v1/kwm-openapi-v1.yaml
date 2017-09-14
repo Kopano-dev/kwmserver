@@ -9,7 +9,7 @@ host: 'localhost:8778'
 basePath: /api/v1
 tags:
   - name: rtm
-    x-displayName: RESTful
+    x-displayName: Endpoints
     description: |
       Allows receiving and sending messages in real time via a WebSocket based
       API.
@@ -207,7 +207,12 @@ tags:
 
       The `webrtc_signal` type can be sent by both parties. The peer connection is
       created on the fly when none is yet there for the `source`/`target`.
-
+  - name: admin
+    x-displayName: Overview
+    description: >-
+      Admin functionality to directly change server behavior.
+  - name: admin endpoints
+    x-displayName: Endpoints
   - name: mcu websocket
     x-displayName: WebSocket
     description: >-
@@ -218,6 +223,10 @@ x-tagGroups:
     tags:
       - rtm
       - rtm websocket
+  - name: admin
+    tags:
+      - admin
+      - admin endpoints
   - name: MCU
     tags:
       - mcu websocket
@@ -245,11 +254,11 @@ paths:
             Certain events are sent to all active sessions which share the same
             user identifier.
       responses:
-        '200':
+        200:
           description: successful operation
           schema:
             $ref: '#/definitions/RTMConnectResponse'
-        '400':
+        400:
           description: invalid request
   '/websocket/{key}':
     get:
@@ -266,12 +275,74 @@ paths:
           required: true
           type: string
       responses:
-        '201':
-          description: successful operation
-        '400':
+        101:
+          description: switching to WebSocket
+        400:
           description: invalid request
-        '404':
+        404:
           description: key not found
+  /admin/auth/tokens:
+    post:
+      security:
+        - Auth token: []
+      tags:
+        - admin endpoints
+      summary: Create token
+      operationId: adminAuthCreateToken
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          description: Auth token object that should be created
+          required: true
+          schema:
+            $ref: '#/definitions/AdminAuthToken'
+      responses:
+        200:
+          description: auth token created
+          schema:
+            $ref: '#/definitions/AdminAuthToken'
+        400:
+          description: invalid request
+    get:
+      tags:
+        - admin endpoints
+      summary: List valid tokens
+      operationId: adminAuthListTokens
+      produces:
+        - application/json
+      parameters: []
+      responses:
+        200:
+          description: successful operation
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/AdminAuthToken'
+    delete:
+      tags:
+        - admin endpoints
+      summary: Remove token
+      operationId: adminAuthRemoveToken
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          description: Auth token object to be removed
+          required: true
+          schema:
+            $ref: '#/definitions/AdminAuthToken'
+      responses:
+        204:
+          description: auth token removed
+        404:
+          description: unknown auth token
   /mcu/websocket:
     get:
       tags:
@@ -280,11 +351,11 @@ paths:
       produces:
         - WebSocket
       responses:
-        '201':
-          description: successful operation
-        '400':
+        101:
+          description: switching to WebSocket
+        400:
           description: invalid request
-  '/mcu/websocket/{transaction}':
+  /mcu/websocket/{transaction}:
     get:
       tags:
         - mcu websocket
@@ -298,12 +369,21 @@ paths:
           required: true
           type: string
       responses:
-        '201':
-          description: successful operation
-        '400':
+        101:
+          description: switching to WebSocket
+        400:
           description: invalid request
-        '404':
+        404:
           description: transaction not found
+securityDefinitions:
+  Auth token:
+    type: apiKey
+    in: header
+    name: Authorization
+    description: >-
+      Authorization header value uses the format `${TYPE} ${VALUE}`. This can be
+      used together with tokens registered with the `/admin/auth/tokens` API
+      endpoints.
 definitions:
   RTMConnectResponse:
     type: object
@@ -312,15 +392,24 @@ definitions:
         type: boolean
         title: Will be true when the request was successful, false otherwise.
       self:
-        $ref: '#/definitions/Self'
+        $ref: '#/definitions/RTMSelf'
       url:
         type: string
         title: Contains a WebSocket server URL. Connecting to this URL Will iniate the RTM session.
-  Self:
+  RTMSelf:
     type: object
-    title: A small amount of information about the session`s accociated user.
+    title: A small amount of information about the RTM session`s accociated user.
     properties:
       id:
         type: string
       name:
+        type: string
+  AdminAuthToken:
+    type: object
+    required:
+      - type
+    properties:
+      type:
+        type: string
+      value:
         type: string

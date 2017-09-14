@@ -96,3 +96,28 @@ const commonGumHelper = {
 		}
 	}
 };
+
+async function fetchAdminToken(baseURI, sessionID) {
+	const url = (baseURI ? baseURI : '') + '/api/v1/admin/auth/tokens';
+	const payload = {
+		'type': 'Token'
+	};
+	if (sessionID) {
+		payload.id = sessionID;
+	}
+
+	return fetch(url, {
+		body: JSON.stringify(payload),
+		method: 'POST'
+	}).then(response => {
+		return response.json();
+	});
+}
+
+function getRandomHexString(n) {
+	const b = new Uint8Array(n);
+	window.crypto.getRandomValues(b);
+	const pad = s => '00'.slice(s.length) + s;
+	const mapped = Array.prototype.map.call(b, c => pad(c.toString(16)));
+	return mapped.join('');
+}

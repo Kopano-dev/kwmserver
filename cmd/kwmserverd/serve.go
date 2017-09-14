@@ -20,6 +20,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -49,6 +50,7 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("www-root", "./www", "Full path for static files to be served when --enable-www is used, defaults to ./www")
 	serveCmd.Flags().Bool("enable-docs", false, "Enables serving documentation")
 	serveCmd.Flags().String("docs-root", "./docs", "Full path to docs folder to be served when --enable-docs is used, defaults to ./docs")
+	serveCmd.Flags().String("admin-tokens-key", "", "Full path to the key file to be used to sign admin tokens")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -104,6 +106,22 @@ func serve(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("docs-root must be a directory")
 		}
 		config.DocsRoot = docsRoot
+	}
+	adminTokensSigningKey, _ := cmd.Flags().GetString("admin-tokens-key")
+	if adminTokensSigningKey != "" {
+		if _, errStat := os.Stat(adminTokensSigningKey); errStat != nil {
+			return fmt.Errorf("admin-tokens-key file not found: %v", errStat)
+		}
+		if f, errOpen := os.Open(adminTokensSigningKey); errOpen == nil {
+			var errRead error
+			config.AdminTokensSigningKey, errRead = ioutil.ReadAll(f)
+			f.Close()
+			if errRead != nil {
+				return fmt.Errorf("failed to read admin-tokens-key file: %v", errRead)
+			}
+		} else {
+			return fmt.Errorf("failed to open admin-tokens-key file: %v", errOpen)
+		}
 	}
 
 	srv, err := server.NewServer(config)

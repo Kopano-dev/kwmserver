@@ -15,50 +15,42 @@
  *
  */
 
-package server
+package admin
 
 import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
 
-var logger = &logrus.Logger{
-	Out:       os.Stderr,
-	Formatter: &logrus.TextFormatter{DisableColors: true},
-	Level:     logrus.DebugLevel,
+var adminTokenSigningKey = []byte("test-key")
+
+func dummyWrapper(next http.Handler) http.Handler {
+	return next
 }
 
-var adminTokensSigningKey = []byte("test-key")
+func newTestManager(ctx context.Context, t *testing.T) (*httptest.Server, *Manager, http.Handler) {
+	manager := NewManager(ctx, "", logrus.New())
+	manager.AddTokenKey("", adminTokenSigningKey)
 
-func newTestServer(ctx context.Context, t *testing.T) (*httptest.Server, *Server, http.Handler, *Config) {
-	config := &Config{
-		AdminTokensSigningKey: adminTokensSigningKey,
-
-		Logger: logger,
-	}
-
-	server, err := NewServer(config)
-	if err != nil {
-		t.Fatal(err)
-	}
 	router := mux.NewRouter()
-	server.AddRoutes(ctx, router, nil)
+
+	manager.AddRoutes(ctx, router, dummyWrapper)
 
 	s := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		router.ServeHTTP(rw, req)
 	}))
 
-	return s, server, router, config
+	return s, manager, router
 }
 
-func TestNewTestServer(t *testing.T) {
+func TestNewTestManager(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	newTestServer(ctx, t)
+
+	newTestManager(ctx, t)
 }

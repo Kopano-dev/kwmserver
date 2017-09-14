@@ -149,6 +149,27 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 		if err != nil {
 			break
 		}
+		// Refresh user record data.
+		bound := c.Bound()
+		if bound == nil {
+			// Do not reply to pings which do not have a user.
+			return nil
+		}
+		ur := bound.(*userRecord)
+		if ur.auth == nil {
+			// Do not reply to pings without auth in user record.
+			return nil
+		}
+		m.adminm.RefreshAdminAuthToken(ur.auth)
+		if time.Unix(ur.auth.ExpiresAt, 0).Before(time.Now().Add(time.Minute * 15)) {
+			// Inject updated auth
+			newToken, errToken := m.adminm.SignAdminAuthToken(ur.auth)
+			if errToken != nil {
+				return fmt.Errorf("failed to create new signed token on ping reply: %v", errToken)
+			}
+			ping["auth"] = newToken
+		}
+
 		// Send back same data as pong.
 		ping["type"] = api.RTMTypeNamePong
 		err = c.Send(&ping)
