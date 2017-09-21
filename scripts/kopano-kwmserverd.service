@@ -9,7 +9,9 @@ ExecStart=/usr/bin/rkt \
 	--insecure-options=image \
 	run \
 	--port=www:127.0.0.1:8778 \
-	/srv/images/kopano-kwmserverd-latest-linux-amd64.aci
+	--volume admin-tokens-key,kind=host,source=/etc/kopano/kwm-admin-tokens.key \
+	/srv/images/kopano-kwmserverd-latest-linux-amd64.aci -- \
+	--admin-tokens-key /admin-tokens.key
 ExecStopPost=/usr/bin/rkt gc --mark-only
 KillMode=mixed
 Restart=always

@@ -18,11 +18,9 @@ acbuild --debug copy $BINARY /bin/kwmserverd
 acbuild --debug copy www/ /srv/www
 acbuild --debug set-exec -- /bin/kwmserverd serve \
 	--listen 0.0.0.0:8778 \
-	--enable-mcu-api \
-	--enable-janus-api \
-	--enable-www \
 	--www-root /srv/www
 acbuild --debug port add www tcp 8778
+acbuild --debug mount add admin-tokens-key /admin-tokens.key --read-only
 acbuild --debug label add version $VERSION
 acbuild --debug label add arch $ARCH
 acbuild --debug label add os $HOSTOS

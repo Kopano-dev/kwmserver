@@ -80,7 +80,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	enableWww, _ := cmd.Flags().GetBool("enable-www")
 	config.EnableWww = enableWww
 	wwwRoot, _ := cmd.Flags().GetString("www-root")
-	if wwwRoot != "" {
+	if enableWww && wwwRoot != "" {
 		wwwRoot, err = filepath.Abs(wwwRoot)
 		if err != nil {
 			return err
@@ -95,7 +95,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	enableDocs, _ := cmd.Flags().GetBool("enable-docs")
 	config.EnableDocs = enableDocs
 	docsRoot, _ := cmd.Flags().GetString("docs-root")
-	if docsRoot != "" {
+	if enableDocs && docsRoot != "" {
 		docsRoot, err = filepath.Abs(docsRoot)
 		if err != nil {
 			return err
