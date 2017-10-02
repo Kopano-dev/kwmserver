@@ -1,8 +1,8 @@
 # Tools
 
-YARN   = yarn
-TSLINT = tslint
-ESLINT = eslint
+YARN   ?= yarn
+TSLINT ?= tslint
+ESLINT ?= eslint
 
 # Variables
 DIST := ./dist
