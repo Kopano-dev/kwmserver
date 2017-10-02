@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const BannerPlugin = require('webpack').BannerPlugin;
 const DefinePlugin = require('webpack').DefinePlugin;
-const UglifyJsPlugin = require('webpack').optimize.UglifyJsPlugin;
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 const LicenseWebpackPlugin = require('license-webpack-plugin').LicenseWebpackPlugin;
 const buildVersion = process.env.BUILD_VERSION || 'v0.0.0-no-proper-build';
 const buildDate = process.env.BUILD_DATE || new Date();
@@ -30,6 +30,12 @@ module.exports = {
 	},
 	devtool: 'source-map',
 	plugins: [
+		new UglifyJsPlugin({
+			uglifyOptions: {
+				ecma: 6,
+				warnings: true
+			}
+		}),
 		new DefinePlugin({
 			__VERSION__: JSON.stringify(buildVersion)
 		}),

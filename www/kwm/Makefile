@@ -20,11 +20,11 @@ $(DIST): ; $(info creating dist path ...) @
 
 .PHONY: kwm
 kwm: vendor | $(DIST) ; $(info building $@ ...) @
-	@BUILD_VERSION=$(VERSION) BUILD_DATE=$(DATE) $(YARN) webpack -- -p
+	@BUILD_VERSION=$(VERSION) BUILD_DATE=$(DATE) $(YARN) webpack --
 
 .PHONY: kwm-dev
 kwm-dev: vendor | $(DIST) ; $(info building and watching $@ ...) @
-	@BUILD_VERSION=$(VERSION) BUILD_DATE=$(DATE) $(YARN) webpack -- -p --progress --color --watch
+	@BUILD_VERSION=$(VERSION) BUILD_DATE=$(DATE) $(YARN) webpack -- --progress --color --watch
 
 .PHONY: docs
 docs: vendor | $(DIST) ; $(info building $@ ...) @
