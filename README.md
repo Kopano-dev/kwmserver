@@ -15,9 +15,6 @@ Make sure you have Go 1.8 installed. This assumes your GOPATH is `~/go` and
 you have `~/go/bin` in your $PATH and you have [Glide](https://github.com/Masterminds/glide)
 installed as well.
 
-NOTE: currently some dependencies are non-public in the Kopano Bitbucket. Thus
-glide will ask for your credentials on install.
-
 ```
 mkdir -p ~/go/src/stash.kopano.io/kwm
 cd ~/go/src/stash.kopano.io/kwm
