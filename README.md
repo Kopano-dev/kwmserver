@@ -40,6 +40,40 @@ API documentation.
 Start `kwmserverd` with the `--enable-docs` parameter to make the `./docs` folder
 available at `/docs` URL for easy access to documentation.
 
+## Integration
+
+### Mattermost
+
+Kopano Webmeetings can be used with Mattermost to provide WebRTC video calls
+within Mattermost.
+
+Mattermost uses the `admin` API to create shared tokens and thus `kwmserverd`
+has to be started with `--admin-tokens-key` parameter.
+
+In Mattermost `config.json` use the `webrtc` section to configure Kopano
+Webmeetings:
+
+```json
+"WebrtcSettings": {
+	"Enable": true,
+	"GatewayType": "kopano-webmeetings",
+	"GatewayWebsocketUrl": "wss://url-to-kwmserverd",
+	"GatewayAdminUrl": "https://url-to-kwmserverd",
+	"GatewayAdminSecret": "this-is-not-used",
+}
+```
+Make sure to set `GatewayWebsocketUrl` to a public routable URL which gets
+routed to the base URL of `kwmserverd`. Mattermost only supports websocket
+URLs here, so prefix the URL with `wss://`. KWM handles this automagically
+and uses the correct protocol as needed.
+
+The `GatewayAdminUrl` is used internally by the Mattermost server and thus can
+be a local/non-public URL, eg `http://127.0.0.1:8778`. If you choose to expose
+the Admin API public, make sure to limit access to requests from Mattermost as
+KMW currently does not use the `GatewayAdminSecret` option to protect the admin
+API by itself.
+
+
 ## License
 
 See `LICENSE.txt` for licensing information of this project.
