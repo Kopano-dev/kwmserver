@@ -3,3 +3,7 @@
 /.gopath
 /docs/node_modules
 /www/kwm
+/test/tests.*
+/golint.txt
+/govet.txt
+/dist
