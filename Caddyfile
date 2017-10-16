@@ -1,8 +1,6 @@
 # Example Caddyfile to use with https://caddyserver.com
 #
-# This assumes you have a cookie based login area running at
-# 127.0.0.1:8999/provider/simple, konnectd running on 127.0.0.1:8777 and the
-# example backend running on 127.0.0.1:8088.
+# This assumes you have kwmserverd running on 127.0.0.1:8778.
 
 0.0.0.0:8843 {
 	errors stderr
@@ -16,12 +14,10 @@
 		websocket
 	}
 
-	# kwmserverd janus compat api
-	proxy /janus 127.0.0.1:8778 {
-		websocket
-	}
+	# kwmserverd admin
+	#internal /api/v1/admin
 
-	# kwmserverd
+	# kwmserverd API
 	proxy /api/v1 127.0.0.1:8778
 }
 

@@ -24,6 +24,10 @@ make
 bin/kwmserverd serve --listen=127.0.0.1:8778
 ```
 
+Kopano Webmeetings server should be exposed with TLS. Usually a frontend HTTP
+proxy like Nginx is suitable. For inspiration take a look at the `Caddyfile` in
+the root of this project.
+
 ## Run unit tests
 
 ```
