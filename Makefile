@@ -9,6 +9,9 @@ GLIDE   ?= glide
 GOLINT  ?= golint
 
 GO2XUNIT ?= go2xunit
+GOCOV    ?= gocov
+GOCOVXML ?= gocov-xml
+GOCOVMERGE ?= gocovmerge
 
 # Cgo
 CGO_ENABLED ?= 0
@@ -88,6 +91,27 @@ test-xml: vendor | $(BASE) ; $(info running $(NAME:%=% )tests ...)	@
 	@mkdir -p test
 	cd $(BASE) && 2>&1 CGO_ENABLED=$(CGO_ENABLED) $(GO) test -timeout $(TIMEOUT)s $(ARGS) -v $(TESTPKGS) | tee test/tests.output
 	$(GO2XUNIT) -fail -input test/tests.output -output test/tests.xml
+
+COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
+COVERAGE_XML = $(COVERAGE_DIR)/coverage.xml
+COVERAGE_HTML = $(COVERAGE_DIR)/coverage.html
+.PHONY: test-coverage
+test-coverage: COVERAGE_DIR := $(CURDIR)/test/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+test-coverage: vendor | $(BASE); $(info running coverage tests ...)
+	@mkdir -p $(COVERAGE_DIR)/coverage
+	@rm -f test/tests.output
+	@cd $(BASE) && for pkg in $(TESTPKGS); do \
+		CGO_ENABLED=$(CGO_ENABLED) $(GO) test -timeout $(TIMEOUT)s -v \
+			-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $$pkg | \
+					grep '^$(PACKAGE)/' | grep -v '^$(PACKAGE)/vendor/' | \
+					tr '\n' ',')$$pkg \
+			-covermode=atomic \
+			-coverprofile="$(COVERAGE_DIR)/coverage/`echo $$pkg | tr "/" "-"`.cover" $$pkg | tee -a test/tests.output ;\
+	done
+	@$(GO2XUNIT) -fail -input test/tests.output -output test/tests.xml
+	@$(GOCOVMERGE) $(COVERAGE_DIR)/coverage/*.cover > $(COVERAGE_PROFILE)
+	@$(GO) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
+	@$(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
 
 # Glide
 

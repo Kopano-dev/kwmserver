@@ -10,6 +10,7 @@ pipeline {
 	environment {
 		GLIDE_VERSION = 'v0.13.0'
 		GLIDE_HOME = '/tmp/.glide'
+		GOBIN = '/usr/local/bin'
 	}
 	stages {
 		stage('Bootstrap') {
@@ -18,6 +19,9 @@ pipeline {
 				sh 'curl -sSL https://github.com/Masterminds/glide/releases/download/$GLIDE_VERSION/glide-$GLIDE_VERSION-linux-amd64.tar.gz | tar -vxz -C /usr/local/bin --strip=1'
 				sh 'go get -v github.com/golang/lint/golint'
 				sh 'go get -v github.com/tebeka/go2xunit'
+				sh 'go get -v github.com/axw/gocov/...'
+				sh 'go get -v github.com/AlekSi/gocov-xml'
+				sh 'go get -v github.com/wadey/gocovmerge'
 			}
 		}
 		stage('Lint') {
@@ -35,9 +39,25 @@ pipeline {
 			}
 		}
 		stage('Test') {
+			when {
+				not {
+					branch 'master'
+				}
+			}
 			steps {
 				echo 'Testing..'
 				sh 'make test-xml-short'
+			}
+		}
+		stage('Test with coverage') {
+			when {
+				branch 'master'
+			}
+			steps {
+				echo 'Testing with coverage..'
+				sh 'make test-coverage COVERAGE_DIR=test/coverage'
+				publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'test/coverage', reportFiles: 'coverage.html', reportName: 'Go Coverage Report HTML', reportTitles: ''])
+				step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'test/coverage/coverage.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])
 			}
 		}
 		stage('Dist') {
