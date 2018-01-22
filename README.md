@@ -25,8 +25,8 @@ bin/kwmserverd serve --listen=127.0.0.1:8778
 ```
 
 Kopano Webmeetings server should be exposed with TLS. Usually a frontend HTTP
-proxy like Nginx is suitable. For inspiration take a look at the `Caddyfile` in
-the root of this project.
+proxy like Nginx is suitable. For an example take a look at the `Caddyfile.example`
+in the root of this project.
 
 ## Run unit tests
 
@@ -51,9 +51,8 @@ video calls via WebRTC.
 
 ### Mattermost
 
-To integrate Kopano Webmeetings with Mattermost, a Mattermost plugin for 
+To integrate Kopano Webmeetings with Mattermost, a Mattermost plugin for
 Kopano Webmeetings can be used to enable Audio/Video calling within Mattermost.
-
 
 ## License
 

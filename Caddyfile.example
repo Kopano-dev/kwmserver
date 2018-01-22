@@ -7,13 +7,15 @@
 	log stdout
 
 	tls self_signed
-	root ./www
 
-	# kwmserverd websocket
+	# kwmserverd websocket API
 	proxy /api/v1/websocket 127.0.0.1:8778 {
 		websocket
 	}
 
-	# kwmserverd API (full, including admin)
+	# kwmserverd API
 	proxy /api/v1 127.0.0.1:8778
+
+	# kwmserverd admin API - internal only
+	internal /api/v1/admin
 }
