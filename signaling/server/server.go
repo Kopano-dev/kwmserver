@@ -123,26 +123,38 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	logger := s.logger
 
-	// Fill configuration as needed.
+	// API services.
+	apiv1Services := []signaling.Service{}
+
+	// Admin API.
+	adminm := admin.NewManager(serveCtx, "", logger)
 	if s.config.AdminTokensSigningKey == nil {
 		s.config.AdminTokensSigningKey = make([]byte, 32)
 		if _, err := rndm.ReadRandomBytes(s.config.AdminTokensSigningKey); err != nil {
 			return fmt.Errorf("unable to create random key, %v", err)
 		}
-		logger.Warnln("using random admin tokens singing key")
+		logger.Warnln("using random admin tokens singing key - API endpoint admin disabled")
+	} else {
+		// Only expose admin API when a key was set.
+		apiv1Services = append(apiv1Services, adminm)
+		logger.Infoln("API endpoint admin enabled")
 	}
-
-	// API services.
-	adminm := admin.NewManager(serveCtx, "", logger)
 	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
+
+	// RTM API.
 	rtmm := rtm.NewManager(serveCtx, "", logger, adminm)
-	apiv1Services := []signaling.Service{rtmm, adminm}
+	apiv1Services = append(apiv1Services, rtmm)
+	logger.Infoln("API endpoint rtm enabled")
+
+	// MCU API.
 	var mcum *mcu.Manager
 	if s.config.EnableMcuAPI {
 		mcum = mcu.NewManager(serveCtx, "", logger)
 		apiv1Services = append(apiv1Services, mcum)
 		logger.Infoln("API endpoint mcu enabled")
 	}
+
+	// API service.
 	apiv1Service := apiv1.NewHTTPService(serveCtx, logger, apiv1Services)
 
 	// HTTP services.
