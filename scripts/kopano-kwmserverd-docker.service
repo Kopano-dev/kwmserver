@@ -1,0 +1,20 @@
+[Unit]
+Description=kopano-kwmserverd
+After=docker.service
+Requires=docker.service
+
+[Service]
+Environment=NAME=kopano-kwmserverd
+Environment=VERSION=latest
+ExecStartPre=-/usr/bin/docker rm ${NAME}
+ExecStart=/usr/bin/docker run \
+	--rm=true \
+	-p 127.0.0.1:8778:8778 \
+	-v /etc/kopano/kwm-admin-tokens.key:/run/secrets/kwmserverd_admin_tokens_key \
+	--name=${NAME} \
+	kopano/kwmserverd:${VERSION}
+ExecStop=-/usr/bin/docker stop ${NAME}
+Restart=always
+
+[Install]
+WantedBy=default.target

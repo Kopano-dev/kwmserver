@@ -28,6 +28,41 @@ Kopano Webmeetings server should be exposed with TLS. Usually a frontend HTTP
 proxy like Nginx is suitable. For an example take a look at the `Caddyfile.example`
 in the root of this project.
 
+### Run with Docker
+
+This project includes a Dockerfile which can be used to build a Docker container
+to run Kopano Webmeetings inside a container. The Dockerfile supports all features
+of Kopano Webmeetings and can make use of Docker Secrets to manage sensitive
+data like keys.
+
+#### Docker Swarm
+
+Make sure to have built this project (see above), then build and setup the Docker
+container in swarm mode like this:
+
+```
+docker build -t kopano/kwmserverd .
+openssl -rand 32 | docker secret create kwmserverd_admin_tokens_key -
+docker service create \
+	--secret kwmserverd_admin_tokens_key \
+	--publish 8778:8778 \
+	--name=kwmserverd \
+	kopano/kwmserverd
+```
+
+#### Without Docker Swarm - running the Docker image
+
+```
+docker build -t kopano/kwmserverd .
+openssl -rand 32 -out /etc/kopano/kwm-admin-tokens.key
+docker run --rm=true --name=kwmserverd \
+	--volume /etc/kopano/kwm-admin-tokens.key:/run/secrets/kwmserverd_admin_tokens_key
+	--publish 127.0.0.1:18778:8778 \
+	 kopano/kwmserverd
+```
+
+Of course modify the paths and ports according to your requirements.
+
 ## Run unit tests
 
 ```

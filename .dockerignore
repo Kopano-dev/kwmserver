@@ -1,0 +1,5 @@
+**
+!bin/kwmserverd
+!scripts/*.sh
+!www/examples
+!docs/api-v1

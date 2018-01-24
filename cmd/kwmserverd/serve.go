@@ -32,6 +32,8 @@ import (
 	"stash.kopano.io/kwm/kwmserver/signaling/server"
 )
 
+const defaultListenAddr = "127.0.0.1:8778"
+
 func commandServe() *cobra.Command {
 	serveCmd := &cobra.Command{
 		Use:   "serve [...args]",
@@ -43,7 +45,7 @@ func commandServe() *cobra.Command {
 			}
 		},
 	}
-	serveCmd.Flags().String("listen", "127.0.0.1:8778", "TCP listen address")
+	serveCmd.Flags().String("listen", "", fmt.Sprintf("TCP listen address (default \"%s\")", defaultListenAddr))
 	serveCmd.Flags().Bool("enable-mcu-api", false, "Enables the MCU API endpoints")
 	serveCmd.Flags().Bool("enable-janus-api", false, "Enables the Janus API endpoints")
 	serveCmd.Flags().Bool("enable-www", false, "Enables serving static files")
@@ -72,6 +74,12 @@ func serve(cmd *cobra.Command, args []string) error {
 		Logger: logger,
 	}
 	listenAddr, _ := cmd.Flags().GetString("listen")
+	if listenAddr == "" {
+		listenAddr = os.Getenv("KWMSERVERD_LISTEN")
+	}
+	if listenAddr == "" {
+		listenAddr = defaultListenAddr
+	}
 	config.ListenAddr = listenAddr
 	enableMcuAPI, _ := cmd.Flags().GetBool("enable-mcu-api")
 	config.EnableMcuAPI = enableMcuAPI
@@ -108,6 +116,9 @@ func serve(cmd *cobra.Command, args []string) error {
 		config.DocsRoot = docsRoot
 	}
 	adminTokensSigningKey, _ := cmd.Flags().GetString("admin-tokens-key")
+	if adminTokensSigningKey == "" {
+		adminTokensSigningKey = os.Getenv("KWMSERVERD_ADMIN_TOKENS_KEY")
+	}
 	if adminTokensSigningKey != "" {
 		if _, errStat := os.Stat(adminTokensSigningKey); errStat != nil {
 			return fmt.Errorf("admin-tokens-key file not found: %v", errStat)

@@ -128,7 +128,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// Admin API.
 	adminm := admin.NewManager(serveCtx, "", logger)
-	if s.config.AdminTokensSigningKey == nil {
+	if s.config.AdminTokensSigningKey == nil || len(s.config.AdminTokensSigningKey) < 32 {
 		s.config.AdminTokensSigningKey = make([]byte, 32)
 		if _, err := rndm.ReadRandomBytes(s.config.AdminTokensSigningKey); err != nil {
 			return fmt.Errorf("unable to create random key, %v", err)
