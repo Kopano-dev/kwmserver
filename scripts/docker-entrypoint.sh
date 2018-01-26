@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-# Check for parameters, prepend with our exe when the first arg is a parameter.s
+# Check for parameters, prepend with our exe when the first arg is a parameter.
 if [ "${1:0:1}" = '-' ]; then
 	set -- ${EXE} "$@"
 else

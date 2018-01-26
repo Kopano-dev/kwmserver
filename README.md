@@ -42,7 +42,7 @@ container in swarm mode like this:
 
 ```
 docker build -t kopano/kwmserverd .
-openssl -rand 32 | docker secret create kwmserverd_admin_tokens_key -
+openssl rand 32 | docker secret create kwmserverd_admin_tokens_key -
 docker service create \
 	--secret kwmserverd_admin_tokens_key \
 	--publish 8778:8778 \
@@ -54,9 +54,9 @@ docker service create \
 
 ```
 docker build -t kopano/kwmserverd .
-openssl -rand 32 -out /etc/kopano/kwm-admin-tokens.key
+openssl rand 32 -out /etc/kopano/kwm-admin-tokens.key
 docker run --rm=true --name=kwmserverd \
-	--volume /etc/kopano/kwm-admin-tokens.key:/run/secrets/kwmserverd_admin_tokens_key
+	--volume /etc/kopano/kwm-admin-tokens.key:/run/secrets/kwmserverd_admin_tokens_key \
 	--publish 127.0.0.1:18778:8778 \
 	 kopano/kwmserverd
 ```
