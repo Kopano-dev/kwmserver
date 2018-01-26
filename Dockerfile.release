@@ -21,6 +21,9 @@ MAINTAINER Kopano Development <development@kopano.io>
 # Expose ports.
 EXPOSE 8778
 
+# Version to include in this Docker image. Default to latest.
+ENV VERSION latest
+
 # Define basic environment variables.
 ENV EXE=kwmserverd
 ENV KWMSERVERD_LISTEN=0.0.0.0:8778
@@ -46,12 +49,12 @@ setup_secrets() { \n\
 setup_secrets\n\
 ' > /etc/defaults/docker-env
 
-# Add project resources.
-COPY docs/* /var/lib/kwmserverd-docker/docs/
-COPY www/* /var/lib/kwmserverd-docker/www/
-
-# Add project main binary.
-COPY bin/kwmserverd /usr/local/bin/${EXE}
+# Download
+RUN apk add --no-cache ca-certificates curl && \
+	pwd && \
+	curl -sSL https://download.kopano.io/community/kwmserver/kopano-kwmserver-${VERSION}.tar.gz | \
+	tar -C /var/lib/kwmserverd-docker --strip 1 -vxzf - && \
+	mv ${EXE} /usr/local/bin/${EXE}
 
 # Run as nobody by default is always a good idea.
 USER nobody
