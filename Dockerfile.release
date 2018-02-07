@@ -52,7 +52,7 @@ setup_secrets\n\
 # Download
 RUN apk add --no-cache ca-certificates curl && \
 	pwd && \
-	curl -sSL https://download.kopano.io/community/kwmserver/kopano-kwmserver-${VERSION}.tar.gz | \
+	curl -sSL https://download.kopano.io/community/kwmserver:/kopano-kwmserver-${VERSION}.tar.gz | \
 	tar -C /var/lib/kwmserverd-docker --strip 1 -vxzf - && \
 	mv ${EXE} /usr/local/bin/${EXE}
 
