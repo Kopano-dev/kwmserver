@@ -73,7 +73,7 @@ docker service create \
 #### Running from Docker image
 
 ```
-openssl rand 32 -out /etc/kopano/kwm-admin-tokens.key
+openssl rand -out /etc/kopano/kwm-admin-tokens.key 32
 docker run --rm=true --name=kwmserverd \
 	--read-only \
 	--volume /etc/kopano/kwm-admin-tokens.key:/run/secrets/kwmserverd_admin_tokens_key:ro \
