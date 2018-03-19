@@ -48,6 +48,8 @@ type Server struct {
 
 	listenAddr string
 	logger     logrus.FieldLogger
+
+	requestLog bool
 }
 
 // NewServer constructs a server from the provided parameters.
@@ -57,6 +59,8 @@ func NewServer(c *Config) (*Server, error) {
 
 		listenAddr: c.ListenAddr,
 		logger:     c.Logger,
+
+		requestLog: os.Getenv("KOPANO_DEBUG_SERVER_REQUEST_LOG") == "1",
 	}
 
 	return s, nil
@@ -68,26 +72,31 @@ func (s *Server) WithMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Create per request cancel context.
 		ctx, cancel := context.WithCancel(req.Context())
-		loggedWriter := metrics.NewLoggedResponseWriter(rw)
 
-		// Create per request context.
-		ctx = timing.NewContext(ctx, func(duration time.Duration) {
-			// This is the stop callback, called when complete with duration.
-			durationMs := float64(duration) / float64(time.Millisecond)
-			// Log request.
-			s.logger.WithFields(logrus.Fields{
-				"status":     loggedWriter.Status(),
-				"method":     req.Method,
-				"path":       req.URL.Path,
-				"remote":     req.RemoteAddr,
-				"duration":   durationMs,
-				"referer":    req.Referer(),
-				"user-agent": req.UserAgent(),
-				"origin":     req.Header.Get("Origin"),
-			}).Debug("HTTP request complete")
-		})
+		if s.requestLog {
+			loggedWriter := metrics.NewLoggedResponseWriter(rw)
+			// Create per request context.
+			ctx = timing.NewContext(ctx, func(duration time.Duration) {
+				// This is the stop callback, called when complete with duration.
+				durationMs := float64(duration) / float64(time.Millisecond)
+				// Log request.
+				s.logger.WithFields(logrus.Fields{
+					"status":     loggedWriter.Status(),
+					"method":     req.Method,
+					"path":       req.URL.Path,
+					"remote":     req.RemoteAddr,
+					"duration":   durationMs,
+					"referer":    req.Referer(),
+					"user-agent": req.UserAgent(),
+					"origin":     req.Header.Get("Origin"),
+				}).Debug("HTTP request complete")
+			})
+			rw = loggedWriter
+		}
+
 		// Run the request.
-		next.ServeHTTP(loggedWriter, req.WithContext(ctx))
+		next.ServeHTTP(rw, req.WithContext(ctx))
+
 		// Cancel per request context when done.
 		cancel()
 	})
