@@ -29,6 +29,9 @@ ENV EXE=kwmserverd
 ENV KWMSERVERD_LISTEN=0.0.0.0:8778
 ENV KWMSERVERD_ADMIN_TOKENS_KEY_FILE=kwmserverd_admin_tokens_key
 
+# Defaults which can be overwritten.
+ENV ARGS=
+
 WORKDIR /var/lib/kwmserverd-docker
 
 # Copy Docker specific scripts and ensure they are executable.
