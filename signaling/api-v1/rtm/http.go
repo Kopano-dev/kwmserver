@@ -122,6 +122,11 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 			return
 		}
 
+		if !m.insecure && user != auth.Subject {
+			http.Error(rw, "user does not match auth", http.StatusForbidden)
+			return
+		}
+
 		// create random URL to websocket endpoint
 		key, err := m.Connect(req.Context(), user, auth)
 		if err != nil {

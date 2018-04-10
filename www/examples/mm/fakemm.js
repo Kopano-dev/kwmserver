@@ -35,7 +35,7 @@ class FakeMM {
 		this.close = this.close.bind(this);
 	}
 
-	onConnectCall() {
+	onConnectCall(sessionID) {
 		console.log('onConnectCall');
 
 		setTimeout(async () => {
@@ -47,7 +47,6 @@ class FakeMM {
 					'gateway_url': ''
 				};
 
-				const sessionID = getRandomHexString(32);
 				const token = await fetchAdminToken('', sessionID);
 				console.log('admin token registered', token);
 

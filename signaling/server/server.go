@@ -173,7 +173,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
 
 	// RTM API.
-	rtmm := rtm.NewManager(serveCtx, "", logger, adminm, oidcp)
+	rtmm := rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, logger, adminm, oidcp)
 	apiv1Services = append(apiv1Services, rtmm)
 	logger.Infoln("API endpoint rtm enabled")
 

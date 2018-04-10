@@ -143,7 +143,7 @@ window.app = new Vue({
 			console.log('connect clicked');
 			try {
 				// Get admin token.
-				const token = await fetchAdminToken();
+				const token = await fetchAdminToken(null, this.source);
 				console.log('admin token received', token);
 				this.kwmOptions.authorizationType = token.type;
 				this.kwmOptions.authorizationValue = token.value;

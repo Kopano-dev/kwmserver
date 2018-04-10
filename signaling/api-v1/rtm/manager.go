@@ -36,7 +36,9 @@ import (
 
 // Manager handles RTM connect state.
 type Manager struct {
-	id     string
+	id       string
+	insecure bool
+
 	logger logrus.FieldLogger
 	ctx    context.Context
 	adminm *admin.Manager
@@ -52,9 +54,11 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, adminm *admin.Manager, oidcp *kcoidc.Provider) *Manager {
+func NewManager(ctx context.Context, id string, insecure bool, logger logrus.FieldLogger, adminm *admin.Manager, oidcp *kcoidc.Provider) *Manager {
 	m := &Manager{
-		id:     id,
+		id:       id,
+		insecure: insecure,
+
 		logger: logger.WithField("manager", "rtm"),
 		ctx:    ctx,
 		adminm: adminm,

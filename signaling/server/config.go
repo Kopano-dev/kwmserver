@@ -40,6 +40,7 @@ type Config struct {
 	DocsRoot   string
 
 	AdminTokensSigningKey []byte
+	AllowInsecureAuth     bool
 
 	Client *http.Client
 

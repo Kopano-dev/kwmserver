@@ -59,6 +59,7 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("admin-tokens-key", "", "Full path to the key file to be used to sign admin tokens")
 	serveCmd.Flags().String("iss", "", "OIDC issuer URL")
 	serveCmd.Flags().Bool("insecure", false, "Disable TLS certificate and hostname validation")
+	serveCmd.Flags().Bool("insecure-auth", false, "Disable verification that auth matches user")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -172,6 +173,11 @@ func serve(cmd *cobra.Command, args []string) error {
 			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig:       tlsClientConfig,
 		},
+	}
+
+	config.AllowInsecureAuth, _ = cmd.Flags().GetBool("insecure-auth")
+	if config.AllowInsecureAuth {
+		logger.Warnln("insecure-auth mode, user identifiers are not forced to match auth")
 	}
 
 	srv, err := server.NewServer(config)

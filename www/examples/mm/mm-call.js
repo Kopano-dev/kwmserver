@@ -78,7 +78,7 @@ window.app = new Vue({
 			this.mm = new FakeMM(this);
 			this.getUserMedia();
 
-			this.mm.onConnectCall();
+			this.mm.onConnectCall(this.source);
 		},
 		reload: function() {
 			window.location.reload();
