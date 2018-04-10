@@ -47,3 +47,8 @@ type AdminAuthToken struct {
 	Value     string `json:"value,omitempty"`
 	ExpiresAt int64  `json:"exp,omitempty"`
 }
+
+// Token types as known by kwm server.
+const (
+	AdminAuthTokenTypeToken = "Token"
+)

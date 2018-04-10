@@ -113,6 +113,9 @@ func (m *Manager) IsValidAdminAuthTokenRequest(req *http.Request) (*api.AdminAut
 	if len(auth) != 2 {
 		return nil, false
 	}
+	if auth[0] != api.AdminAuthTokenTypeToken {
+		return nil, false
+	}
 
 	token, err := m.ValidateAdminAuthTokenString(auth[1])
 	if err != nil {
@@ -169,6 +172,10 @@ func (m *Manager) createAuthToken(rw http.ResponseWriter, req *http.Request) {
 
 	if token.Type == "" {
 		http.Error(rw, fmt.Errorf("type cannot be empty").Error(), http.StatusBadRequest)
+		return
+	}
+	if token.Type != api.AdminAuthTokenTypeToken {
+		http.Error(rw, fmt.Errorf("unknown token type: %s", token.Type).Error(), http.StatusBadRequest)
 		return
 	}
 	if token.Value != "" {
