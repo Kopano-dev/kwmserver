@@ -160,14 +160,20 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 			// Do not reply to pings without auth in user record.
 			return nil
 		}
-		m.adminm.RefreshAdminAuthToken(ur.auth)
-		if time.Unix(ur.auth.ExpiresAt, 0).Before(time.Now().Add(time.Minute * 15)) {
-			// Inject updated auth
-			newToken, errToken := m.adminm.SignAdminAuthToken(ur.auth)
-			if errToken != nil {
-				return fmt.Errorf("failed to create new signed token on ping reply: %v", errToken)
+		if m.adminm.RefreshAdminAuthToken(ur.auth) {
+			if time.Unix(ur.auth.ExpiresAt, 0).Before(time.Now().Add(time.Minute * 15)) {
+				// Inject updated auth
+				newToken, errToken := m.adminm.SignAdminAuthToken(ur.auth)
+				if errToken != nil {
+					return fmt.Errorf("failed to create new signed token on ping reply: %v", errToken)
+				}
+				ping["auth"] = newToken
 			}
-			ping["auth"] = newToken
+		} else {
+			// TODO(longsleep): Check for updated auth, if it has expired, close connection.
+			if time.Unix(ur.auth.ExpiresAt, 0).Before(time.Now().Add(time.Minute * 1)) {
+				//c.Logger().Debugln("websocket ping with expired auth")
+			}
 		}
 
 		// Send back same data as pong.

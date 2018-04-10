@@ -31,6 +31,7 @@ import (
 	"github.com/longsleep/go-metrics/loggedwriter"
 	"github.com/longsleep/go-metrics/timing"
 	"github.com/sirupsen/logrus"
+	kcoidc "stash.kopano.io/kc/libkcoidc"
 	"stash.kopano.io/kgol/rndm"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
@@ -127,6 +128,8 @@ func (s *Server) AddRoutes(ctx context.Context, router *mux.Router, services []s
 // forever until signals or error occurs. Returns error and gracefully stops
 // all HTTP listeners before return.
 func (s *Server) Serve(ctx context.Context) error {
+	var err error
+
 	serveCtx, serveCtxCancel := context.WithCancel(ctx)
 	defer serveCtxCancel()
 
@@ -135,11 +138,30 @@ func (s *Server) Serve(ctx context.Context) error {
 	// API services.
 	apiv1Services := []signaling.Service{}
 
+	// OpenID connect.
+	var oidcp *kcoidc.Provider
+	if s.config.Iss != nil {
+		oidcp, err = kcoidc.NewProvider(s.config.Client, nil, false)
+		if err != nil {
+			return fmt.Errorf("failed to create kcoidc provider for server: %v", err)
+		}
+		err = oidcp.Initialize(serveCtx, s.config.Iss)
+		if err != nil {
+			return fmt.Errorf("OIDC provider initialization error: %v", err)
+		}
+		if errOIDCInitialize := oidcp.WaitUntilReady(serveCtx, 10*time.Second); errOIDCInitialize != nil {
+			// NOTE(longsleep): Do not treat this as error - just log.
+			logger.WithError(errOIDCInitialize).WithField("iss", s.config.Iss).Warnf("failed to initialize OIDC provider")
+		} else {
+			logger.WithField("iss", s.config.Iss).Debugln("OIDC provider initialized")
+		}
+	}
+
 	// Admin API.
 	adminm := admin.NewManager(serveCtx, "", logger)
 	if s.config.AdminTokensSigningKey == nil || len(s.config.AdminTokensSigningKey) < 32 {
 		s.config.AdminTokensSigningKey = make([]byte, 32)
-		if _, err := rndm.ReadRandomBytes(s.config.AdminTokensSigningKey); err != nil {
+		if _, err = rndm.ReadRandomBytes(s.config.AdminTokensSigningKey); err != nil {
 			return fmt.Errorf("unable to create random key, %v", err)
 		}
 		logger.Warnln("using random admin tokens singing key - API endpoint admin disabled")
@@ -151,7 +173,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
 
 	// RTM API.
-	rtmm := rtm.NewManager(serveCtx, "", logger, adminm)
+	rtmm := rtm.NewManager(serveCtx, "", logger, adminm, oidcp)
 	apiv1Services = append(apiv1Services, rtmm)
 	logger.Infoln("API endpoint rtm enabled")
 

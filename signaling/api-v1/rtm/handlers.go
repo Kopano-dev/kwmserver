@@ -19,6 +19,7 @@ package rtm
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"sync/atomic"
@@ -26,6 +27,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 
+	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
 )
 
@@ -44,8 +46,27 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 		http.Error(rw, "", http.StatusForbidden)
 		return nil
 	}
-	if !m.adminm.IsValidAdminAuthToken(kr.user.auth) {
-		http.Error(rw, "invalid or expired token", http.StatusForbidden)
+
+	var err error
+	switch kr.user.auth.Type {
+	case api.AdminAuthTokenTypeToken:
+		if !m.adminm.IsValidAdminAuthToken(kr.user.auth) {
+			err = errors.New("invalid or expired token")
+			break
+		}
+
+	case "Bearer":
+		if m.oidcp == nil {
+			err = errors.New("bearer auth not enabled")
+			break
+		}
+
+		// Validate token again.
+		_, _, _, err = m.oidcp.ValidateTokenString(ctx, kr.user.auth.Value)
+	}
+
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusForbidden)
 		return nil
 	}
 

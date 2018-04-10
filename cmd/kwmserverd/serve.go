@@ -19,13 +19,17 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -53,6 +57,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().Bool("enable-docs", false, "Enables serving documentation")
 	serveCmd.Flags().String("docs-root", "./docs", "Full path to docs folder to be served when --enable-docs is used, defaults to ./docs")
 	serveCmd.Flags().String("admin-tokens-key", "", "Full path to the key file to be used to sign admin tokens")
+	serveCmd.Flags().String("iss", "", "OIDC issuer URL")
+	serveCmd.Flags().Bool("insecure", false, "Disable TLS certificate and hostname validation")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -133,6 +139,39 @@ func serve(cmd *cobra.Command, args []string) error {
 		} else {
 			return fmt.Errorf("failed to open admin-tokens-key file: %v", errOpen)
 		}
+	}
+
+	if issString, err := cmd.Flags().GetString("iss"); err == nil && issString != "" {
+		config.Iss, err = url.Parse(issString)
+		if err != nil {
+			return fmt.Errorf("invalid iss url: %v", err)
+		}
+	}
+
+	var tlsClientConfig *tls.Config
+	tlsInsecureSkipVerify, _ := cmd.Flags().GetBool("insecure")
+	if tlsInsecureSkipVerify {
+		// NOTE(longsleep): This disable http2 client support. See https://github.com/golang/go/issues/14275 for reasons.
+		tlsClientConfig = &tls.Config{
+			InsecureSkipVerify: tlsInsecureSkipVerify,
+		}
+		logger.Warnln("insecure mode, TLS client connections are susceptible to man-in-the-middle attacks")
+		logger.Debugln("http2 client support is disabled (insecure mode)")
+	}
+	config.Client = &http.Client{
+		Timeout: 60 * time.Second,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			TLSClientConfig:       tlsClientConfig,
+		},
 	}
 
 	srv, err := server.NewServer(config)

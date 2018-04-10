@@ -26,6 +26,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
+	kcoidc "stash.kopano.io/kc/libkcoidc"
 	"stash.kopano.io/kgol/rndm"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
@@ -39,6 +40,7 @@ type Manager struct {
 	logger logrus.FieldLogger
 	ctx    context.Context
 	adminm *admin.Manager
+	oidcp  *kcoidc.Provider
 
 	keys     cmap.ConcurrentMap
 	upgrader *websocket.Upgrader
@@ -50,12 +52,13 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, adminm *admin.Manager) *Manager {
+func NewManager(ctx context.Context, id string, logger logrus.FieldLogger, adminm *admin.Manager, oidcp *kcoidc.Provider) *Manager {
 	m := &Manager{
 		id:     id,
 		logger: logger.WithField("manager", "rtm"),
 		ctx:    ctx,
 		adminm: adminm,
+		oidcp:  oidcp,
 
 		keys: cmap.New(),
 		upgrader: &websocket.Upgrader{

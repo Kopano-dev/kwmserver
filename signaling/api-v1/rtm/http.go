@@ -26,6 +26,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	kcoidc "stash.kopano.io/kc/libkcoidc"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
@@ -50,11 +51,65 @@ func (m *Manager) AddRoutes(ctx context.Context, router *mux.Router, wrapper fun
 	return router
 }
 
+func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken, bool) {
+	authHeader := strings.SplitN(req.Header.Get("Authorization"), " ", 2)
+	if len(authHeader) != 2 {
+		return nil, false
+	}
+
+	switch authHeader[0] {
+	case api.AdminAuthTokenTypeToken:
+		// Self created token.
+		return m.adminm.IsValidAdminAuthTokenRequest(req)
+
+	case "Bearer":
+		// Validate as openid connect auth.
+		if m.oidcp != nil {
+			authenticatedUserID, std, claims, err := m.oidcp.ValidateTokenString(req.Context(), authHeader[1])
+			for {
+				if err != nil {
+					break
+				}
+
+				if std == nil || claims == nil {
+					err = fmt.Errorf("no claims")
+					break
+				}
+
+				err = claims.Valid()
+				if err != nil {
+					break
+				}
+
+				if claims.KCTokenType() != kcoidc.TokenTypeKCAccess {
+					err = fmt.Errorf("missing access token claim")
+					break
+				}
+
+				break
+			}
+			if err != nil {
+				m.logger.WithError(err).Errorln("rtm connect bearer auth failed")
+				return nil, false
+			}
+
+			return &api.AdminAuthToken{
+				Subject:   authenticatedUserID,
+				Type:      authHeader[0],
+				Value:     authHeader[1],
+				ExpiresAt: std.ExpiresAt,
+			}, true
+		}
+	}
+
+	return nil, false
+}
+
 // MakeHTTPConnectHandler createss the HTTP handler for rtm.connect.
 func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// TODO(longsleep): check authentication
-		auth, authOK := m.adminm.IsValidAdminAuthTokenRequest(req)
+		auth, authOK := m.isRequestWithValidAuth(req)
 		if !authOK {
 			http.Error(rw, "", http.StatusForbidden)
 			return

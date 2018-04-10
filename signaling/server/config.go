@@ -19,6 +19,8 @@ package server
 
 import (
 	"github.com/sirupsen/logrus"
+	"net/http"
+	"net/url"
 )
 
 // Config defines a Server's configuration settings.
@@ -38,6 +40,10 @@ type Config struct {
 	DocsRoot   string
 
 	AdminTokensSigningKey []byte
+
+	Client *http.Client
+
+	Iss *url.URL
 
 	Logger logrus.FieldLogger
 }

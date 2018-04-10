@@ -99,6 +99,10 @@ func (m *Manager) ValidateAdminAuthTokenString(tokenString string) (*api.AdminAu
 
 // IsValidAdminAuthToken checks if the provided token is known to the accociated manager.
 func (m *Manager) IsValidAdminAuthToken(token *api.AdminAuthToken) bool {
+	if token.Type != api.AdminAuthTokenTypeToken {
+		return false
+	}
+
 	existing, exists := m.GetToken(getAdminAuthTokenTokensRecordID(token))
 	if !exists || existing == nil {
 		return false
@@ -140,8 +144,13 @@ func (m *Manager) IsValidAdminAuthTokenRequest(req *http.Request) (*api.AdminAut
 
 // RefreshAdminAuthToken updates the timestamp of the token record of the
 // provided token if known to the accociated manager.
-func (m *Manager) RefreshAdminAuthToken(token *api.AdminAuthToken) {
+func (m *Manager) RefreshAdminAuthToken(token *api.AdminAuthToken) bool {
+	if token.Type != api.AdminAuthTokenTypeToken {
+		return false
+	}
+
 	m.RefreshToken(getAdminAuthTokenTokensRecordID(token))
+	return true
 }
 
 func (m *Manager) addAuthRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
