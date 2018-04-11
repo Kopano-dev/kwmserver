@@ -58,7 +58,7 @@ func TestAdminAuthTokensHandler(t *testing.T) {
 		{
 			description:         "successful POST",
 			method:              http.MethodPost,
-			body:                `{"type": "unit-test"}`,
+			body:                `{"type": "Token"}`,
 			expectedContentType: "application/json",
 			expectedStatus:      http.StatusOK,
 			expectedBodyFunc: func(body string) {
@@ -69,7 +69,7 @@ func TestAdminAuthTokensHandler(t *testing.T) {
 					return
 				}
 
-				if token.Type != "unit-test" {
+				if token.Type != "Token" {
 					t.Errorf("successful POST handler returned wrong token type: got %v, want unit-test", token.Type)
 				}
 				if token.Subject == "" {
@@ -110,7 +110,7 @@ func TestAdminAuthTokensHandler(t *testing.T) {
 		{
 			description:         "successful POST with subject",
 			method:              http.MethodPost,
-			body:                `{"type": "unit-test", "sub": "wonderful"}`,
+			body:                `{"type": "Token", "sub": "wonderful"}`,
 			expectedContentType: "application/json",
 			expectedStatus:      http.StatusOK,
 			expectedBodyFunc:    func(body string) {},
@@ -136,7 +136,7 @@ func TestAdminAuthTokensHandler(t *testing.T) {
 		{
 			description:         "successful DELETE with none-existing subject",
 			method:              http.MethodDelete,
-			body:                `{"type": "unit-test", "sub": "does-not-exist"}`,
+			body:                `{"type": "Token", "sub": "does-not-exist"}`,
 			expectedContentType: "text/plain; charset=utf-8",
 			expectedStatus:      http.StatusNotFound,
 			expectedBody:        "404 page not found\n",
@@ -162,7 +162,7 @@ func TestAdminAuthTokensHandler(t *testing.T) {
 		{
 			description:         "successful DELETE with existing subject",
 			method:              http.MethodDelete,
-			body:                `{"type": "unit-test", "sub": "wonderful"}`,
+			body:                `{"type": "Token", "sub": "wonderful"}`,
 			expectedContentType: "",
 			expectedStatus:      http.StatusNoContent,
 			expectedBody:        "",
