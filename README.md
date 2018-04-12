@@ -65,7 +65,7 @@ openssl rand 32 | docker secret create kwmserverd_admin_tokens_key -
 docker service create \
 	--read-only \
 	--secret kwmserverd_admin_tokens_key \
-	--publish 8778:8778 \
+	--publish published=8778,target=8778,mode=host \
 	--name=kwmserverd \
 	kopano/kwmserverd
 ```
