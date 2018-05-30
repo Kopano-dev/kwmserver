@@ -19,6 +19,8 @@ package api
 
 import (
 	"encoding/json"
+
+	"stash.kopano.io/kwm/kwmserver/turn"
 )
 
 // Type names for RTM payloads.
@@ -47,6 +49,15 @@ type RTMConnectResponse struct {
 
 	URL  string `json:"url"`
 	Self *Self  `json:"self"`
+
+	TURN *turn.ClientConfig `json:"turn,omitempty"`
+}
+
+// RTMTURNResponse is the response returned from rtm.turn.
+type RTMTURNResponse struct {
+	ResponseOK
+
+	TURN *turn.ClientConfig `json:"turn"`
 }
 
 // RTMTypeEnvelope is the envelope with type key for RTM JSON data messages.

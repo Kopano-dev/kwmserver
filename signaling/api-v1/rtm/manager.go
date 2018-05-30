@@ -32,6 +32,7 @@ import (
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/turn"
 )
 
 // Manager handles RTM connect state.
@@ -39,10 +40,11 @@ type Manager struct {
 	id       string
 	insecure bool
 
-	logger logrus.FieldLogger
-	ctx    context.Context
-	adminm *admin.Manager
-	oidcp  *kcoidc.Provider
+	logger  logrus.FieldLogger
+	ctx     context.Context
+	adminm  *admin.Manager
+	oidcp   *kcoidc.Provider
+	turnsrv turn.Server
 
 	keys     cmap.ConcurrentMap
 	upgrader *websocket.Upgrader
@@ -54,15 +56,16 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, insecure bool, logger logrus.FieldLogger, adminm *admin.Manager, oidcp *kcoidc.Provider) *Manager {
+func NewManager(ctx context.Context, id string, insecure bool, logger logrus.FieldLogger, adminm *admin.Manager, oidcp *kcoidc.Provider, turnsrv turn.Server) *Manager {
 	m := &Manager{
 		id:       id,
 		insecure: insecure,
 
-		logger: logger.WithField("manager", "rtm"),
-		ctx:    ctx,
-		adminm: adminm,
-		oidcp:  oidcp,
+		logger:  logger.WithField("manager", "rtm"),
+		ctx:     ctx,
+		adminm:  adminm,
+		oidcp:   oidcp,
+		turnsrv: turnsrv,
 
 		keys: cmap.New(),
 		upgrader: &websocket.Upgrader{

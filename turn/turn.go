@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Kopano and its licensors
+ * Copyright 2018 Kopano and its licensors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License, version 3,
@@ -15,39 +15,17 @@
  *
  */
 
-package server
+package turn
 
 import (
-	"github.com/sirupsen/logrus"
-	"net/http"
-	"net/url"
+	"context"
 )
 
-// Config defines a Server's configuration settings.
-type Config struct {
-	ListenAddr string
+// DefaultServerTTL specifies the default time how long TURN credentials
+// created by this module will be valid.
+const DefaultServerTTL = 3600
 
-	WithPprof       bool
-	PprofListenAddr string
-
-	EnableMcuAPI   bool
-	EnableJanusAPI bool
-
-	EnableWww bool
-	WwwRoot   string
-
-	EnableDocs bool
-	DocsRoot   string
-
-	AdminTokensSigningKey []byte
-	AllowInsecureAuth     bool
-
-	TURNServerSharedSecret []byte
-	TURNURIs               []string
-
-	Client *http.Client
-
-	Iss *url.URL
-
-	Logger logrus.FieldLogger
+// A Server is an interface to retrieve TURN server connectivity configuration.
+type Server interface {
+	GetConfig(ctx context.Context, username string) (*ClientConfig, error)
 }

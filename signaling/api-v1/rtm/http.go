@@ -29,6 +29,7 @@ import (
 	kcoidc "stash.kopano.io/kc/libkcoidc"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
+	"stash.kopano.io/kwm/kwmserver/turn"
 )
 
 const (
@@ -46,6 +47,9 @@ func (m *Manager) AddRoutes(ctx context.Context, router *mux.Router, wrapper fun
 	})
 
 	router.Handle("/rtm.connect", c.Handler(wrapper(m.MakeHTTPConnectHandler(router))))
+	if m.turnsrv != nil {
+		router.Handle("/rtm.turn", c.Handler(wrapper(m.MakeHTTPTURNHandler(router))))
+	}
 	router.Handle("/websocket/{key}", wrapper(http.HandlerFunc(m.HTTPWebsocketHandler))).Name(websocketRouteIdentifier)
 
 	return router
@@ -108,7 +112,7 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 // MakeHTTPConnectHandler createss the HTTP handler for rtm.connect.
 func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		// TODO(longsleep): check authentication
+		// Check authentication
 		auth, authOK := m.isRequestWithValidAuth(req)
 		if !authOK {
 			http.Error(rw, "", http.StatusForbidden)
@@ -127,6 +131,8 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 			return
 		}
 
+		m.adminm.RefreshAdminAuthToken(auth)
+
 		// create random URL to websocket endpoint
 		key, err := m.Connect(req.Context(), user, auth)
 		if err != nil {
@@ -143,7 +149,16 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 			return
 		}
 
-		m.adminm.RefreshAdminAuthToken(auth)
+		var turnConfig *turn.ClientConfig
+		// fetch TURN credentials
+		if m.turnsrv != nil {
+			turnConfig, err = m.turnsrv.GetConfig(req.Context(), user)
+			if err != nil {
+				m.logger.WithError(err).Errorln("rtm connect TURN config failed")
+				http.Error(rw, "TURN config failed", http.StatusInternalServerError)
+				return
+			}
+		}
 
 		response := &api.RTMConnectResponse{
 			ResponseOK: *api.ResponseOKValue,
@@ -153,6 +168,51 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 				ID:   user,
 				Name: fmt.Sprintf("User %s", strings.ToUpper(user)),
 			},
+
+			TURN: turnConfig,
+		}
+
+		rw.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(rw).Encode(response)
+	})
+}
+
+// MakeHTTPTURNHandler creates the HTTP handler for rtm.turn.
+func (m *Manager) MakeHTTPTURNHandler(router *mux.Router) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		// Check authentication
+		auth, authOK := m.isRequestWithValidAuth(req)
+		if !authOK {
+			http.Error(rw, "", http.StatusForbidden)
+			return
+		}
+
+		req.ParseForm()
+		user := req.Form.Get("user")
+		if user == "" {
+			http.Error(rw, "missing user parameter", http.StatusBadRequest)
+			return
+		}
+
+		if !m.insecure && user != auth.Subject {
+			http.Error(rw, "user does not match auth", http.StatusForbidden)
+			return
+		}
+
+		m.adminm.RefreshAdminAuthToken(auth)
+
+		// fetch TURN credentials
+		turnConfig, err := m.turnsrv.GetConfig(req.Context(), user)
+		if err != nil {
+			m.logger.WithError(err).Errorln("rtm connect TURN config failed")
+			http.Error(rw, "TURN config failed", http.StatusInternalServerError)
+			return
+		}
+
+		response := &api.RTMTURNResponse{
+			ResponseOK: *api.ResponseOKValue,
+
+			TURN: turnConfig,
 		}
 
 		rw.Header().Set("Content-Type", "application/json")

@@ -41,6 +41,7 @@ import (
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
 	janus "stash.kopano.io/kwm/kwmserver/signaling/janus/service"
 	"stash.kopano.io/kwm/kwmserver/signaling/www"
+	"stash.kopano.io/kwm/kwmserver/turn"
 )
 
 // Server is our HTTP server implementation.
@@ -157,6 +158,25 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 	}
 
+	// TURN credentials support.
+	var turnsrv turn.Server
+	if s.config.TURNServerSharedSecret != nil {
+		if len(s.config.TURNURIs) == 0 {
+			return fmt.Errorf("at least one turn-uri is required but none given")
+		}
+
+		turnsrv, err = turn.NewSharedsecretServer(
+			s.config.TURNURIs,
+			s.config.TURNServerSharedSecret,
+			0,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to initialize TURN server support: %v", err)
+		}
+
+		logger.WithField("uris", s.config.TURNURIs).Debugln("TURN credentials support enabled")
+	}
+
 	// Admin API.
 	adminm := admin.NewManager(serveCtx, "", logger)
 	if s.config.AdminTokensSigningKey == nil || len(s.config.AdminTokensSigningKey) < 32 {
@@ -173,7 +193,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
 
 	// RTM API.
-	rtmm := rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, logger, adminm, oidcp)
+	rtmm := rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, logger, adminm, oidcp, turnsrv)
 	apiv1Services = append(apiv1Services, rtmm)
 	logger.Infoln("API endpoint rtm enabled")
 

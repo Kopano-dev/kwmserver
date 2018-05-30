@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Kopano and its licensors
+ * Copyright 2018 Kopano and its licensors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License, version 3,
@@ -15,39 +15,13 @@
  *
  */
 
-package server
+package turn
 
-import (
-	"github.com/sirupsen/logrus"
-	"net/http"
-	"net/url"
-)
-
-// Config defines a Server's configuration settings.
-type Config struct {
-	ListenAddr string
-
-	WithPprof       bool
-	PprofListenAddr string
-
-	EnableMcuAPI   bool
-	EnableJanusAPI bool
-
-	EnableWww bool
-	WwwRoot   string
-
-	EnableDocs bool
-	DocsRoot   string
-
-	AdminTokensSigningKey []byte
-	AllowInsecureAuth     bool
-
-	TURNServerSharedSecret []byte
-	TURNURIs               []string
-
-	Client *http.Client
-
-	Iss *url.URL
-
-	Logger logrus.FieldLogger
+// ClientConfig holds the TURN connection details in the format as specified
+// at https://tools.ietf.org/html/draft-uberti-behave-turn-rest-00#section-2.2
+type ClientConfig struct {
+	Username string   `json:"username"`
+	Password string   `json:"password"`
+	TTL      int64    `json:"ttl"`
+	URIs     []string `json:"uris"`
 }

@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -60,6 +61,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("iss", "", "OIDC issuer URL")
 	serveCmd.Flags().Bool("insecure", false, "Disable TLS certificate and hostname validation")
 	serveCmd.Flags().Bool("insecure-auth", false, "Disable verification that auth matches user")
+	serveCmd.Flags().StringArray("turn-uri", nil, "TURN uri to send to clients")
+	serveCmd.Flags().String("turn-server-shared-secret", "", "Full path to the file which contains the shared secret for TURN server password generation")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -80,6 +83,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	config := &server.Config{
 		Logger: logger,
 	}
+
 	listenAddr, _ := cmd.Flags().GetString("listen")
 	if listenAddr == "" {
 		listenAddr = os.Getenv("KWMSERVERD_LISTEN")
@@ -88,10 +92,13 @@ func serve(cmd *cobra.Command, args []string) error {
 		listenAddr = defaultListenAddr
 	}
 	config.ListenAddr = listenAddr
+
 	enableMcuAPI, _ := cmd.Flags().GetBool("enable-mcu-api")
 	config.EnableMcuAPI = enableMcuAPI
+
 	enableJanusAPI, _ := cmd.Flags().GetBool("enable-janus-api")
 	config.EnableJanusAPI = enableJanusAPI
+
 	enableWww, _ := cmd.Flags().GetBool("enable-www")
 	config.EnableWww = enableWww
 	wwwRoot, _ := cmd.Flags().GetString("www-root")
@@ -107,6 +114,7 @@ func serve(cmd *cobra.Command, args []string) error {
 		}
 		config.WwwRoot = wwwRoot
 	}
+
 	enableDocs, _ := cmd.Flags().GetBool("enable-docs")
 	config.EnableDocs = enableDocs
 	docsRoot, _ := cmd.Flags().GetString("docs-root")
@@ -122,6 +130,7 @@ func serve(cmd *cobra.Command, args []string) error {
 		}
 		config.DocsRoot = docsRoot
 	}
+
 	adminTokensSigningKey, _ := cmd.Flags().GetString("admin-tokens-key")
 	if adminTokensSigningKey == "" {
 		adminTokensSigningKey = os.Getenv("KWMSERVERD_ADMIN_TOKENS_KEY")
@@ -142,10 +151,41 @@ func serve(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if issString, err := cmd.Flags().GetString("iss"); err == nil && issString != "" {
-		config.Iss, err = url.Parse(issString)
-		if err != nil {
-			return fmt.Errorf("invalid iss url: %v", err)
+	if issString, errIf := cmd.Flags().GetString("iss"); errIf == nil && issString != "" {
+		config.Iss, errIf = url.Parse(issString)
+		if errIf != nil {
+			return fmt.Errorf("invalid iss url: %v", errIf)
+		}
+	}
+
+	turnURIs, _ := cmd.Flags().GetStringArray("turn-uri")
+	if len(turnURIs) > 0 {
+		// TODO(longsleep): Validate TURN uris.
+		config.TURNURIs = turnURIs
+	} else {
+		turnURIsString := os.Getenv("KWMSERVERD_TURN_URIS")
+		if turnURIsString != "" {
+			config.TURNURIs = strings.Split(turnURIsString, " ")
+		}
+	}
+
+	turnServerSharedSecret, _ := cmd.Flags().GetString("turn-server-shared-secret")
+	if turnServerSharedSecret == "" {
+		turnServerSharedSecret = os.Getenv("KWMSERVERD_TURN_SERVER_SHARED_SECRET")
+	}
+	if turnServerSharedSecret != "" {
+		if _, errStat := os.Stat(turnServerSharedSecret); errStat != nil {
+			return fmt.Errorf("turn-server-shared-secret file not found: %v", errStat)
+		}
+		if f, errOpen := os.Open(turnServerSharedSecret); errOpen == nil {
+			var errRead error
+			config.TURNServerSharedSecret, errRead = ioutil.ReadAll(f)
+			f.Close()
+			if errRead != nil {
+				return fmt.Errorf("failed to read turn-server-shared-secret file: %v", errRead)
+			}
+		} else {
+			return fmt.Errorf("failed to open turn-server-shared-secret file: %v", errOpen)
 		}
 	}
 
