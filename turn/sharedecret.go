@@ -72,7 +72,7 @@ func (s *SharedsecretServer) GetConfig(ctx context.Context, username string) (*C
 	if err != nil {
 		return nil, err
 	}
-	turnPassword, err := s.GenerateTURNPassword(username)
+	turnPassword, err := s.GenerateTURNPassword(turnUsername)
 	if err != nil {
 		return nil, err
 	}
