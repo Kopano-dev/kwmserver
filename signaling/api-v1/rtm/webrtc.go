@@ -60,7 +60,12 @@ func checkWebRTCChannelHash(source string, msg *api.RTMTypeWebRTC) error {
 	if err != nil {
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "hash decode error", msg.ID)
 	}
-	if !hmac.Equal(hash, computeWebRTCChannelHash(msg.Type, source, msg.Target, msg.Channel)) {
+	target := msg.Target
+	if msg.Group != "" {
+		// Validate group when set, instead of target.
+		target = msg.Group
+	}
+	if !hmac.Equal(hash, computeWebRTCChannelHash(msg.Type, source, target, msg.Channel)) {
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid hash", msg.ID)
 	}
 
@@ -69,6 +74,108 @@ func checkWebRTCChannelHash(source string, msg *api.RTMTypeWebRTC) error {
 
 func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) error {
 	switch msg.Subtype {
+	case api.RTMSubtypeNameWebRTCGroup:
+		// Group query or create.
+		// Connection must have a user.
+		bound := c.Bound()
+		if bound == nil {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "connection has no user", msg.ID)
+		}
+		ur := bound.(*userRecord)
+		// Target must always be not empty.
+		if msg.Target == "" {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target is empty", msg.ID)
+		}
+		// TODO(longsleep): Target is the group's public ID - find a way to validate.
+		if msg.Target != msg.Group {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target and group mismatch", msg.ID)
+		}
+		m.logger.WithField("target", msg.Target).Warnln("Group ID validation not implemented yet - continue unvalidated")
+		// State must always be not empty.
+		if msg.State == "" {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "state is empty", msg.ID)
+		}
+		// Source must always be empty when received here.
+		if msg.Source != "" {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "source must be empty", msg.ID)
+		}
+
+		// Create consistent group channel ID.
+		channelID, err := CreateNamedGroupChannelID(msg.Group, m)
+		if err != nil {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
+		}
+		// Get or create channel with ID.
+		record := m.channels.Upsert(channelID, nil, func(exists bool, valueInMap interface{}, newValue interface{}) interface{} {
+			if exists && valueInMap != nil {
+				return valueInMap
+			}
+			newChannel, newChannelErr := CreateKnownChannel(channelID, m, &ChannelConfig{
+				Group: msg.Group,
+
+				AfterAddOrRemove: m.onAfterGroupAddOrRemove,
+			})
+			if newChannelErr != nil {
+				m.logger.WithError(newChannelErr).WithField("channel", channelID).Errorln("failed to create known channel")
+				return nil
+			}
+			return &channelRecord{
+				when:    time.Now(),
+				channel: newChannel,
+			}
+		})
+		if record == nil {
+			// We are fucked.
+			err = fmt.Errorf("channel upsert without result")
+			m.logger.WithError(err).WithField("channel", channelID).Errorln("failed to create channel for group")
+			return err
+		}
+
+		channel := record.(*channelRecord).channel
+
+		// Add user connection.
+		err = channel.Add(ur.id, c)
+		if err != nil {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
+		}
+
+		// Create hash for channel.
+		hash := computeWebRTCChannelHash(msg.Type, ur.id, msg.Group, channel.id)
+
+		// Add source, channel and hash.
+		msg.Source = ur.id
+		msg.Channel = channel.id
+		msg.Hash = base64.StdEncoding.EncodeToString(hash)
+
+		// Get IDs of memmbers in channel.
+		members, _ := channel.Connections()
+
+		extra, err := json.MarshalIndent(&api.RTMDataWebRTCChannelExtra{
+			RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
+				Type:    api.RTMSubtypeNameWebRTCGroup,
+				ReplyTo: msg.ID,
+			},
+			Group: &api.RTMTDataWebRTCChannelGroup{
+				Group:   msg.Group,
+				Members: members,
+			},
+		}, "", "\t")
+		if err != nil {
+			return fmt.Errorf("failed to encode group data: %v", err)
+		}
+
+		// Send to self to populate channel and hash.
+		c.Send(&api.RTMTypeWebRTCReply{
+			RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
+				Type:    api.RTMTypeNameWebRTC,
+				Subtype: api.RTMSubtypeNameWebRTCChannel,
+				ReplyTo: msg.ID,
+			},
+			Channel: msg.Channel,
+			Hash:    msg.Hash,
+			Data:    extra,
+		})
+
 	case api.RTMSubtypeNameWebRTCCall:
 		// Connection must have a user.
 		bound := c.Bound()
@@ -105,11 +212,14 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			}
 
 			// Create channel annd add user with connection.
-			channel, err := CreateChannel(m)
+			channel, err := CreateRandomChannel(m, nil)
 			if err != nil {
 				return fmt.Errorf("failed to create channel: %v", err)
 			}
-			channel.Add(ur.id, c)
+			err = channel.Add(ur.id, c)
+			if err != nil {
+				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
+			}
 			record := &channelRecord{
 				when:    time.Now(),
 				channel: channel,
@@ -251,12 +361,21 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 		}
 		channel := record.(*channelRecord).channel
 
-		// Add source and send modified message.
+		// Add source and modify message to prepare sending.
 		msg.Source = ur.id
 		msg.ID = 0
 
-		// Lookup target and send modified message.
-		connection, ok := channel.Get(msg.Target)
+		// Check modifiers.
+		ok = false
+		var c *connection.Connection
+		if msg.Group != "" && msg.Target == msg.Group {
+			// Group mode, allow to continue without target connection.
+			ok = true
+		} else if msg.Target != "" {
+			// Targeted hangup. Lookup and forward message.
+			c, ok = channel.Get(msg.Target)
+		}
+
 		if msg.Subtype == api.RTMSubtypeNameWebRTCHangup {
 			// XXX(longsleep): Find a better way to remove ourselves from channels.
 			channel.Remove(ur.id)
@@ -276,7 +395,10 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
 		}
 
-		connection.Send(msg)
+		if c != nil {
+			// Forward message to target if connection was found.
+			c.Send(msg)
+		}
 
 	default:
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "unknown subtype", msg.ID)

@@ -176,9 +176,9 @@ func (m *Manager) purgeEmptyChannels() {
 	var record *channelRecord
 	for entry := range m.channels.IterBuffered() {
 		record = entry.Val.(*channelRecord)
-		if record.channel.Size() <= 1 {
+		if record.channel.CanBeCleanedUp() {
 			if record.when.Before(deadline) {
-				// Kill all channels with 1 or lower connections.
+				// Kill channels which can be cleaned up.
 				empty = append(empty, entry.Key)
 			}
 		}

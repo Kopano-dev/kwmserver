@@ -38,6 +38,8 @@ const (
 	RTMSubtypeNameWebRTCHangup  = "webrtc_hangup"
 	RTMSubtypeNameWebRTCSignal  = "webrtc_signal"
 
+	RTMSubtypeNameWebRTCGroup = "webrtc_group"
+
 	RTMErrorIDServerError      = "server_error"
 	RTMErrorIDBadMessage       = "bad_message"
 	RTMErrorIDNoSessionForUser = "no_session_for_user"
@@ -145,6 +147,7 @@ type RTMTypeWebRTC struct {
 	Initiator bool            `json:"initiator,omitempty"`
 	State     string          `json:"state,omitempty"`
 	Channel   string          `json:"channel,omitempty"`
+	Group     string          `json:"group,omitempty"`
 	Hash      string          `json:"hash,omitempty"`
 	Data      json.RawMessage `json:"data,omitempty"`
 }
@@ -163,4 +166,16 @@ type RTMDataWebRTCAccept struct {
 	Accept bool   `json:"accept"`
 	State  string `json:"state,omitempty"`
 	Reason string `json:"reason"`
+}
+
+// RTMDataWebRTCChannelExtra defines webrtc channel extra data.
+type RTMDataWebRTCChannelExtra struct {
+	*RTMTypeSubtypeEnvelopeReply
+	Group *RTMTDataWebRTCChannelGroup `json:"group,omitempty"`
+}
+
+// RTMTDataWebRTCChannelGroup defnes webrtc channel group details.
+type RTMTDataWebRTCChannelGroup struct {
+	Group   string   `json:"group"`
+	Members []string `json:"members"`
 }
