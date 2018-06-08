@@ -95,8 +95,11 @@ func CreateKnownChannel(id string, m *Manager, config *ChannelConfig) (*Channel,
 // Add adds the provided connection to the channel identified by id.
 func (c *Channel) Add(id string, conn *connection.Connection) error {
 	c.Lock()
-	if _, ok := c.connections[id]; ok {
+	if existingConn, ok := c.connections[id]; ok {
 		c.Unlock()
+		if conn == existingConn {
+			return nil
+		}
 		return errors.New("id already exists")
 	}
 
