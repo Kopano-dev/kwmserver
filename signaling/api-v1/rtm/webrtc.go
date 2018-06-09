@@ -64,6 +64,8 @@ func checkWebRTCChannelHash(source string, msg *api.RTMTypeWebRTC) error {
 	if msg.Group != "" {
 		// Validate group when set, instead of target.
 		target = msg.Group
+	} else if target == "" {
+		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "missing target", msg.ID)
 	}
 	if !hmac.Equal(hash, computeWebRTCChannelHash(msg.Type, source, target, msg.Channel)) {
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid hash", msg.ID)
@@ -90,7 +92,6 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 		if msg.Target != msg.Group {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target and group mismatch", msg.ID)
 		}
-		m.logger.WithField("target", msg.Target).Warnln("Group ID validation not implemented yet - continue unvalidated")
 		// State must always be not empty.
 		if msg.State == "" {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "state is empty", msg.ID)
@@ -140,6 +141,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 		}
 
 		// Create hash for channel.
+		//m.logger.Debugln("webrtc_group hash", channel.id, ur.id, msg.Group)
 		hash := computeWebRTCChannelHash(msg.Type, ur.id, msg.Group, channel.id)
 
 		// Add source, channel and hash.
@@ -283,32 +285,47 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			}
 			channel := record.(*channelRecord).channel
 
-			if msgData.Accept {
-				// Add to channel when accept.
-				err = channel.Add(ur.id, c)
-				if err != nil {
-					return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
+			if msg.Group != "" {
+				if !msgData.Accept {
+					return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "accept required for group call", msg.ID)
 				}
-			}
 
-			if ur != nil {
-				// Notify users other connetions, which might have received the call.
-				connections, exists := m.LookupConnectionsByUserID(ur.id)
-				if exists {
-					clearedMsg := &api.RTMTypeWebRTC{
-						RTMTypeSubtypeEnvelope: &api.RTMTypeSubtypeEnvelope{
-							Type:    api.RTMTypeNameWebRTC,
-							Subtype: api.RTMSubtypeNameWebRTCCall,
-						},
-						Initiator: true,
-						Channel:   msg.Channel,
-						Source:    msg.Target,
+				// Group accept.
+				// NOTE(longsleep): Incoming group hash, replace with targets
+				// group hash before sending out.
+				hash := computeWebRTCChannelHash(msg.Type, ur.id, msg.Target, channel.id)
+				msg.Hash = base64.StdEncoding.EncodeToString(hash)
+				//m.logger.Debugln("group accept hash", ur.id, msg.Target, channel.id, msg.Hash)
+
+			} else {
+				// Normal call accept.
+				if msgData.Accept {
+					// Add to channel when accept.
+					err = channel.Add(ur.id, c)
+					if err != nil {
+						return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)
 					}
-					for _, connection := range connections {
-						if connection == c {
-							continue
+				}
+
+				if ur != nil {
+					// Notify users other connetions, which might have received the call.
+					connections, exists := m.LookupConnectionsByUserID(ur.id)
+					if exists {
+						clearedMsg := &api.RTMTypeWebRTC{
+							RTMTypeSubtypeEnvelope: &api.RTMTypeSubtypeEnvelope{
+								Type:    api.RTMTypeNameWebRTC,
+								Subtype: api.RTMSubtypeNameWebRTCCall,
+							},
+							Initiator: true,
+							Channel:   msg.Channel,
+							Source:    msg.Target,
 						}
-						connection.Send(clearedMsg)
+						for _, connection := range connections {
+							if connection == c {
+								continue
+							}
+							connection.Send(clearedMsg)
+						}
 					}
 				}
 			}
@@ -349,9 +366,13 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 		ur := bound.(*userRecord)
 
 		// check hash
-		err := checkWebRTCChannelHash(ur.id, msg)
-		if err != nil {
-			return err
+		if msg.Group == "" {
+			err := checkWebRTCChannelHash(ur.id, msg)
+			if err != nil {
+				return err
+			}
+		} else {
+			// TODO(longsleep): Hash check disabled for groups because group calls send group hash.
 		}
 
 		// Get channel and add user with connection.
@@ -360,6 +381,13 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel not found", msg.ID)
 		}
 		channel := record.(*channelRecord).channel
+
+		// Validate channel with group.
+		if msg.Group != "" {
+			if channel.config == nil || channel.config.Group != msg.Group {
+				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid channel for group", msg.ID)
+			}
+		}
 
 		// Add source and modify message to prepare sending.
 		msg.Source = ur.id
