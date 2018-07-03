@@ -54,6 +54,7 @@ func (m *Manager) onAfterGroupAddOrRemove(channel *Channel, op ChannelOp, id str
 		},
 		Channel: channel.id,
 		Data:    extra,
+		Version: currentWebRTCPayloadVersion,
 	}, "", "\t")
 	if err != nil {
 		m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to encode group channel data")

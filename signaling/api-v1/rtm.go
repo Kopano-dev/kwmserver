@@ -149,6 +149,7 @@ type RTMTypeWebRTC struct {
 	Channel   string          `json:"channel,omitempty"`
 	Group     string          `json:"group,omitempty"`
 	Hash      string          `json:"hash,omitempty"`
+	Version   uint64          `json:"v"`
 	Data      json.RawMessage `json:"data,omitempty"`
 }
 
@@ -158,6 +159,7 @@ type RTMTypeWebRTCReply struct {
 	State   string          `json:"state,omitempty"`
 	Channel string          `json:"channel,omitempty"`
 	Hash    string          `json:"hash,omitempty"`
+	Version uint64          `json:"v"`
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
