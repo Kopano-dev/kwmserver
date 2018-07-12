@@ -13,7 +13,7 @@ Web Meetings.
 
 Either download a KWM Server binary release from https://download.kopano.io/community/kwmserver:/
 or use the Docker image from https://hub.docker.com/r/kopano/kwmserverd/ to run
-Konnect. For details how to run KWM Server see below.
+Kopano Webmeetings Server. For details see below.
 
 ## Build dependencies
 
