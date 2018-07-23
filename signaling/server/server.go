@@ -192,11 +192,6 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
 
-	// RTM API.
-	rtmm := rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, logger, adminm, oidcp, turnsrv)
-	apiv1Services = append(apiv1Services, rtmm)
-	logger.Infoln("API endpoint rtm enabled")
-
 	// MCU API.
 	var mcum *mcu.Manager
 	if s.config.EnableMcuAPI {
@@ -204,6 +199,11 @@ func (s *Server) Serve(ctx context.Context) error {
 		apiv1Services = append(apiv1Services, mcum)
 		logger.Infoln("API endpoint mcu enabled")
 	}
+
+	// RTM API.
+	rtmm := rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, logger, mcum, adminm, oidcp, turnsrv)
+	apiv1Services = append(apiv1Services, rtmm)
+	logger.Infoln("API endpoint rtm enabled")
 
 	// API service.
 	apiv1Service := apiv1.NewHTTPService(serveCtx, logger, apiv1Services)

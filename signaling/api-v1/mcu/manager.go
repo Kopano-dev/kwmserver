@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -42,6 +43,7 @@ type Manager struct {
 	upgrader *websocket.Upgrader
 
 	count            uint64
+	handles          uint64
 	connections      *list.List
 	connectionsMutex sync.RWMutex
 	connection       *list.Element
@@ -129,6 +131,11 @@ func (m *Manager) NumActive() uint64 {
 	return uint64(n)
 }
 
+// NewHandle returns the next available handle id of the accociated manager.
+func (m *Manager) NewHandle() int64 {
+	return int64(atomic.AddUint64(&m.handles, 1))
+}
+
 // GetConnection returns a connection from the accociated connections table
 func (m *Manager) GetConnection() *connection.Connection {
 	m.connectionsMutex.Lock()
@@ -156,17 +163,40 @@ func (m *Manager) Attach(plugin string, handle int64, onConnect func(*connection
 		return nil, fmt.Errorf("no mcu connection available for attaching")
 	}
 
+	// TODO(longsleep): Implement timeout.
+	m.attached.Set(transaction, &attachedRecord{
+		when:      time.Now(),
+		onConnect: onConnect,
+		onText:    onText,
+	})
 	err := c.Send(&WebsocketMessage{
 		Type:   "attach",
 		ID:     transaction,
 		Plugin: plugin,
 		Handle: handle,
 	})
-	m.attached.Set(transaction, &attachedRecord{
-		when:      time.Now(),
-		onConnect: onConnect,
-		onText:    onText,
-	})
 
 	return c, err
+}
+
+// Pipeline creates a Pipeline with the accociated manager and the provided
+// properties.
+func (m *Manager) Pipeline(plugin string, id string) *Pipeline {
+	handle := m.NewHandle()
+
+	p := &Pipeline{
+		logger: m.logger.WithField("pipeline_handle", handle),
+
+		plugin: plugin,
+		handle: handle,
+		id:     id,
+
+		m: m,
+	}
+	p.logger.WithFields(logrus.Fields{
+		"id":     id,
+		"plugin": plugin,
+	}).Debugln("pipeline create")
+
+	return p
 }

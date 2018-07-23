@@ -279,6 +279,15 @@ func (c *Connection) OnClosed(cb ClosedFunc) {
 	c.mutex.Unlock()
 }
 
+// IsClosed returns whever or not the accociated Connection is closed.
+func (c *Connection) IsClosed() bool {
+	c.mutex.RLock()
+	closed := c.closed
+	c.mutex.RUnlock()
+
+	return closed
+}
+
 // Duration returns the duration since the start of the connection until the
 // client was closed or until now when the accociated connection is not yet
 // closed.

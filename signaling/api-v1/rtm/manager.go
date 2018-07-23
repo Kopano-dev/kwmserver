@@ -20,7 +20,9 @@ package rtm
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -32,6 +34,7 @@ import (
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 	"stash.kopano.io/kwm/kwmserver/turn"
 )
 
@@ -42,6 +45,7 @@ type Manager struct {
 
 	logger  logrus.FieldLogger
 	ctx     context.Context
+	mcum    *mcu.Manager
 	adminm  *admin.Manager
 	oidcp   *kcoidc.Provider
 	turnsrv turn.Server
@@ -50,19 +54,21 @@ type Manager struct {
 	upgrader *websocket.Upgrader
 
 	count       uint64
+	handles     uint64
 	connections cmap.ConcurrentMap
 	users       cmap.ConcurrentMap
 	channels    cmap.ConcurrentMap
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, insecure bool, logger logrus.FieldLogger, adminm *admin.Manager, oidcp *kcoidc.Provider, turnsrv turn.Server) *Manager {
+func NewManager(ctx context.Context, id string, insecure bool, logger logrus.FieldLogger, mcum *mcu.Manager, adminm *admin.Manager, oidcp *kcoidc.Provider, turnsrv turn.Server) *Manager {
 	m := &Manager{
 		id:       id,
 		insecure: insecure,
 
 		logger:  logger.WithField("manager", "rtm"),
 		ctx:     ctx,
+		mcum:    mcum,
 		adminm:  adminm,
 		oidcp:   oidcp,
 		turnsrv: turnsrv,
@@ -171,7 +177,7 @@ type channelRecord struct {
 }
 
 func (m *Manager) purgeEmptyChannels() {
-	empty := make([]string, 0)
+	empty := make([]cmap.Tuple, 0)
 	deadline := time.Now().Add(-channelExpiration)
 	var record *channelRecord
 	for entry := range m.channels.IterBuffered() {
@@ -179,13 +185,16 @@ func (m *Manager) purgeEmptyChannels() {
 		if record.channel.CanBeCleanedUp() {
 			if record.when.Before(deadline) {
 				// Kill channels which can be cleaned up.
-				empty = append(empty, entry.Key)
+				empty = append(empty, entry)
 			}
 		}
 	}
-	for _, key := range empty {
-		m.logger.WithField("channel", key).Debugln("channel purge")
-		m.channels.Remove(key)
+	for _, entry := range empty {
+		record = entry.Val.(*channelRecord)
+		if record.channel.Cleanup() {
+			m.logger.WithField("channel", entry.Key).Debugln("channel purge")
+			m.channels.Remove(entry.Key)
+		}
 	}
 }
 
@@ -236,4 +245,36 @@ func (m *Manager) NumActive() uint64 {
 	n := m.connections.Count()
 	m.logger.Debugf("active connections: %d", n)
 	return uint64(n)
+}
+
+// NewHandle returns the next available handle id of the accociated manager.
+func (m *Manager) NewHandle() int64 {
+	return int64(atomic.AddUint64(&m.handles, 1))
+}
+
+// Pipeline returns a pipleline which fits to the accociated Manager.
+func (m *Manager) Pipeline(scope string, id string) Pipeline {
+	if m.mcum == nil {
+		return nil
+	}
+
+	switch scope {
+	case mcu.PluginIDKWMRTMChannel:
+		// NOTE(longsleep): For now route only @conference channels through MCU.
+		if !strings.HasPrefix(id, "@conference/") {
+			return nil
+		}
+		if m.mcum == nil {
+			m.logger.WithField("scope", scope).Debugln("mcu is disabled - ignoring pipeline request")
+			return nil
+		}
+
+		// Route calls through mcum pipeline.
+		return m.mcum.Pipeline(scope, id)
+
+	default:
+		m.logger.WithField("scope", scope).Warnln("ignoring pipeline request for unknown scope")
+	}
+
+	return nil
 }

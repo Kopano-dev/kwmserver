@@ -404,29 +404,29 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			}
 		}
 
-		// Add source and modify message to prepare sending.
-		msg.Source = ur.id
-		msg.ID = 0
-
 		// Check modifiers.
 		ok = false
-		var c *connection.Connection
+		var targetConnection *connection.Connection
 		if msg.Group != "" && msg.Target == msg.Group {
 			// Group mode, allow to continue without target connection.
 			ok = true
 		} else if msg.Target != "" {
-			// Targeted hangup. Lookup and forward message.
-			c, ok = channel.Get(msg.Target)
+			// Lookup and forward message.
+			targetConnection, ok = channel.Get(msg.Target)
 		}
 
 		if msg.Subtype == api.RTMSubtypeNameWebRTCHangup {
 			// XXX(longsleep): Find a better way to remove ourselves from channels.
 			channel.Remove(ur.id)
 			if !ok {
+				// Set source and ID for direct send and modify message for sending.
+				ref := msg.ID
+				msg.Source = ur.id
+				msg.ID = 0
 				// Lookup target and send hangup to all user connections.
 				connections, exists := m.LookupConnectionsByUserID(msg.Target)
 				if !exists {
-					return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
+					return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", ref)
 				}
 				for _, connection := range connections {
 					connection.Send(msg)
@@ -438,9 +438,9 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
 		}
 
-		if c != nil {
+		if targetConnection != nil {
 			// Forward message to target if connection was found.
-			c.Send(msg)
+			return channel.Forward(ur.id, msg.Target, targetConnection, msg)
 		}
 
 	default:
