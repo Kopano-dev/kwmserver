@@ -34,9 +34,6 @@ func (m *Manager) onAfterGroupAddOrRemove(channel *Channel, op ChannelOp, id str
 	members, connections := channel.Connections()
 
 	extra, err := json.MarshalIndent(&api.RTMDataWebRTCChannelExtra{
-		RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
-			Type: api.RTMSubtypeNameWebRTCGroup,
-		},
 		Group: &api.RTMTDataWebRTCChannelGroup{
 			Group:   channel.config.Group,
 			Members: members,

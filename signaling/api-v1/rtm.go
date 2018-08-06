@@ -172,7 +172,6 @@ type RTMDataWebRTCAccept struct {
 
 // RTMDataWebRTCChannelExtra defines webrtc channel extra data.
 type RTMDataWebRTCChannelExtra struct {
-	*RTMTypeSubtypeEnvelopeReply
 	Group *RTMTDataWebRTCChannelGroup `json:"group,omitempty"`
 }
 

@@ -166,10 +166,6 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 		members, _ := channel.Connections()
 
 		extra, err := json.MarshalIndent(&api.RTMDataWebRTCChannelExtra{
-			RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
-				Type:    api.RTMSubtypeNameWebRTCGroup,
-				ReplyTo: msg.ID,
-			},
 			Group: &api.RTMTDataWebRTCChannelGroup{
 				Group:   msg.Group,
 				Members: members,
