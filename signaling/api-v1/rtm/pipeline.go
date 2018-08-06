@@ -19,6 +19,9 @@ package rtm
 
 // Pipeline is for forwarding rtm messages to somewhere else.
 type Pipeline interface {
+	ID() string
+	Mode() string
+
 	Connect(onConnect func() error, onText func([]byte) error) error
 
 	Send(msg interface{}) error

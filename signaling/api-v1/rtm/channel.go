@@ -265,6 +265,13 @@ func (c *Channel) Connections() ([]string, []*connection.Connection) {
 	return ids, connections
 }
 
+// Pipeline returns the attached Channel's Pipeline.
+func (c *Channel) Pipeline() Pipeline {
+	pipeline := c.pipeline
+
+	return pipeline
+}
+
 // Forward takes care of sending the provided message to the channels assigned
 // target.
 func (c *Channel) Forward(source string, target string, conn *connection.Connection, msg *api.RTMTypeWebRTC) error {

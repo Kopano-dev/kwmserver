@@ -33,12 +33,12 @@ func CreateNamedGroupChannelID(id string, m *Manager) (string, error) {
 func (m *Manager) onAfterGroupAddOrRemove(channel *Channel, op ChannelOp, id string) {
 	members, connections := channel.Connections()
 
-	extra, err := json.MarshalIndent(&api.RTMDataWebRTCChannelExtra{
-		Group: &api.RTMTDataWebRTCChannelGroup{
-			Group:   channel.config.Group,
-			Members: members,
-		},
-	}, "", "\t")
+	data := &api.RTMDataWebRTCChannelExtra{}
+	data.Group = &api.RTMTDataWebRTCChannelGroup{
+		Group:   channel.config.Group,
+		Members: members,
+	}
+	extra, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
 		m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to encode group data")
 		return

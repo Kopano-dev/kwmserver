@@ -162,15 +162,21 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 		msg.Channel = channel.id
 		msg.Hash = base64.StdEncoding.EncodeToString(hash)
 
-		// Get IDs of memmbers in channel.
+		// Get IDs of members in channel.
 		members, _ := channel.Connections()
 
-		extra, err := json.MarshalIndent(&api.RTMDataWebRTCChannelExtra{
-			Group: &api.RTMTDataWebRTCChannelGroup{
-				Group:   msg.Group,
-				Members: members,
-			},
-		}, "", "\t")
+		data := &api.RTMDataWebRTCChannelExtra{}
+		data.Group = &api.RTMTDataWebRTCChannelGroup{
+			Group:   msg.Group,
+			Members: members,
+		}
+		if pipeline := channel.Pipeline(); pipeline != nil {
+			data.Pipeline = &api.RTMDataWebRTCChannelPipeline{
+				Pipeline: pipeline.ID(),
+				Mode:     pipeline.Mode(),
+			}
+		}
+		extra, err := json.MarshalIndent(data, "", "\t")
 		if err != nil {
 			return fmt.Errorf("failed to encode group data: %v", err)
 		}
@@ -223,7 +229,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "data must be empty", msg.ID)
 			}
 
-			// Create channel annd add user with connection.
+			// Create channel and add user with connection.
 			channel, err := CreateRandomChannel(m, nil)
 			if err != nil {
 				return fmt.Errorf("failed to create channel: %v", err)
@@ -238,6 +244,19 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			}
 			m.channels.SetIfAbsent(channel.id, record)
 
+			var extra json.RawMessage
+			if pipeline := channel.Pipeline(); pipeline != nil {
+				extra, err = json.MarshalIndent(&api.RTMDataWebRTCChannelExtra{
+					Pipeline: &api.RTMDataWebRTCChannelPipeline{
+						Pipeline: pipeline.ID(),
+						Mode:     pipeline.Mode(),
+					},
+				}, "", "\t")
+				if err != nil {
+					return fmt.Errorf("failed to encode channel extra data: %v", err)
+				}
+			}
+
 			// Create hash for channel.
 			hash := computeWebRTCChannelHash(msg.Type, ur.id, msg.Target, channel.id)
 
@@ -245,6 +264,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			msg.Source = ur.id
 			msg.Channel = channel.id
 			msg.Hash = base64.StdEncoding.EncodeToString(hash)
+			msg.Data = extra
 
 			// Send to self to populate channel and hash.
 			c.Send(&api.RTMTypeWebRTCReply{
@@ -256,6 +276,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 				Channel: msg.Channel,
 				Hash:    msg.Hash,
 				Version: currentWebRTCPayloadVersion,
+				Data:    msg.Data,
 			})
 
 			// Reset id for sending to target.
@@ -283,8 +304,8 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			}
 
 			// check extra data
-			var msgData *api.RTMDataWebRTCAccept
-			err = json.Unmarshal(msg.Data, &msgData)
+			var extra *api.RTMDataWebRTCAccept
+			err = json.Unmarshal(msg.Data, &extra)
 			if err != nil {
 				return err
 			}
@@ -297,7 +318,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			channel := record.(*channelRecord).channel
 
 			if msg.Group != "" {
-				if !msgData.Accept {
+				if !extra.Accept {
 					return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "accept required for group call", msg.ID)
 				}
 
@@ -310,7 +331,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 
 			} else {
 				// Normal call accept.
-				if msgData.Accept {
+				if extra.Accept {
 					// Add to channel when accept.
 					err = channel.Add(ur.id, c)
 					if err != nil {

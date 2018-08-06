@@ -172,11 +172,18 @@ type RTMDataWebRTCAccept struct {
 
 // RTMDataWebRTCChannelExtra defines webrtc channel extra data.
 type RTMDataWebRTCChannelExtra struct {
-	Group *RTMTDataWebRTCChannelGroup `json:"group,omitempty"`
+	Group    *RTMTDataWebRTCChannelGroup   `json:"group,omitempty"`
+	Pipeline *RTMDataWebRTCChannelPipeline `json:"pipeline,omitempty"`
 }
 
 // RTMTDataWebRTCChannelGroup defnes webrtc channel group details.
 type RTMTDataWebRTCChannelGroup struct {
 	Group   string   `json:"group"`
 	Members []string `json:"members"`
+}
+
+// RTMDataWebRTCChannelPipeline defines webrtc channel pipeline details.
+type RTMDataWebRTCChannelPipeline struct {
+	Pipeline string `json:"pipeline"`
+	Mode     string `json:"mode"`
 }

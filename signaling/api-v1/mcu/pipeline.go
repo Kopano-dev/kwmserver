@@ -29,6 +29,8 @@ import (
 
 type onConnectCallbackFunc func(*connection.Connection) error
 
+const pipelineModeMCUForward = "mcu-forward"
+
 // Pipeline is a pipeline to forward rtm messages to the mcu.
 type Pipeline struct {
 	mutex  sync.RWMutex
@@ -47,6 +49,16 @@ type Pipeline struct {
 	closed      bool
 	reconnector *time.Timer
 	connection  *connection.Connection
+}
+
+// ID returns the accociated Pipeline's ID.
+func (p *Pipeline) ID() string {
+	return p.id
+}
+
+// Mode returns the accociated Pipeline's Mode.
+func (p *Pipeline) Mode() string {
+	return pipelineModeMCUForward
 }
 
 // Connect sends the attach message with the provided parameters.
