@@ -74,11 +74,10 @@ func (p *Pipeline) Connect(onConnect func() error, onText func([]byte) error) er
 	p.onTextHandler = onText
 
 	// Ask manager to connect.
-	p.connecting = true
 	_, err := p.m.Attach(p.plugin, p.handle, p.onConnect, p.onText)
 	if err != nil {
 		p.logger.WithError(err).Warnln("failed to connect pipeline")
-		p.reconnect()
+		go p.reconnect()
 	}
 
 	return nil
@@ -110,31 +109,39 @@ func (p *Pipeline) onClosed(conn *connection.Connection) {
 		return
 	}
 
-	p.reconnect()
+	go p.reconnect()
 	p.mutex.Unlock()
 }
 
 func (p *Pipeline) reconnect() {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if p.connecting {
+		return
+	}
+
 	p.logger.Debugln("scheduling pipeline reconnect")
 
 	if p.reconnector != nil {
 		p.reconnector.Stop()
 	}
 
+	p.connecting = true
 	p.reconnector = time.AfterFunc(3*time.Second, func() {
 		p.mutex.Lock()
-		if p.connecting || p.closed {
+		if !p.connecting || p.closed {
 			p.mutex.Unlock()
 			return
 		}
 
 		// Ask manager to connect.
-		p.connecting = true
 		_, err := p.m.Attach(p.plugin, p.handle, p.onConnect, p.onText)
 		// TODO(longsleep): Implement background retry on error or timeout.
 		if err != nil {
 			p.logger.WithError(err).Warnln("failed to reconnect pipeline")
-			p.reconnect()
+			go p.reconnect()
+		} else {
+			p.connecting = false
 		}
 
 		p.mutex.Unlock()

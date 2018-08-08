@@ -260,8 +260,18 @@ func (m *Manager) Pipeline(scope string, id string) Pipeline {
 
 	switch scope {
 	case mcu.PluginIDKWMRTMChannel:
+		withPipeline := false
+		alwaysPipeline := false // TODO(longsleep): Add to configuration.
+
 		// NOTE(longsleep): For now route only @conference channels through MCU.
-		if !strings.HasPrefix(id, "@conference/") {
+		switch {
+		case alwaysPipeline:
+			withPipeline = true
+		case strings.HasPrefix(id, "@conference/"):
+			withPipeline = true
+		}
+
+		if !withPipeline {
 			return nil
 		}
 		if m.mcum == nil {

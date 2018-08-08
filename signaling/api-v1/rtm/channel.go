@@ -18,6 +18,7 @@
 package rtm
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,15 +96,30 @@ func NewChannel(id string, m *Manager, logger logrus.FieldLogger, config *Channe
 		go pipeline.Connect(func() error {
 			logger.Debugln("channel pipeline connect")
 
-			// Send to channel to mcu to populate.
-			pipeline.Send(&api.RTMTypeWebRTCReply{
+			var extra json.RawMessage
+			extra, err := json.MarshalIndent(&api.RTMDataWebRTCChannelExtra{
+				Pipeline: &api.RTMDataWebRTCChannelPipeline{
+					Pipeline: pipeline.ID(),
+					Mode:     pipeline.Mode(),
+				},
+			}, "", "\t")
+			if err != nil {
+				return fmt.Errorf("failed to encode channel extra data for pipeline: %v", err)
+			}
+
+			// Send channel to mcu to populate.
+			err = pipeline.Send(&api.RTMTypeWebRTCReply{
 				RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
 					Type:    api.RTMTypeNameWebRTC,
 					Subtype: api.RTMSubtypeNameWebRTCChannel,
 				},
 				Channel: id,
 				Version: currentWebRTCPayloadVersion,
+				Data:    extra,
 			})
+			if err != nil {
+				return fmt.Errorf("failed to send channel data to pipeline: %v", err)
+			}
 
 			logger.Debugln("channel pipeline registered")
 			return nil
@@ -111,7 +127,7 @@ func NewChannel(id string, m *Manager, logger logrus.FieldLogger, config *Channe
 			var msg api.RTMTypeWebRTC
 			err := json.Unmarshal(data, &msg)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to decode JSON data from pipeline: %v", err)
 			}
 
 			err = channel.deliver(&msg)
@@ -195,7 +211,9 @@ func (c *Channel) Get(id string) (*connection.Connection, bool) {
 	conn, ok := c.connections[id]
 	c.RUnlock()
 
-	return conn, ok
+	// NOTE(longsleep): Return direclty accociated connection. Always returns
+	// ok when the accociated channel has a pipeline.
+	return conn, ok || c.pipeline != nil
 }
 
 // Size returns the number of connections in this channel.
@@ -275,19 +293,18 @@ func (c *Channel) Pipeline() Pipeline {
 // Forward takes care of sending the provided message to the channels assigned
 // target.
 func (c *Channel) Forward(source string, target string, conn *connection.Connection, msg *api.RTMTypeWebRTC) error {
-	if conn == nil {
-		conn, _ = c.Get(target)
-	}
-
-	if conn == nil {
-		return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
-	}
-
 	msg.Source = source
 
 	// Send through pipeline if any.
 	if c.pipeline != nil {
 		return c.pipeline.Send(msg)
+	}
+
+	if conn == nil {
+		conn, _ = c.Get(target)
+	}
+	if conn == nil {
+		return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
 	}
 
 	msg.ID = 0
@@ -305,4 +322,48 @@ func (c *Channel) deliver(msg *api.RTMTypeWebRTC) error {
 	}
 
 	return conn.Send(msg)
+}
+
+func (c *Channel) checkWebRTCMessage(source string, msg *api.RTMTypeWebRTC) error {
+	// check channel with group.
+	if msg.Group != "" {
+		if c.config == nil || c.config.Group != msg.Group {
+			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid channel for group", msg.ID)
+		}
+	}
+
+	// check hash
+	if msg.Hash == "" {
+		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "missing hash", msg.ID)
+	}
+	hash, err := base64.StdEncoding.DecodeString(msg.Hash)
+	if err != nil {
+		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "hash decode error", msg.ID)
+	}
+
+	// Target is by default the msg target.
+	target := msg.Target
+	switch {
+	case msg.Group != "":
+		// Group messages use group hash.
+		target = msg.Group
+	case target == "":
+		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "missing target", msg.ID)
+	case c.pipeline != nil:
+		// TODO(longsleep): Add hash validation when running through pipeline.
+		// Validation is left to the pipeline implementation.
+		return nil
+	}
+
+	// Validate hash with target and channel.
+	if checkWebRTCChannelHash(hash, msg.Type, source, target, msg.Channel) {
+		return nil
+	}
+
+	// Either always also allow the directly targeted messages.
+	if checkWebRTCChannelHash(hash, msg.Type, source, msg.Target, msg.Channel) {
+		return nil
+	}
+
+	return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid hash", msg.ID)
 }

@@ -57,30 +57,13 @@ func computeWebRTCChannelHash(msgType, source, target, channel string) []byte {
 		h.Write([]byte(source))
 	}
 	h.Write([]byte(channel))
-	return h.Sum(nil)
+
+	hb := h.Sum(nil)
+	return hb
 }
 
-func checkWebRTCChannelHash(source string, msg *api.RTMTypeWebRTC) error {
-	// check hash
-	if msg.Hash == "" {
-		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "missing hash", msg.ID)
-	}
-	hash, err := base64.StdEncoding.DecodeString(msg.Hash)
-	if err != nil {
-		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "hash decode error", msg.ID)
-	}
-	target := msg.Target
-	if msg.Group != "" {
-		// Validate group when set, instead of target.
-		target = msg.Group
-	} else if target == "" {
-		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "missing target", msg.ID)
-	}
-	if !hmac.Equal(hash, computeWebRTCChannelHash(msg.Type, source, target, msg.Channel)) {
-		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid hash", msg.ID)
-	}
-
-	return nil
+func checkWebRTCChannelHash(hash []byte, msgType, source, target, channel string) bool {
+	return hmac.Equal(hash, computeWebRTCChannelHash(msgType, source, target, channel))
 }
 
 func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) error {
@@ -297,25 +280,25 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel, hash or data is empty", msg.ID)
 			}
 
-			// check hash
-			err := checkWebRTCChannelHash(ur.id, msg)
-			if err != nil {
-				return err
-			}
-
-			// check extra data
-			var extra *api.RTMDataWebRTCAccept
-			err = json.Unmarshal(msg.Data, &extra)
-			if err != nil {
-				return err
-			}
-
 			// Get channel and add user with connection.
 			record, ok := m.channels.Get(msg.Channel)
 			if !ok {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel not found", msg.ID)
 			}
 			channel := record.(*channelRecord).channel
+
+			// Validate message with channel.
+			err := channel.checkWebRTCMessage(ur.id, msg)
+			if err != nil {
+				return err
+			}
+
+			// Check extra data.
+			var extra *api.RTMDataWebRTCAccept
+			err = json.Unmarshal(msg.Data, &extra)
+			if err != nil {
+				return err
+			}
 
 			if msg.Group != "" {
 				if !extra.Accept {
@@ -351,6 +334,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 							Initiator: true,
 							Channel:   msg.Channel,
 							Source:    msg.Target,
+							Version:   currentWebRTCPayloadVersion,
 						}
 						for _, connection := range connections {
 							if connection == c {
@@ -397,16 +381,6 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 
 		ur := bound.(*userRecord)
 
-		// check hash
-		if msg.Group == "" {
-			err := checkWebRTCChannelHash(ur.id, msg)
-			if err != nil {
-				return err
-			}
-		} else {
-			// TODO(longsleep): Hash check disabled for groups because group calls send group hash.
-		}
-
 		// Get channel and add user with connection.
 		record, ok := m.channels.Get(msg.Channel)
 		if !ok {
@@ -414,28 +388,36 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 		}
 		channel := record.(*channelRecord).channel
 
-		// Validate channel with group.
-		if msg.Group != "" {
-			if channel.config == nil || channel.config.Group != msg.Group {
-				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid channel for group", msg.ID)
-			}
+		// Validate incoming message..
+		err := channel.checkWebRTCMessage(ur.id, msg)
+		if err != nil {
+			return err
 		}
 
-		// Check modifiers.
-		ok = false
+		// Check what to do.
 		var targetConnection *connection.Connection
-		if msg.Group != "" && msg.Target == msg.Group {
+		switch {
+		case msg.Group != "" && msg.Target == msg.Group:
 			// Group mode, allow to continue without target connection.
 			ok = true
-		} else if msg.Target != "" {
-			// Lookup and forward message.
+			// breaks
+		case msg.Target != "":
+			// We have a target, try to find a connection in channel.
 			targetConnection, ok = channel.Get(msg.Target)
+			// breaks
+		default:
+			ok = false
+			// breaks
 		}
 
 		if msg.Subtype == api.RTMSubtypeNameWebRTCHangup {
 			// XXX(longsleep): Find a better way to remove ourselves from channels.
 			channel.Remove(ur.id)
 			if !ok {
+				// Hangup case when there is no connection for target in
+				// the channel. For example this happens when a call is`
+				// not yet picked up.
+
 				// Set source and ID for direct send and modify message for sending.
 				ref := msg.ID
 				msg.Source = ur.id
@@ -448,16 +430,18 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 				for _, connection := range connections {
 					connection.Send(msg)
 				}
+
+				// Stop processing here - hangups without connection get no further
+				// processing.
 				break
 			}
 		}
+
+		if ok || targetConnection != nil {
+			return channel.Forward(ur.id, msg.Target, targetConnection, msg)
+		}
 		if !ok {
 			return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
-		}
-
-		if targetConnection != nil {
-			// Forward message to target if connection was found.
-			return channel.Forward(ur.id, msg.Target, targetConnection, msg)
 		}
 
 	default:
