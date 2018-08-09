@@ -1,0 +1,11 @@
+[Unit]
+Description=kopano-kwmserverd
+After=network.target
+
+[Service]
+ExecStart=/opt/kwmserver/kwmserverd serve --listen=127.0.0.1:8778 --admin-tokens-key /etc/kopano/kwm-admin-tokens.key
+Restart=on-failure
+User=nobody
+
+[Install]
+WantedBy=default.target
