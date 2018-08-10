@@ -56,8 +56,7 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 	if err != nil {
 		return err
 	}
-
-	if onReply, ok := c.Transaction(&transaction); ok {
+	if onReply, ok := c.Transaction(&transaction, nil); ok {
 		return onReply(msg)
 	}
 

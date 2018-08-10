@@ -33,22 +33,22 @@ const (
 )
 
 type transactionMessage struct {
-	ID string `json:"transaction"`
+	Transaction string `json:"transaction"`
 }
 
 func (m *transactionMessage) TransactionID() string {
-	return m.ID
+	return m.Transaction
 }
 
 // WebsocketMessage is the container for basic mcu websocket messages.
 type WebsocketMessage struct {
-	Type   string `json:"type"`
-	ID     string `json:"transaction"`
-	Plugin string `json:"plugin"`
-	Handle int64  `json:"handle_id"`
+	Type        string `json:"type"`
+	Transaction string `json:"transaction"`
+	Plugin      string `json:"plugin"`
+	Handle      int64  `json:"handle_id"`
 }
 
 // TransactionID returns the transaction ID of the accociated message.
 func (m *WebsocketMessage) TransactionID() string {
-	return m.ID
+	return m.Transaction
 }

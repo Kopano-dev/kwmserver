@@ -264,6 +264,8 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 
 			// Reset id for sending to target.
 			msg.ID = 0
+			// TODO(longsleep): Add transaction and gather all targets in a
+			// single reply.
 
 			// Lookup target and send modified message.
 			connections, ok := m.LookupConnectionsByUserID(msg.Target)

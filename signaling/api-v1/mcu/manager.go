@@ -170,10 +170,10 @@ func (m *Manager) Attach(plugin string, handle int64, onConnect func(*connection
 		onText:    onText,
 	})
 	err := c.Send(&WebsocketMessage{
-		Type:   "attach",
-		ID:     transaction,
-		Plugin: plugin,
-		Handle: handle,
+		Type:        "attach",
+		Transaction: transaction,
+		Plugin:      plugin,
+		Handle:      handle,
 	})
 
 	return c, err

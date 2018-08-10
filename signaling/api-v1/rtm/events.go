@@ -133,15 +133,26 @@ func (m *Manager) OnBeforeDisconnect(c *connection.Connection, err error) error 
 func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 	//c.Logger().Debugf("websocket OnText: %s", msg)
 
-	// TODO(longsleep): Reuse RTMDataEnvelope / put into pool.
-	var envelope api.RTMTypeEnvelope
-	err := json.Unmarshal(msg, &envelope)
+	// TODO(longsleep): Reuse RTMTypeTransaction / put into pool.
+	var transaction api.RTMTypeTransaction
+	err := json.Unmarshal(msg, &transaction)
 	if err != nil {
 		return err
 	}
+	if onReply, ok := c.Transaction(&transaction, func() (connection.TransactionCallbackFunc, bool) {
+		// TODO(longsleep): Figure out what to do when the transaction was
+		// not found.
+		return nil, false
+	}); ok {
+		return onReply(msg)
+	}
 
-	err = nil
-	switch envelope.Type {
+	return m.processTextMessage(c, &transaction, msg)
+}
+
+func (m *Manager) processTextMessage(c *connection.Connection, transaction *api.RTMTypeTransaction, msg []byte) error {
+	var err error
+	switch transaction.Type {
 	case api.RTMTypeNamePing:
 		// Ping, Pong.
 		var ping api.RTMTypePingPong
@@ -190,7 +201,7 @@ func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
 		err = m.onWebRTC(c, &webrtc)
 
 	default:
-		return fmt.Errorf("unknown incoming type %v", envelope.Type)
+		return fmt.Errorf("unknown incoming type %v", transaction.Type)
 	}
 
 	return err

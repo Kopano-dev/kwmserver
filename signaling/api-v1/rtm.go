@@ -62,6 +62,18 @@ type RTMTURNResponse struct {
 	TURN *turn.ClientConfig `json:"turn"`
 }
 
+// RTMTypeTransaction is the envelope with type key and optional transaction for
+// RTM JSON data messages.
+type RTMTypeTransaction struct {
+	Type        string `json:"type"`
+	Transaction string `json:"transaction,omitempty"`
+}
+
+// TransactionID returns the transaction ID of the accociated message.
+func (e *RTMTypeTransaction) TransactionID() string {
+	return e.Transaction
+}
+
 // RTMTypeEnvelope is the envelope with type key for RTM JSON data messages.
 type RTMTypeEnvelope struct {
 	ID   uint64 `json:"id,omitempty"`
@@ -142,15 +154,21 @@ type RTMTypePingPong map[string]interface{}
 // RTMTypeWebRTC defines webrtc related messages.
 type RTMTypeWebRTC struct {
 	*RTMTypeSubtypeEnvelope
-	Target    string          `json:"target"`
-	Source    string          `json:"source"`
-	Initiator bool            `json:"initiator,omitempty"`
-	State     string          `json:"state,omitempty"`
-	Channel   string          `json:"channel,omitempty"`
-	Group     string          `json:"group,omitempty"`
-	Hash      string          `json:"hash,omitempty"`
-	Version   uint64          `json:"v"`
-	Data      json.RawMessage `json:"data,omitempty"`
+	Target      string          `json:"target"`
+	Source      string          `json:"source"`
+	Initiator   bool            `json:"initiator,omitempty"`
+	State       string          `json:"state,omitempty"`
+	Channel     string          `json:"channel,omitempty"`
+	Group       string          `json:"group,omitempty"`
+	Hash        string          `json:"hash,omitempty"`
+	Version     uint64          `json:"v"`
+	Transaction string          `json:"transaction,omitempty"`
+	Data        json.RawMessage `json:"data,omitempty"`
+}
+
+// TransactionID returns the transaction ID of the accociated message.
+func (e *RTMTypeWebRTC) TransactionID() string {
+	return e.Transaction
 }
 
 // RTMTypeWebRTCReply defines webrtc related replies..

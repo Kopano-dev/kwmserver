@@ -367,7 +367,7 @@ func (c *Connection) Write(payload []byte, messageType int) error {
 }
 
 // Transaction returns the accociated transaction callback for the provided id.
-func (c *Connection) Transaction(msg PayloadWithTransactionID) (TransactionCallbackFunc, bool) {
+func (c *Connection) Transaction(msg PayloadWithTransactionID, fallback func() (TransactionCallbackFunc, bool)) (TransactionCallbackFunc, bool) {
 	tid := msg.TransactionID()
 	if tid == "" {
 		return nil, false
@@ -381,6 +381,9 @@ func (c *Connection) Transaction(msg PayloadWithTransactionID) (TransactionCallb
 	c.transactionsMutex.Unlock()
 
 	if !ok {
+		if fallback != nil {
+			return fallback()
+		}
 		return nil, false
 	}
 	return cb, true
