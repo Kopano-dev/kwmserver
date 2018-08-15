@@ -179,6 +179,22 @@ func (m *Manager) Attach(plugin string, handle int64, onConnect func(*connection
 	return c, err
 }
 
+// Detach sends the detach message with the provided parameters.
+func (m *Manager) Detach(plugin string, handle int64) error {
+	c := m.GetConnection()
+	if c == nil {
+		return fmt.Errorf("no mcu connection available for detaching")
+	}
+
+	err := c.Send(&WebsocketMessage{
+		Type:   "detach",
+		Plugin: plugin,
+		Handle: handle,
+	})
+
+	return err
+}
+
 // Pipeline creates a Pipeline with the accociated manager and the provided
 // properties.
 func (m *Manager) Pipeline(plugin string, id string) *Pipeline {

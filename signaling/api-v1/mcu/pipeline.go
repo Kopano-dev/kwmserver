@@ -120,7 +120,7 @@ func (p *Pipeline) reconnect() {
 		return
 	}
 
-	p.logger.Debugln("scheduling pipeline reconnect")
+	p.logger.Debugln("pipeline scheduling reconnect")
 
 	if p.reconnector != nil {
 		p.reconnector.Stop()
@@ -138,7 +138,7 @@ func (p *Pipeline) reconnect() {
 		_, err := p.m.Attach(p.plugin, p.handle, p.onConnect, p.onText)
 		// TODO(longsleep): Implement background retry on error or timeout.
 		if err != nil {
-			p.logger.WithError(err).Warnln("failed to reconnect pipeline")
+			p.logger.WithError(err).Warnln("pipeline failed to reconnect")
 			go p.reconnect()
 		} else {
 			p.connecting = false
@@ -197,6 +197,11 @@ func (p *Pipeline) Close() error {
 	p.mutex.Unlock()
 
 	if conn != nil {
+		err := p.m.Detach(p.plugin, p.handle)
+		if err != nil {
+			p.logger.WithError(err).Warnln("pipeline failed to detach")
+		}
+
 		return conn.Close()
 	}
 	return nil

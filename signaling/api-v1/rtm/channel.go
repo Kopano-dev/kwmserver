@@ -263,6 +263,8 @@ func (c *Channel) Cleanup() bool {
 		go pipeline.Close()
 	}
 
+	c.logger.Debugln("channel cleaned up")
+
 	return true
 }
 
