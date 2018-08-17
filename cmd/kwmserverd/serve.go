@@ -63,6 +63,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().Bool("insecure-auth", false, "Disable verification that auth matches user")
 	serveCmd.Flags().StringArray("turn-uri", nil, "TURN uri to send to clients")
 	serveCmd.Flags().String("turn-server-shared-secret", "", "Full path to the file which contains the shared secret for TURN server password generation")
+	serveCmd.Flags().Bool("log-timestamp", true, "Prefix each log line with timestamp")
+	serveCmd.Flags().String("log-level", "info", "Log level (one of panic, fatal, error, warn, info or debug)")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -74,7 +76,10 @@ func commandServe() *cobra.Command {
 func serve(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
-	logger, err := newLogger()
+	logTimestamp, _ := cmd.Flags().GetBool("log-timestamp")
+	logLevel, _ := cmd.Flags().GetString("log-level")
+
+	logger, err := newLogger(!logTimestamp, logLevel)
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %v", err)
 	}
