@@ -20,6 +20,7 @@ package rtm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -67,31 +68,17 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 		return m.adminm.IsValidAdminAuthTokenRequest(req)
 
 	case "Bearer":
-		// Validate as openid connect auth.
 		if m.oidcp != nil {
 			authenticatedUserID, std, claims, err := m.oidcp.ValidateTokenString(req.Context(), authHeader[1])
-			for {
-				if err != nil {
-					break
-				}
 
-				if std == nil || claims == nil {
-					err = fmt.Errorf("no claims")
-					break
+			if err == nil {
+				if claims != nil && claims.KCTokenType() == kcoidc.TokenTypeKCAccess {
+					err = claims.Valid()
+				} else {
+					err = errors.New("missing access token claim")
 				}
-
-				err = claims.Valid()
-				if err != nil {
-					break
-				}
-
-				if claims.KCTokenType() != kcoidc.TokenTypeKCAccess {
-					err = fmt.Errorf("missing access token claim")
-					break
-				}
-
-				break
 			}
+
 			if err != nil {
 				m.logger.WithError(err).Errorln("rtm connect bearer auth failed")
 				return nil, false
