@@ -33,6 +33,9 @@ type Config struct {
 	EnableMcuAPI   bool
 	EnableJanusAPI bool
 
+	EnableRTMAPI      bool
+	RTMRequiredScopes []string
+
 	EnableWww bool
 	WwwRoot   string
 

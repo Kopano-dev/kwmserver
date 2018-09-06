@@ -201,9 +201,12 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 
 	// RTM API.
-	rtmm := rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, logger, mcum, adminm, oidcp, turnsrv)
-	apiv1Services = append(apiv1Services, rtmm)
-	logger.Infoln("API endpoint rtm enabled")
+	var rtmm *rtm.Manager
+	if s.config.EnableRTMAPI {
+		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, logger, mcum, adminm, oidcp, turnsrv)
+		apiv1Services = append(apiv1Services, rtmm)
+		logger.Infoln("API endpoint rtm enabled")
+	}
 
 	// API service.
 	apiv1Service := apiv1.NewHTTPService(serveCtx, logger, apiv1Services)

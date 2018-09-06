@@ -79,6 +79,11 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 				}
 			}
 
+			if err == nil && len(m.requiredScopes) > 0 {
+				// Check required scopes.
+				err = kcoidc.RequireScopesInClaims(claims, m.requiredScopes)
+			}
+
 			if err != nil {
 				m.logger.WithError(err).Errorln("rtm connect bearer auth failed")
 				return nil, false

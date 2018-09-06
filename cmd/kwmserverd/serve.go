@@ -53,6 +53,7 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("listen", "", fmt.Sprintf("TCP listen address (default \"%s\")", defaultListenAddr))
 	serveCmd.Flags().Bool("enable-mcu-api", false, "Enables the MCU API endpoints")
 	serveCmd.Flags().Bool("enable-janus-api", false, "Enables the Janus API endpoints")
+	serveCmd.Flags().Bool("enable-rtm-api", true, "Enables the RPM API endpoints")
 	serveCmd.Flags().Bool("enable-www", false, "Enables serving static files")
 	serveCmd.Flags().String("www-root", "./www", "Full path for static files to be served when --enable-www is used, defaults to ./www")
 	serveCmd.Flags().Bool("enable-docs", false, "Enables serving documentation")
@@ -65,6 +66,7 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("turn-server-shared-secret", "", "Full path to the file which contains the shared secret for TURN server password generation")
 	serveCmd.Flags().Bool("log-timestamp", true, "Prefix each log line with timestamp")
 	serveCmd.Flags().String("log-level", "info", "Log level (one of panic, fatal, error, warn, info or debug)")
+	serveCmd.Flags().StringArray("rtm-required-scope", nil, "Require specific scope when checking auth for RTM")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -223,6 +225,14 @@ func serve(cmd *cobra.Command, args []string) error {
 	config.AllowInsecureAuth, _ = cmd.Flags().GetBool("insecure-auth")
 	if config.AllowInsecureAuth {
 		logger.Warnln("insecure-auth mode, user identifiers are not forced to match auth")
+	}
+
+	config.EnableRTMAPI, _ = cmd.Flags().GetBool("enable-rtm-api")
+	if config.EnableRTMAPI {
+		config.RTMRequiredScopes, _ = cmd.Flags().GetStringArray("rtm-required-scope")
+		if len(config.RTMRequiredScopes) > 0 {
+			logger.WithField("required-scopes", config.RTMRequiredScopes).Infoln("required auth scopes for rtm")
+		}
 	}
 
 	srv, err := server.NewServer(config)
