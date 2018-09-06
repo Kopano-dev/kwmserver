@@ -184,11 +184,11 @@ func (s *Server) Serve(ctx context.Context) error {
 		if _, err = rndm.ReadRandomBytes(s.config.AdminTokensSigningKey); err != nil {
 			return fmt.Errorf("unable to create random key, %v", err)
 		}
-		logger.Warnln("using random admin tokens singing key - API endpoint admin disabled")
+		logger.Warnln("admin: using random admin tokens singing key - API endpoint admin disabled")
 	} else {
 		// Only expose admin API when a key was set.
 		apiv1Services = append(apiv1Services, adminm)
-		logger.Infoln("API endpoint admin enabled")
+		logger.Infoln("admin: API endpoint enabled")
 	}
 	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
 
@@ -197,7 +197,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	if s.config.EnableMcuAPI {
 		mcum = mcu.NewManager(serveCtx, "", logger)
 		apiv1Services = append(apiv1Services, mcum)
-		logger.Infoln("API endpoint mcu enabled")
+		logger.Infoln("mcu: API endpoint enabled")
 	}
 
 	// RTM API.
@@ -205,7 +205,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	if s.config.EnableRTMAPI {
 		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, logger, mcum, adminm, oidcp, turnsrv)
 		apiv1Services = append(apiv1Services, rtmm)
-		logger.Infoln("API endpoint rtm enabled")
+		logger.Infoln("rtm: API endpoint enabled")
 	}
 
 	// API service.
@@ -222,7 +222,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 		janusService := janus.NewHTTPService(serveCtx, logger, mcum, adminm)
 		httpServices = append(httpServices, janusService)
-		logger.Infoln("API endpoint janus enabled")
+		logger.Infoln("janus: API endpoint enabled")
 	}
 
 	if s.config.EnableDocs {
@@ -231,7 +231,7 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 		docsService := www.NewHTTPService(serveCtx, logger, "/docs", s.config.DocsRoot)
 		httpServices = append(httpServices, docsService)
-		logger.Infof("Docs endpoints from %s enabled", s.config.DocsRoot)
+		logger.Infof("docs: endpoints from %s enabled", s.config.DocsRoot)
 	}
 
 	if s.config.EnableWww {
@@ -240,7 +240,7 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 		wwwService := www.NewHTTPService(serveCtx, logger, "/", s.config.WwwRoot)
 		httpServices = append(httpServices, wwwService)
-		logger.Infof("WWW endpoints from %s enabled", s.config.WwwRoot)
+		logger.Infof("www: endpoints from %s enabled", s.config.WwwRoot)
 	}
 
 	errCh := make(chan error, 2)

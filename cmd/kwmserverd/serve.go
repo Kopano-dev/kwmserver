@@ -231,7 +231,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	if config.EnableRTMAPI {
 		config.RTMRequiredScopes, _ = cmd.Flags().GetStringArray("rtm-required-scope")
 		if len(config.RTMRequiredScopes) > 0 {
-			logger.WithField("required-scopes", config.RTMRequiredScopes).Infoln("required auth scopes for rtm")
+			logger.WithField("required_scopes", config.RTMRequiredScopes).Infoln("rtm: access requirements set up")
 		}
 	}
 
