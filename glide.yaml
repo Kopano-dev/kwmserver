@@ -19,4 +19,4 @@ import:
 - package: github.com/dgrijalva/jwt-go
   version: v3.0.0
 - package: stash.kopano.io/kc/libkcoidc
-  version: ~0.2.0
+  version: ~0.4.0
