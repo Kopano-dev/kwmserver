@@ -1,5 +1,5 @@
-hash: 30f3dbf6640a596593b2faceabfb58fc44cb00d2d52f39c18ca12b8b930489f9
-updated: 2018-09-06T19:18:59.927752471+02:00
+hash: f02a8c4e8f76b3a127cfc3a96e8fb882329529db9ec2186c8c7a79e354f8e370
+updated: 2018-09-21T20:09:27.733174405+02:00
 imports:
 - name: github.com/dgrijalva/jwt-go
   version: d2709f9f1f31ebcda9651b03077758c1f3a0018c
@@ -25,7 +25,7 @@ imports:
 - name: github.com/spf13/cobra
   version: 7b2c5ac9fc04fc5efafb60700713d4fa609b777b
 - name: github.com/spf13/pflag
-  version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
+  version: 9a97c102cda95a86cec2345a6f09f55a939babf5
 - name: golang.org/x/crypto
   version: 2faea1465de239e4babd8f5905cc25b781712442
   subpackages:
@@ -33,7 +33,7 @@ imports:
   - ed25519/internal/edwards25519
   - pbkdf2
 - name: golang.org/x/sys
-  version: 833a04a10549a95dc34458c195cbad61bbb6cb4d
+  version: 14742f9018cd6651ec7364dc6ee08af0baaa1031
   subpackages:
   - unix
 - name: gopkg.in/square/go-jose.v2
@@ -42,7 +42,7 @@ imports:
   - cipher
   - json
 - name: stash.kopano.io/kc/libkcoidc
-  version: 169129732bc2528c67c1f4431b14abb8081964bc
+  version: 36bf351b5b11444dc6a6a46d341575e08775be1a
 - name: stash.kopano.io/kgol/rndm
   version: 69ff9c69d5ce12d2fb19a552eab58ad657a5e8b2
 testImports: []
