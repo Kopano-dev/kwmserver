@@ -128,11 +128,16 @@ vendor: glide.lock | $(BASE) ; $(info retrieving dependencies ...) @
 
 .PHONY: dist
 dist: ; $(info building dist tarball ...)
+	@rm -rf "dist/${PACKAGE_NAME}-${VERSION}"
 	@mkdir -p "dist/${PACKAGE_NAME}-${VERSION}"
+	@mkdir -p "dist/${PACKAGE_NAME}-${VERSION}/scripts"
 	@cd dist && \
 	cp -avf ../LICENSE.txt "${PACKAGE_NAME}-${VERSION}" && \
 	cp -avf ../README.md "${PACKAGE_NAME}-${VERSION}" && \
 	cp -avf ../bin/* "${PACKAGE_NAME}-${VERSION}" && \
+	cp -avf ../scripts/kopano-kwmserverd.binscript "${PACKAGE_NAME}-${VERSION}/scripts" && \
+	cp -avf ../scripts/kopano-kwmserverd.service "${PACKAGE_NAME}-${VERSION}/scripts" && \
+	cp -avf ../scripts/kwmserverd.cfg "${PACKAGE_NAME}-${VERSION}/scripts" && \
 	mkdir -p "${PACKAGE_NAME}-${VERSION}/docs" && \
 	cp -avr ../docs/api-v1 "${PACKAGE_NAME}-${VERSION}/docs" && \
 	mkdir -p "${PACKAGE_NAME}-${VERSION}/www" && \

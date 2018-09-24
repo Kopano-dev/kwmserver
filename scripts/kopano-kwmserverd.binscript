@@ -1,0 +1,112 @@
+#!/bin/sh
+#
+# Kopano KWM Server (kwmserverd) launcher
+#
+# License: AGPL-3.0-only
+# Copyright 2018 Kopano and its licensors
+#
+
+set -e
+
+# Base defines.
+
+EXE=/usr/libexec/kopano/kwmserverd
+OPENSSL=openssl
+DEFAULT_OIDC_ISSUER_IDENTIFIER=https://localhost
+DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE=/etc/kopano/kwmserverd-admin-tokens-secret.key
+
+# Handle parameters for configuration.
+
+case "${1}" in
+	setup)
+
+	if [ -z "$admin_tokens_secret_key" -a ! -f "${DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE}" -a -n "$USER" ]; then
+		>&2	echo "setup: creating new secret key at ${DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE} ..."
+		RANDFILE=/tmp/.rnd $OPENSSL rand -out "${DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE}" 32 && chown "$USER" "${DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE}" || true
+	fi
+
+	# Setup subcommand does nothing.
+	exit 0
+
+	;;
+
+	serve)
+		# Inject values from environment into command line. This is mainly used
+		# when this script is run from systemd or docker.
+
+		# kwmserverd basics
+
+		if [ -n "$oidc_issuer_identifier" ]; then
+			if [ -n "$OIDC_ISSUER_IDENTIFIER" ]; then
+				>&2	echo "Warning: duplicate setting of issuer identifier - using value from environment"
+				oidc_issuer_identifier="$OIDC_ISSUER_IDENTIFIER"
+			fi
+		fi
+		if [ -z "$oidc_issuer_identifier" ]; then
+			# NOTE(longsleep): Not sure if this is the best idea/default but at least
+			# having a default will let the service start.
+			oidc_issuer_identifier=${OIDC_ISSUER_IDENTIFIER:-${DEFAULT_OIDC_ISSUER_IDENTIFIER}}
+		fi
+
+		if [ "$insecure" = "yes" ]; then
+			set -- "$@" "--insecure"
+		fi
+
+		if [ -n "$listen" ]; then
+			set -- "$@" --listen="$listen"
+		fi
+
+		if [ -n "$log_level" ]; then
+			set -- "$@" --log-level="$log_level"
+		fi
+
+		# kwmserverd api
+
+		if [ -z "$enable_rtm_api" -o "$enable_rtm_api" = "yes" ]; then
+			set -- "$@" --enable-rtm-api
+		fi
+
+		if [ "$enable_mcu_api" = "yes" ]; then
+			set -- "$@" --enable-mcu-api
+		fi
+
+		# kwmserver auth
+
+		if [ -n "$rtm_required_scopes" ]; then
+			for scope in $rtm_required_scopes; do
+				set -- "$@" --rtm-required-scope="$scope"
+			done
+		fi
+
+		if [ -z "$admin_tokens_secret_key" -a -f "${DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE}" ]; then
+			admin_tokens_secret_key="${DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE}"
+		fi
+		if [ -n "$admin_tokens_secret_key" ]; then
+			set -- "$@" --admin-tokens-key="$admin_tokens_secret_key"
+		fi
+
+		# kwmserver misc
+
+		if [ -n "$turn_server_shared_secret" ]; then
+			set -- "$@" --turn-server-shared-secret="$turn_server_shared_secret"
+		fi
+
+		if [ -n "$turn_uris" ]; then
+			for uri in $turn_uris; do
+				set -- "$@" --turn-uri="$uri"
+			done
+		fi
+
+		;;
+
+	*)
+		;;
+esac
+
+# Set executable.
+
+set -- ${EXE} "$@"
+
+# Run.
+
+exec "$@"
