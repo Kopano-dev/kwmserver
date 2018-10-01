@@ -60,6 +60,10 @@ case "${1}" in
 			set -- "$@" --log-level="$log_level"
 		fi
 
+		if [ -n "$oidc_issuer_identifier" ]; then
+			set -- "$@" --iss="$oidc_issuer_identifier"
+		fi
+
 		# kwmserverd api
 
 		if [ -z "$enable_rtm_api" -o "$enable_rtm_api" = "yes" ]; then
