@@ -132,14 +132,21 @@ vendor: glide.lock | $(BASE) ; $(info retrieving dependencies ...) @
 
 # Dist
 
+.PHONY: licenses
+licenses: ; $(info building licenses files ...)
+	cd $(BASE) && $(CURDIR)/scripts/go-license-ranger.py > $(CURDIR)/3rdparty-LICENSES.md
+
+3rdparty-LICENSES.md: licenses
+
 .PHONY: dist
-dist: ; $(info building dist tarball ...)
+dist: 3rdparty-LICENSES.md ; $(info building dist tarball ...)
 	@rm -rf "dist/${PACKAGE_NAME}-${VERSION}"
 	@mkdir -p "dist/${PACKAGE_NAME}-${VERSION}"
 	@mkdir -p "dist/${PACKAGE_NAME}-${VERSION}/scripts"
 	@cd dist && \
 	cp -avf ../LICENSE.txt "${PACKAGE_NAME}-${VERSION}" && \
 	cp -avf ../README.md "${PACKAGE_NAME}-${VERSION}" && \
+	cp -avf ../3rdparty-LICENSES.md "${PACKAGE_NAME}-${VERSION}" && \
 	cp -avf ../bin/* "${PACKAGE_NAME}-${VERSION}" && \
 	cp -avf ../scripts/kopano-kwmserverd.binscript "${PACKAGE_NAME}-${VERSION}/scripts" && \
 	cp -avf ../scripts/kopano-kwmserverd.service "${PACKAGE_NAME}-${VERSION}/scripts" && \
