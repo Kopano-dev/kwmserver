@@ -98,7 +98,7 @@ const commonGumHelper = {
 };
 
 async function fetchAdminToken(baseURI, subject) {
-	const url = (baseURI ? baseURI : '') + '/api/v1/admin/auth/tokens';
+	const url = (baseURI ? baseURI : '') + '/api/kwm/v2/admin/auth/tokens';
 	const payload = {
 		'type': 'Token'
 	};

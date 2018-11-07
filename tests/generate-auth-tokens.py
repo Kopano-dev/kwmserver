@@ -37,10 +37,10 @@ class KWM:
         payload = {
             "type": tokenType
         }
-        r = self.session.post(self.url + "/api/v1/admin/auth/tokens",
+        r = self.session.post(self.url + "/api/kwm/v2/admin/auth/tokens",
                               json=payload,
                               verify=self.verify_tls)
-        print("> %s - %s" % (r.status_code, r.json()))
+        print("> %s - %s" % (r.status_code, r.text))
 
 
 def main():
@@ -64,7 +64,7 @@ def main():
 
     kwm = KWM(url=url, verify_tls=verify_tls)
     for i in range(count):
-        kwm.adminAuthCreateToken("pythonTest")
+        kwm.adminAuthCreateToken("Token")
 
 
 if __name__ == "__main__":
