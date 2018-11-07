@@ -35,10 +35,10 @@ import (
 	"stash.kopano.io/kgol/rndm"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
+	"stash.kopano.io/kwm/kwmserver/signaling/admin"
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
+	"stash.kopano.io/kwm/kwmserver/signaling/mcu"
+	"stash.kopano.io/kwm/kwmserver/signaling/rtm"
 	"stash.kopano.io/kwm/kwmserver/signaling/www"
 	"stash.kopano.io/kwm/kwmserver/turn"
 )

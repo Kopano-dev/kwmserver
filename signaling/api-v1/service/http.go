@@ -25,9 +25,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
+	"stash.kopano.io/kwm/kwmserver/signaling/admin"
+	"stash.kopano.io/kwm/kwmserver/signaling/mcu"
+	"stash.kopano.io/kwm/kwmserver/signaling/rtm"
 )
 
 const (

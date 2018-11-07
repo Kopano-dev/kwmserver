@@ -31,10 +31,10 @@ import (
 	kcoidc "stash.kopano.io/kc/libkcoidc"
 	"stash.kopano.io/kgol/rndm"
 
+	"stash.kopano.io/kwm/kwmserver/signaling/admin"
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/mcu"
 	"stash.kopano.io/kwm/kwmserver/turn"
 )
 
