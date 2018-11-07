@@ -17,15 +17,33 @@
 
 package signaling
 
-import (
-	"context"
-	"net/http"
+import ()
 
-	"github.com/gorilla/mux"
-)
-
-// Service is an interface for services providing routing.
+// Service is an interface for services providing information about activity.
 type Service interface {
-	AddRoutes(context.Context, *mux.Router, func(http.Handler) http.Handler) http.Handler
 	NumActive() uint64
+}
+
+// Services is a defined collection of services which handle activity.
+type Services struct {
+	AdminManager Service
+	MCUManager   Service
+	RTMManager   Service
+}
+
+// Services returns all active services of the accociated Services as iterable.
+func (services *Services) Services() []Service {
+	s := make([]Service, 0)
+
+	if services.AdminManager != nil {
+		s = append(s, services.AdminManager)
+	}
+	if services.MCUManager != nil {
+		s = append(s, services.MCUManager)
+	}
+	if services.RTMManager != nil {
+		s = append(s, services.RTMManager)
+	}
+
+	return s
 }

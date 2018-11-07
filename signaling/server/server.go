@@ -113,13 +113,9 @@ func (s *Server) AddContext(parent context.Context, next http.Handler) http.Hand
 
 // AddRoutes add the accociated Servers URL routes to the provided router with
 // the provided context.Context.
-func (s *Server) AddRoutes(ctx context.Context, router *mux.Router, services []signaling.Service) http.Handler {
+func (s *Server) AddRoutes(ctx context.Context, router *mux.Router) http.Handler {
 	// TODO(longsleep): Add subpath support to all handlers and paths.
 	router.Handle("/health-check", s.WithMetrics(http.HandlerFunc(s.HealthCheckHandler)))
-
-	for _, service := range services {
-		service.AddRoutes(ctx, router, s.WithMetrics)
-	}
 
 	return router
 }
@@ -134,9 +130,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	defer serveCtxCancel()
 
 	logger := s.logger
-
-	// API services.
-	apiv1Services := []signaling.Service{}
+	services := &signaling.Services{}
 
 	// OpenID connect.
 	var oidcp *kcoidc.Provider
@@ -186,7 +180,7 @@ func (s *Server) Serve(ctx context.Context) error {
 		logger.Warnln("admin: using random admin tokens singing key - API endpoint admin disabled")
 	} else {
 		// Only expose admin API when a key was set.
-		apiv1Services = append(apiv1Services, adminm)
+		services.AdminManager = adminm
 		logger.Infoln("admin: API endpoint enabled")
 	}
 	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
@@ -195,7 +189,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	var mcum *mcu.Manager
 	if s.config.EnableMcuAPI {
 		mcum = mcu.NewManager(serveCtx, "", logger)
-		apiv1Services = append(apiv1Services, mcum)
+		services.MCUManager = mcum
 		logger.Infoln("mcu: API endpoint enabled")
 	}
 
@@ -203,22 +197,29 @@ func (s *Server) Serve(ctx context.Context) error {
 	var rtmm *rtm.Manager
 	if s.config.EnableRTMAPI {
 		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, logger, mcum, adminm, oidcp, turnsrv)
-		apiv1Services = append(apiv1Services, rtmm)
+		services.RTMManager = rtmm
 		logger.Infoln("rtm: API endpoint enabled")
 	}
 
-	// API service.
-	apiv1Service := apiv1.NewHTTPService(serveCtx, logger, apiv1Services)
-
 	// HTTP services.
+	router := mux.NewRouter()
 	httpServices := []signaling.Service{}
-	httpServices = append(httpServices, apiv1Service)
+
+	// Basic routes provided by server.
+	s.AddRoutes(ctx, router)
+
+	if true {
+		apiv1Service := apiv1.NewHTTPService(serveCtx, logger, services)
+		apiv1Service.AddRoutes(ctx, router, s.WithMetrics)
+		httpServices = append(httpServices, apiv1Service)
+	}
 
 	if s.config.EnableDocs {
 		if s.config.DocsRoot == "" {
 			return fmt.Errorf("unable to enable docs API without docs root")
 		}
 		docsService := www.NewHTTPService(serveCtx, logger, "/docs", s.config.DocsRoot)
+		docsService.AddRoutes(ctx, router, s.WithMetrics)
 		httpServices = append(httpServices, docsService)
 		logger.Infof("docs: endpoints from %s enabled", s.config.DocsRoot)
 	}
@@ -228,6 +229,7 @@ func (s *Server) Serve(ctx context.Context) error {
 			return fmt.Errorf("unable to enable www API without www root")
 		}
 		wwwService := www.NewHTTPService(serveCtx, logger, "/", s.config.WwwRoot)
+		wwwService.AddRoutes(ctx, router, s.WithMetrics)
 		httpServices = append(httpServices, wwwService)
 		logger.Infof("www: endpoints from %s enabled", s.config.WwwRoot)
 	}
@@ -236,21 +238,15 @@ func (s *Server) Serve(ctx context.Context) error {
 	exitCh := make(chan bool, 1)
 	signalCh := make(chan os.Signal)
 
-	router := mux.NewRouter()
-	s.AddRoutes(serveCtx, router, httpServices)
-
 	// HTTP listener.
-	srv := &http.Server{
-		Handler: s.AddContext(serveCtx, router),
-	}
-
 	logger.WithField("listenAddr", s.listenAddr).Infoln("starting http listener")
 	listener, err := net.Listen("tcp", s.listenAddr)
 	if err != nil {
 		return err
 	}
-	logger.Infoln("ready to handle requests")
-
+	srv := &http.Server{
+		Handler: s.AddContext(serveCtx, router),
+	}
 	go func() {
 		serveErr := srv.Serve(listener)
 		if serveErr != nil {
@@ -260,6 +256,7 @@ func (s *Server) Serve(ctx context.Context) error {
 		logger.Debugln("http listener stopped")
 		close(exitCh)
 	}()
+	logger.Infoln("ready to handle requests")
 
 	// Wait for exit or error.
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)

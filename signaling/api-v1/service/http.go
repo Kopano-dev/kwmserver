@@ -25,6 +25,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/admin"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
+	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 )
 
 const (
@@ -35,11 +38,11 @@ const (
 // HTTPService binds the HTTP router with handlers for kwm API v1.
 type HTTPService struct {
 	logger   logrus.FieldLogger
-	services []signaling.Service
+	services *signaling.Services
 }
 
 // NewHTTPService creates a new APIv1 with the provided options.
-func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services []signaling.Service) *HTTPService {
+func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services *signaling.Services) *HTTPService {
 	return &HTTPService{
 		logger:   logger,
 		services: services,
@@ -51,8 +54,16 @@ func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services []s
 func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
 	v1 := router.PathPrefix(URIPrefix).Subrouter()
 
-	for _, service := range h.services {
-		service.AddRoutes(ctx, v1, wrapper)
+	if adminm, ok := h.services.AdminManager.(*admin.Manager); ok {
+		adminm.AddRoutes(ctx, v1, wrapper)
+	}
+
+	if mcum, ok := h.services.MCUManager.(*mcu.Manager); ok {
+		mcum.AddRoutes(ctx, v1, wrapper)
+	}
+
+	if rtmm, ok := h.services.RTMManager.(*rtm.Manager); ok {
+		rtmm.AddRoutes(ctx, v1, wrapper)
 	}
 
 	return router
@@ -61,7 +72,7 @@ func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper
 // NumActive returns the number of the currently active connections at the
 // accociated api..
 func (h *HTTPService) NumActive() (active uint64) {
-	for _, service := range h.services {
+	for _, service := range h.services.Services() {
 		active = active + service.NumActive()
 	}
 
