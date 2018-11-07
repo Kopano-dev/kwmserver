@@ -32,7 +32,7 @@ type HTTPService struct {
 	fs http.Handler
 }
 
-// NewHTTPService creates a new HTTP Janus API service with the provided options.
+// NewHTTPService creates a new HTTP service with the provided options.
 func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, prefix, folder string) *HTTPService {
 	return &HTTPService{
 		prefix: prefix,

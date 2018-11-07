@@ -39,7 +39,6 @@ import (
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/rtm"
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
-	janus "stash.kopano.io/kwm/kwmserver/signaling/janus/service"
 	"stash.kopano.io/kwm/kwmserver/signaling/www"
 	"stash.kopano.io/kwm/kwmserver/turn"
 )
@@ -214,16 +213,6 @@ func (s *Server) Serve(ctx context.Context) error {
 	// HTTP services.
 	httpServices := []signaling.Service{}
 	httpServices = append(httpServices, apiv1Service)
-
-	if s.config.EnableJanusAPI {
-		if mcum == nil {
-			return fmt.Errorf("unable to enable janus API without mcu")
-		}
-
-		janusService := janus.NewHTTPService(serveCtx, logger, mcum, adminm)
-		httpServices = append(httpServices, janusService)
-		logger.Infoln("janus: API endpoint enabled")
-	}
 
 	if s.config.EnableDocs {
 		if s.config.DocsRoot == "" {

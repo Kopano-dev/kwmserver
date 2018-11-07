@@ -52,7 +52,6 @@ func commandServe() *cobra.Command {
 	}
 	serveCmd.Flags().String("listen", "", fmt.Sprintf("TCP listen address (default \"%s\")", defaultListenAddr))
 	serveCmd.Flags().Bool("enable-mcu-api", false, "Enables the MCU API endpoints")
-	serveCmd.Flags().Bool("enable-janus-api", false, "Enables the Janus API endpoints")
 	serveCmd.Flags().Bool("enable-rtm-api", true, "Enables the RPM API endpoints")
 	serveCmd.Flags().Bool("enable-www", false, "Enables serving static files")
 	serveCmd.Flags().String("www-root", "./www", "Full path for static files to be served when --enable-www is used, defaults to ./www")
@@ -102,9 +101,6 @@ func serve(cmd *cobra.Command, args []string) error {
 
 	enableMcuAPI, _ := cmd.Flags().GetBool("enable-mcu-api")
 	config.EnableMcuAPI = enableMcuAPI
-
-	enableJanusAPI, _ := cmd.Flags().GetBool("enable-janus-api")
-	config.EnableJanusAPI = enableJanusAPI
 
 	enableWww, _ := cmd.Flags().GetBool("enable-www")
 	config.EnableWww = enableWww

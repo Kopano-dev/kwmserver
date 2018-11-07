@@ -30,8 +30,7 @@ type Config struct {
 	WithPprof       bool
 	PprofListenAddr string
 
-	EnableMcuAPI   bool
-	EnableJanusAPI bool
+	EnableMcuAPI bool
 
 	EnableRTMAPI      bool
 	RTMRequiredScopes []string
