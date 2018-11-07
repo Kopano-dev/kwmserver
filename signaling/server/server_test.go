@@ -48,7 +48,7 @@ func newTestServer(ctx context.Context, t *testing.T) (*httptest.Server, *Server
 		t.Fatal(err)
 	}
 	router := mux.NewRouter()
-	server.AddRoutes(ctx, router, nil)
+	server.AddRoutes(ctx, router)
 
 	s := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		router.ServeHTTP(rw, req)

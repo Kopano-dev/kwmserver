@@ -37,7 +37,7 @@ func TestAdminAuthTokensHandler(t *testing.T) {
 	httpServer, _, router := newTestManager(ctx, t)
 	defer httpServer.Close()
 
-	url := "/admin/auth/tokens"
+	url := "/auth/tokens"
 	tests := []struct {
 		description         string
 		method              string
