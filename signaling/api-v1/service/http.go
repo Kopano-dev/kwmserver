@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
@@ -49,21 +50,33 @@ func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services *si
 	}
 }
 
-// AddRoutes add the accociated Servers URL routes to the provided router with
-// the provided context.Context.
+// AddRoutes configures the services HTTP end point routing on the provided
+// context and router.
 func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
 	v1 := router.PathPrefix(URIPrefix).Subrouter()
 
 	if adminm, ok := h.services.AdminManager.(*admin.Manager); ok {
-		adminm.AddRoutes(ctx, v1, wrapper)
+		r := v1.PathPrefix("/admin").Subrouter()
+		adminm.AddRoutes(ctx, r, wrapper)
 	}
 
 	if mcum, ok := h.services.MCUManager.(*mcu.Manager); ok {
-		mcum.AddRoutes(ctx, v1, wrapper)
+		r := v1.PathPrefix("/mcu").Subrouter()
+		r.Handle("/websocket/{transaction}", wrapper(http.HandlerFunc(mcum.HTTPWebsocketHandler)))
+		r.Handle("/websocket", wrapper(http.HandlerFunc(mcum.HTTPWebsocketHandler)))
 	}
 
 	if rtmm, ok := h.services.RTMManager.(*rtm.Manager); ok {
-		rtmm.AddRoutes(ctx, v1, wrapper)
+		r := v1
+		c := cors.New(cors.Options{
+			// TODO(longsleep): Add to configuration.
+			AllowedOrigins:   []string{"*"},
+			AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization"},
+			AllowCredentials: true,
+		})
+		r.Handle("/rtm.connect", c.Handler(wrapper(rtmm.MakeHTTPConnectHandler(router))))
+		r.Handle("/rtm.turn", c.Handler(wrapper(rtmm.MakeHTTPTURNHandler(router))))
+		r.Handle("/websocket/{key}", wrapper(http.HandlerFunc(rtmm.HTTPWebsocketHandler))).Name(rtm.WebsocketRouteIdentifier)
 	}
 
 	return router

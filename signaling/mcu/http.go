@@ -18,20 +18,10 @@
 package mcu
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
-
-// AddRoutes adds HTTP routes to the provided wrouter, wrapped with the provided
-// wrapper where appropriate.
-func (m *Manager) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
-	router.Handle("/mcu/websocket/{transaction}", wrapper(http.HandlerFunc(m.HTTPWebsocketHandler)))
-	router.Handle("/mcu/websocket", wrapper(http.HandlerFunc(m.HTTPWebsocketHandler)))
-
-	return router
-}
 
 // HTTPWebsocketHandler implements the HTTP handler for websocket requests.
 func (m *Manager) HTTPWebsocketHandler(rw http.ResponseWriter, req *http.Request) {

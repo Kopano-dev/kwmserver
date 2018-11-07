@@ -27,8 +27,7 @@ import (
 // AddRoutes adds HTTP routes to the provided router, wrapped with the provided
 // wrapper where appropriate.
 func (m *Manager) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
-	r := router.PathPrefix("/admin").Subrouter()
-	m.addAuthRoutes(ctx, r.PathPrefix("/auth").Subrouter(), wrapper)
+	m.addAuthRoutes(ctx, router.PathPrefix("/auth").Subrouter(), wrapper)
 
 	return router
 }
