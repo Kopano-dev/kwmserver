@@ -32,9 +32,9 @@ import (
 
 const (
 	// URIPrefix defines the URL prefixed uses for API v1 requests.
-	URIPrefix = "/api/v1"
+	URIPrefix = "/api/kwm/v2"
 	// WebsocketRouteIdentifier is the name of websocket route.
-	WebsocketRouteIdentifier = "v1-rtm-websocket-by-key"
+	WebsocketRouteIdentifier = "v2-rtm-websocket-by-key"
 )
 
 // HTTPService binds the HTTP router with handlers for kwm API v1.
@@ -43,7 +43,7 @@ type HTTPService struct {
 	services *signaling.Services
 }
 
-// NewHTTPService creates a new APIv1 with the provided options.
+// NewHTTPService creates a new APIv2  with the provided options.
 func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services *signaling.Services) *HTTPService {
 	return &HTTPService{
 		logger:   logger,
@@ -54,23 +54,23 @@ func NewHTTPService(ctx context.Context, logger logrus.FieldLogger, services *si
 // AddRoutes configures the services HTTP end point routing on the provided
 // context and router.
 func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {
-	v1 := router.PathPrefix(URIPrefix).Subrouter()
+	v2 := router.PathPrefix(URIPrefix).Subrouter()
 
 	if adminm, ok := h.services.AdminManager.(*admin.Manager); ok {
-		r := v1.PathPrefix("/admin").Subrouter()
+		r := v2.PathPrefix("/admin").Subrouter()
 		adminm.AddRoutes(ctx, r, wrapper)
 	}
 
 	if mcum, ok := h.services.MCUManager.(*mcu.Manager); ok {
-		r := v1.PathPrefix("/mcu").Subrouter()
+		r := v2.PathPrefix("/mcu").Subrouter()
 		r.Handle("/websocket/{transaction}", wrapper(http.HandlerFunc(mcum.HTTPWebsocketHandler)))
 		r.Handle("/websocket", wrapper(http.HandlerFunc(mcum.HTTPWebsocketHandler)))
 	}
 
 	if rtmm, ok := h.services.RTMManager.(*rtm.Manager); ok {
-		r := v1
-		r.Handle("/rtm.connect", wrapper(rtmm.MakeHTTPConnectHandler(router, WebsocketRouteIdentifier)))
-		r.Handle("/rtm.turn", wrapper(rtmm.MakeHTTPTURNHandler(router)))
+		r := v2.PathPrefix("/rtm").Subrouter()
+		r.Handle("/connect", wrapper(rtmm.MakeHTTPConnectHandler(router, WebsocketRouteIdentifier)))
+		r.Handle("/turn", wrapper(rtmm.MakeHTTPTURNHandler(router)))
 		r.Handle("/websocket/{key}", wrapper(http.HandlerFunc(rtmm.HTTPWebsocketHandler))).Name(WebsocketRouteIdentifier)
 	}
 

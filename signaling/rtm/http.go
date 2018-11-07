@@ -32,11 +32,6 @@ import (
 	"stash.kopano.io/kwm/kwmserver/turn"
 )
 
-const (
-	// WebsocketRouteIdentifier is the name of websocket route.
-	WebsocketRouteIdentifier = "rtm-websocket-by-key"
-)
-
 var corsHandler = cors.New(cors.Options{
 	// TODO(longsleep): Add to configuration.
 	AllowedOrigins:   []string{"*"},
@@ -94,7 +89,7 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 }
 
 // MakeHTTPConnectHandler createss the HTTP handler for rtm.connect.
-func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
+func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdentifier string) http.Handler {
 	return m.corsAllowed(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Check authentication
 		auth, authOK := m.isRequestWithValidAuth(req)
@@ -125,7 +120,7 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 			return
 		}
 
-		route := router.Get(WebsocketRouteIdentifier)
+		route := router.Get(websocketRouteIdentifier)
 		websocketURI, err := route.URLPath("key", key)
 		if err != nil {
 			m.logger.WithError(err).Errorln("rtm connect url generation failed")

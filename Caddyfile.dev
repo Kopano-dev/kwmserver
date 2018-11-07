@@ -9,11 +9,16 @@
 	tls self_signed
 	root ./www
 
-	# kwmserverd websocket
+	# kwmserverd API v1 websocket
 	proxy /api/v1/websocket 127.0.0.1:8778 {
 		websocket
 	}
 
-	# kwmserverd API (full, including admin)
+	# kwmserverd API v1 (full, including admin)
 	proxy /api/v1 127.0.0.1:8778
+
+	# kwmserverd API v2
+	proxy /api/kwm/v2/ 127.0.0.1:8778 {
+		websocket
+	}
 }

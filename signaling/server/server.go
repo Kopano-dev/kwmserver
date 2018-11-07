@@ -37,6 +37,7 @@ import (
 	"stash.kopano.io/kwm/kwmserver/signaling"
 	"stash.kopano.io/kwm/kwmserver/signaling/admin"
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
+	apiv2 "stash.kopano.io/kwm/kwmserver/signaling/api-v2/service"
 	"stash.kopano.io/kwm/kwmserver/signaling/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/rtm"
 	"stash.kopano.io/kwm/kwmserver/signaling/www"
@@ -212,6 +213,12 @@ func (s *Server) Serve(ctx context.Context) error {
 		apiv1Service := apiv1.NewHTTPService(serveCtx, logger, services)
 		apiv1Service.AddRoutes(ctx, router, s.WithMetrics)
 		httpServices = append(httpServices, apiv1Service)
+	}
+
+	if true {
+		apiv2Service := apiv2.NewHTTPService(serveCtx, logger, services)
+		apiv2Service.AddRoutes(ctx, router, s.WithMetrics)
+		httpServices = append(httpServices, apiv2Service)
 	}
 
 	if s.config.EnableDocs {
