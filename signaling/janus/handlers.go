@@ -31,7 +31,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/connection"
 )
 
 const (

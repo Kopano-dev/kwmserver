@@ -28,7 +28,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/connection"
 )
 
 // HandleWebsocketConnect checks the presence of the key in cache and starts

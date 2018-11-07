@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/connection"
 )
 
 // OnConnect is called for new connections.

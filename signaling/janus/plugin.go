@@ -18,7 +18,7 @@
 package janus
 
 import (
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/connection"
 )
 
 // Plugin is thje interface for janus plugin implementations.

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"sync"
 
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/connection"
 	"stash.kopano.io/kwm/kwmserver/signaling/janus"
 )
 

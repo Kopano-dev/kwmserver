@@ -20,7 +20,7 @@ package mcu
 import (
 	"encoding/json"
 
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/connection"
 )
 
 // OnConnect is called for new connections.

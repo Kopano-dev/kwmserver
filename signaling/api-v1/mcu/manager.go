@@ -31,7 +31,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"stash.kopano.io/kgol/rndm"
 
-	"stash.kopano.io/kwm/kwmserver/signaling/api-v1/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/connection"
 )
 
 // Manager handles RTM connect state.
