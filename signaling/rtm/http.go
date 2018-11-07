@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	kcoidc "stash.kopano.io/kc/libkcoidc"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
@@ -35,6 +36,17 @@ const (
 	// WebsocketRouteIdentifier is the name of websocket route.
 	WebsocketRouteIdentifier = "rtm-websocket-by-key"
 )
+
+var corsHandler = cors.New(cors.Options{
+	// TODO(longsleep): Add to configuration.
+	AllowedOrigins:   []string{"*"},
+	AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization"},
+	AllowCredentials: true,
+})
+
+func (m *Manager) corsAllowed(next http.Handler) http.Handler {
+	return corsHandler.Handler(next)
+}
 
 func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken, bool) {
 	authHeader := strings.SplitN(req.Header.Get("Authorization"), " ", 2)
@@ -83,7 +95,7 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 
 // MakeHTTPConnectHandler createss the HTTP handler for rtm.connect.
 func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+	return m.corsAllowed(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Check authentication
 		auth, authOK := m.isRequestWithValidAuth(req)
 		if !authOK {
@@ -146,7 +158,7 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router) http.Handler {
 
 		rw.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(rw).Encode(response)
-	})
+	}))
 }
 
 // MakeHTTPTURNHandler creates the HTTP handler for rtm.turn.
@@ -155,7 +167,7 @@ func (m *Manager) MakeHTTPTURNHandler(router *mux.Router) http.Handler {
 		return http.HandlerFunc(http.NotFound)
 	}
 
-	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+	return m.corsAllowed(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Check authentication
 		auth, authOK := m.isRequestWithValidAuth(req)
 		if !authOK {
@@ -193,7 +205,7 @@ func (m *Manager) MakeHTTPTURNHandler(router *mux.Router) http.Handler {
 
 		rw.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(rw).Encode(response)
-	})
+	}))
 }
 
 // HTTPWebsocketHandler implements the HTTP handler for websocket requests.

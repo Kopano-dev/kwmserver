@@ -22,7 +22,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
@@ -68,14 +67,8 @@ func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper
 
 	if rtmm, ok := h.services.RTMManager.(*rtm.Manager); ok {
 		r := v1
-		c := cors.New(cors.Options{
-			// TODO(longsleep): Add to configuration.
-			AllowedOrigins:   []string{"*"},
-			AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization"},
-			AllowCredentials: true,
-		})
-		r.Handle("/rtm.connect", c.Handler(wrapper(rtmm.MakeHTTPConnectHandler(router))))
-		r.Handle("/rtm.turn", c.Handler(wrapper(rtmm.MakeHTTPTURNHandler(router))))
+		r.Handle("/rtm.connect", wrapper(rtmm.MakeHTTPConnectHandler(router)))
+		r.Handle("/rtm.turn", wrapper(rtmm.MakeHTTPTURNHandler(router)))
 		r.Handle("/websocket/{key}", wrapper(http.HandlerFunc(rtmm.HTTPWebsocketHandler))).Name(rtm.WebsocketRouteIdentifier)
 	}
 
