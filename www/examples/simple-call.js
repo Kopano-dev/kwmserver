@@ -44,7 +44,7 @@ window.app = new Vue({
 	}),
 	created: function() {
 		console.info('welcome to simple-call');
-		this.kwm = new KWM('', this.kwmOptions);
+		this.kwm = new KWM.KWM('', this.kwmOptions);
 		this.kwm.onstatechanged = event => {
 			this.connecting = event.connecting;
 			this.connected = event.connected;
