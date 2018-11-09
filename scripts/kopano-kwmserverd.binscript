@@ -14,6 +14,7 @@ EXE=/usr/libexec/kopano/kwmserverd
 OPENSSL=openssl
 DEFAULT_OIDC_ISSUER_IDENTIFIER=https://localhost
 DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE=/etc/kopano/kwmserverd-admin-tokens-secret.key
+DEFAULT_TURN_SERVICE_URL=https://turnauth.kopano.com/turnserverauth/
 
 # Handle parameters for configuration.
 
@@ -89,7 +90,18 @@ case "${1}" in
 			set -- "$@" --admin-tokens-key="$admin_tokens_secret_key"
 		fi
 
-		# kwmserver misc
+		# kwmserver turn
+
+		if [ -z "$turn_service_url" ]; then
+			turn_service_url=${DEFAULT_TURN_SERVICE_URL}
+		fi
+		if [ -n "$turn_service_url" ]; then
+			set -- "$@" --turn-service-url="$turn_service_url"
+		fi
+
+		if [ -n "$turn_service_credentials" ]; then
+			set -- "$@" --turn-service-credentials="$$turn_service_credentials"
+		fi
 
 		if [ -n "$turn_server_shared_secret" ]; then
 			set -- "$@" --turn-server-shared-secret="$turn_server_shared_secret"
