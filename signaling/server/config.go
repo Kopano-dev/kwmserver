@@ -47,6 +47,10 @@ type Config struct {
 	TURNServerSharedSecret []byte
 	TURNURIs               []string
 
+	TURNServerServiceURL      string
+	TURNServerServiceUsername string
+	TURNServerServicePassword string
+
 	Client *http.Client
 
 	Iss *url.URL

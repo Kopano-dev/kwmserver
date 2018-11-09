@@ -169,6 +169,20 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 
 		logger.WithField("uris", s.config.TURNURIs).Debugln("TURN credentials support enabled")
+	} else if s.config.TURNServerServiceUsername != "" {
+		if s.config.TURNServerServiceURL == "" {
+			return fmt.Errorf("TURN server service URL cannot be empty")
+		}
+
+		turnsrv, err = turn.NewServerAuthServer(
+			s.config.TURNServerServiceURL,
+			s.config.TURNServerServiceUsername,
+			s.config.TURNServerServicePassword,
+			s.config.Client,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to initialize TURN service support: %v", err)
+		}
 	}
 
 	// Admin API.

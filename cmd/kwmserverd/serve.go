@@ -18,6 +18,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -63,6 +64,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().Bool("insecure-auth", false, "Disable verification that auth matches user")
 	serveCmd.Flags().StringArray("turn-uri", nil, "TURN uri to send to clients")
 	serveCmd.Flags().String("turn-server-shared-secret", "", "Full path to the file which contains the shared secret for TURN server password generation")
+	serveCmd.Flags().String("turn-service-url", "", "TURN service API url")
+	serveCmd.Flags().String("turn-service-credentials", "", "Full path to the file which contains credentials for the TURN service API (format username:password)")
 	serveCmd.Flags().Bool("log-timestamp", true, "Prefix each log line with timestamp")
 	serveCmd.Flags().String("log-level", "info", "Log level (one of panic, fatal, error, warn, info or debug)")
 	serveCmd.Flags().StringArray("rtm-required-scope", nil, "Require specific scope when checking auth for RTM")
@@ -189,6 +192,45 @@ func serve(cmd *cobra.Command, args []string) error {
 			}
 		} else {
 			return fmt.Errorf("failed to open turn-server-shared-secret file: %v", errOpen)
+		}
+	}
+
+	turnServerServiceURL, _ := cmd.Flags().GetString("turn-service-url")
+	if turnServerServiceURL == "" {
+		turnServerServiceURL = os.Getenv("KWMSERVERD_TURN_SERVER_SERVICE_URL")
+	}
+	if turnServerServiceURL != "" {
+		if u, errURL := url.Parse(turnServerServiceURL); errURL == nil {
+			config.TURNServerServiceURL = u.String()
+			logger.Infof("using external TURN service: %v", config.TURNServerServiceURL)
+		} else {
+			return fmt.Errorf("turn-service-url invalid: %v", errURL)
+		}
+	}
+
+	turnServerServiceCredentials, _ := cmd.Flags().GetString("turn-service-credentials")
+	if turnServerServiceCredentials == "" {
+		turnServerServiceCredentials = os.Getenv("KWMSERVERD_TURN_SERVER_SERVICE_CREDENTIALS")
+	}
+	if turnServerServiceCredentials != "" {
+		if _, errStat := os.Stat(turnServerServiceCredentials); errStat != nil {
+			return fmt.Errorf("turn-service-credentials file not found: %v", errStat)
+		}
+		if f, errOpen := os.Open(turnServerServiceCredentials); errOpen == nil {
+			reader := bufio.NewReader(f)
+			credentials, errRead := reader.ReadString('\n')
+			f.Close()
+			if errRead != nil {
+				return fmt.Errorf("failed to read turn-service-credentials file: %v", errRead)
+			}
+			parts := strings.SplitN(strings.TrimSpace(credentials), ":", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("invalid turn-service-credentials format - must be username:password")
+			}
+			config.TURNServerServiceUsername = parts[0]
+			config.TURNServerServicePassword = parts[1]
+		} else {
+			return fmt.Errorf("failed to open turn-service-credentials file: %v", errOpen)
 		}
 	}
 
