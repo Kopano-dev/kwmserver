@@ -163,6 +163,7 @@ type RTMTypeWebRTC struct {
 	Hash        string          `json:"hash,omitempty"`
 	Version     uint64          `json:"v"`
 	Transaction string          `json:"transaction,omitempty"`
+	Pcid        string          `json:"pcid,omitempty"`
 	Data        json.RawMessage `json:"data,omitempty"`
 }
 
