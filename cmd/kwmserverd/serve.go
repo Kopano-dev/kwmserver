@@ -19,6 +19,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -184,12 +185,12 @@ func serve(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("turn-server-shared-secret file not found: %v", errStat)
 		}
 		if f, errOpen := os.Open(turnServerSharedSecret); errOpen == nil {
-			var errRead error
-			config.TURNServerSharedSecret, errRead = ioutil.ReadAll(f)
+			ss, errRead := ioutil.ReadAll(f)
 			f.Close()
 			if errRead != nil {
 				return fmt.Errorf("failed to read turn-server-shared-secret file: %v", errRead)
 			}
+			config.TURNServerSharedSecret = bytes.TrimSpace(ss)
 		} else {
 			return fmt.Errorf("failed to open turn-server-shared-secret file: %v", errOpen)
 		}
