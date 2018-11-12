@@ -67,6 +67,23 @@ func checkWebRTCChannelHash(hash []byte, msgType, source, target, channel string
 }
 
 func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) error {
+	processErr := m.processWebRTCMessage(c, msg)
+
+	// Error postprocesing.
+	switch err := processErr.(type) {
+	case *api.RTMTypeError:
+		switch err.ErrorData.Code {
+		case api.RTMErrorIDNoSessionForUser:
+			// Ignore unknown session errors here to avoid leaking this info
+			// to clients.
+			return nil
+		}
+	}
+
+	return processErr
+}
+
+func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTypeWebRTC) error {
 	if msg.Version < minimalWebRTCPayloadVersion {
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "outdated WebRTC payload version", msg.ID)
 	}
