@@ -61,8 +61,17 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 			break
 		}
 
-		// Validate token again.
-		_, _, _, err = m.oidcp.ValidateTokenString(ctx, kr.user.auth.Value)
+		// Validate token.
+		sub, _, _, validateErr := m.oidcp.ValidateTokenString(ctx, kr.user.auth.Value)
+		if validateErr != nil {
+			err = validateErr
+			break
+		}
+		// Validate token content.
+		if !m.insecure && kr.user.id != sub {
+			err = errors.New("token sub does not match the expected")
+			break
+		}
 	}
 
 	if err != nil {
