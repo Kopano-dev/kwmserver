@@ -76,6 +76,25 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 				return nil, false
 			}
 
+			// Check for id token support.
+			if idTokenString := req.Form.Get("id_token"); idTokenString != "" {
+				_, idStd, _, idErr := m.oidcp.ValidateTokenString(req.Context(), idTokenString)
+				if idErr == kcoidc.ErrStatusTokenExpiredOrNotValidYet {
+					// Allow ID tokens to be expired.
+					idErr = nil
+				}
+				if idErr == nil && (idStd.Subject != std.Subject || idStd.Issuer != std.Issuer) {
+					idErr = errors.New("id token does not match access token")
+				}
+				if idErr != nil {
+					m.logger.WithError(idErr).Errorln("rtm connect bearer auth with id token failed")
+					return nil, false
+				}
+
+				// Set authenticated user for further processing.
+				req.Form.Set("user", authenticatedUserID)
+			}
+
 			return &api.AdminAuthToken{
 				Subject:   authenticatedUserID,
 				Type:      authHeader[0],
@@ -91,6 +110,8 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 // MakeHTTPConnectHandler createss the HTTP handler for rtm.connect.
 func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdentifier string) http.Handler {
 	return m.corsAllowed(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		req.ParseForm()
+
 		// Check authentication
 		auth, authOK := m.isRequestWithValidAuth(req)
 		if !authOK {
@@ -98,7 +119,6 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdent
 			return
 		}
 
-		req.ParseForm()
 		user := req.Form.Get("user")
 		if user == "" {
 			http.Error(rw, "missing user parameter", http.StatusBadRequest)
