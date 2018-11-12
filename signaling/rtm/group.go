@@ -22,12 +22,36 @@ import (
 	"fmt"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
+	"stash.kopano.io/kwm/kwmserver/signaling/connection"
 )
 
 // CreateNamedGroupChannelID creates consistent channel IDs from
 // input parameters.
 func CreateNamedGroupChannelID(id string, m *Manager) (string, error) {
 	return fmt.Sprintf("%s%s", ChannelPrefixNamedGroup, id), nil
+}
+
+func (m *Manager) onGroupReplace(channel *Channel, id string, oldConn *connection.Connection, newConn *connection.Connection) {
+	data := &api.RTMDataWebRTCChannelExtra{}
+	data.Replaced = true
+	extra, err := json.MarshalIndent(data, "", "\t")
+	if err != nil {
+		oldConn.Logger().WithField("channel", channel.id).Errorln("failed to encode group replace data")
+		return
+	}
+
+	err = oldConn.Send(&api.RTMTypeWebRTCReply{
+		RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
+			Type:    api.RTMTypeNameWebRTC,
+			Subtype: api.RTMSubtypeNameWebRTCChannel,
+		},
+		Channel: channel.id,
+		Data:    extra,
+		Version: currentWebRTCPayloadVersion,
+	})
+	if err != nil {
+		oldConn.Logger().WithError(err).WithField("channel", channel.id).Errorln("failed to send group replace to connection")
+	}
 }
 
 func (m *Manager) onAfterGroupAddOrRemove(channel *Channel, op ChannelOp, id string) {

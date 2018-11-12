@@ -67,6 +67,7 @@ type Channel struct {
 type ChannelConfig struct {
 	Group string
 
+	Replace          func(channel *Channel, cid string, oldConn *connection.Connection, newConn *connection.Connection)
 	AfterAddOrRemove func(channel *Channel, op ChannelOp, cid string)
 }
 
@@ -162,19 +163,33 @@ func (c *Channel) Add(id string, conn *connection.Connection) error {
 		return errors.New("channel is closed")
 	}
 
-	if existingConn, ok := c.connections[id]; ok {
-		c.Unlock()
+	existingConn, replacing := c.connections[id]
+	if replacing {
 		if conn == existingConn {
+			// Nothing to do, added conn is already added.
+			c.Unlock()
 			return nil
 		}
-		return errors.New("id already exists")
+		if c.config.Replace == nil {
+			// No replace support registered.
+			return errors.New("id already exists")
+		}
+		// Replace.
+		c.logger.WithFields(logrus.Fields{
+			"id":      id,
+			"channel": c.id,
+		}).Debugln("channel replace")
+		// Trigger replace handler synchronously.
+		c.config.Replace(c, id, existingConn, conn)
 	}
 
 	c.connections[id] = conn
 	c.Unlock()
 
 	conn.OnClosed(func(connection *connection.Connection) {
-		c.Remove(id)
+		c.Lock()
+		c.remove(id, conn) // Remove exact matches only.
+		c.Unlock()
 	})
 
 	c.logger.WithFields(logrus.Fields{
@@ -191,9 +206,19 @@ func (c *Channel) Add(id string, conn *connection.Connection) error {
 // Remove removes the connection identified by the provided id.
 func (c *Channel) Remove(id string) error {
 	c.Lock()
-	delete(c.connections, id)
-	c.Unlock()
+	defer c.Unlock()
+	return c.remove(id, nil)
+}
 
+func (c *Channel) remove(id string, conn *connection.Connection) error {
+	if conn != nil {
+		// Validate that conn is the one we have.
+		existingConn, _ := c.connections[id]
+		if existingConn != conn {
+			return errors.New("conn does not match")
+		}
+	}
+	delete(c.connections, id)
 	c.logger.WithFields(logrus.Fields{
 		"id":      id,
 		"channel": c.id,

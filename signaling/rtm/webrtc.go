@@ -110,6 +110,7 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 			newChannel, newChannelErr := CreateKnownChannel(channelID, m, &ChannelConfig{
 				Group: msg.Group,
 
+				Replace:          m.onGroupReplace,
 				AfterAddOrRemove: m.onAfterGroupAddOrRemove,
 			})
 			if newChannelErr != nil {
