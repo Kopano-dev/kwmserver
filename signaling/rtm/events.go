@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
@@ -33,13 +32,14 @@ import (
 func (m *Manager) OnConnect(c *connection.Connection) error {
 	c.Logger().Debugln("websocket OnConnect")
 
+	var self *api.Self
 	bound := c.Bound()
 	if bound != nil {
 		// Add user to table.
 		nur := bound.(*userRecord)
 		first := false
 		nur.Lock()
-		m.users.Upsert(nur.id, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+		entry := m.users.Upsert(nur.id, c, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
 			if !exist {
 				// No connection for that user.
 				nur.connections = append(nur.connections, newValue.(*connection.Connection))
@@ -62,13 +62,26 @@ func (m *Manager) OnConnect(c *connection.Connection) error {
 		})
 		nur.Unlock()
 
+		// Fill self with user record.
+		ur := entry.(*userRecord)
+		self = &api.Self{
+			ID:   ur.id,
+			Name: "", // TODO(longsleep): Receive from auth.
+		}
+
 		if first {
 			// This was the users first connection.
 			m.logger.WithField("user_id", nur.id).Debugln("user is now active")
 		}
 	}
 
-	err := c.RawSend(rawRTMTypeHelloMessage)
+	// Send hello.
+	msg := &api.RTMTypeHello{
+		Type: api.RTMTypeNameHello,
+		Self: self,
+	}
+	err := c.Send(msg)
+
 	return err
 }
 
@@ -121,7 +134,11 @@ func (m *Manager) OnBeforeDisconnect(c *connection.Connection, err error) error 
 	//c.Logger().Debugln("websocket OnBeforeDisconnect", err)
 
 	if err == nil {
-		err = c.Write(rawRTMTypeGoodbyeMessage, websocket.TextMessage)
+		msg := &api.RTMTypeHello{
+			Type: api.RTMTypeNameGoodbye,
+		}
+
+		err = c.Send(msg)
 		return err
 	}
 

@@ -103,15 +103,11 @@ type RTMTypeSubtypeEnvelopeReply struct {
 	ReplyTo uint64 `json:"reply_to,omitempty"`
 }
 
-// RTMTypeHelloMessage is the hello message sent to clients after connect.
-var RTMTypeHelloMessage = &RTMTypeEnvelope{
-	Type: RTMTypeNameHello,
-}
-
-// RTMTypeGoodbyeMessage is the goodbye message sent to clients before the
+// RTMTypeHello is the message sent to clients after connect and before the
 // server is going to disconnect.
-var RTMTypeGoodbyeMessage = &RTMTypeEnvelope{
-	Type: RTMTypeNameGoodbye,
+type RTMTypeHello struct {
+	Type string `json:"type"`
+	Self *Self  `json:"self,omitempty"`
 }
 
 // RTMTypeError is the error reply.

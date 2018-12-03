@@ -18,10 +18,7 @@
 package rtm
 
 import (
-	"encoding/json"
 	"time"
-
-	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
 const (
@@ -37,22 +34,3 @@ const (
 	websocketReadBufferSize  = 1024
 	websocketWriteBufferSize = 1024
 )
-
-var (
-	rawRTMTypeHelloMessage   []byte
-	rawRTMTypeGoodbyeMessage []byte
-)
-
-func init() {
-	helloMessage, err := json.MarshalIndent(api.RTMTypeHelloMessage, "", "\t")
-	if err != nil {
-		panic(err)
-	}
-	rawRTMTypeHelloMessage = helloMessage
-
-	goodbyeMessage, err := json.MarshalIndent(api.RTMTypeGoodbyeMessage, "", "\t")
-	if err != nil {
-		panic(err)
-	}
-	rawRTMTypeGoodbyeMessage = goodbyeMessage
-}

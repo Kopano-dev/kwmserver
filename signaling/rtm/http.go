@@ -20,7 +20,6 @@ package rtm
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -165,7 +164,7 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdent
 			URL: websocketURI.String(),
 			Self: &api.Self{
 				ID:   user,
-				Name: fmt.Sprintf("User %s", strings.ToUpper(user)),
+				Name: "", // TODO(longsleep): Receive from auth.
 			},
 
 			TURN: turnConfig,
