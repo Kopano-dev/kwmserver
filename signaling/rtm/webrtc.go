@@ -343,9 +343,18 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 				}
 
 				if ur != nil {
-					// Notify users other connetions, which might have received the call.
+					// Additional actions based on the target.
 					connections, exists := m.LookupConnectionsByUserID(ur.id)
 					if exists {
+
+						// Ignore busy messages when there are other connections. If a
+						// user is connected more than once, this essentially disables
+						// busy signaling.
+						if !extra.Accept && extra.Reason == "reject_busy" && len(connections) > 1 {
+							return nil
+						}
+
+						// Notify users other connetions, which might have received the call.
 						clearedMsg := &api.RTMTypeWebRTC{
 							RTMTypeSubtypeEnvelope: &api.RTMTypeSubtypeEnvelope{
 								Type:    api.RTMTypeNameWebRTC,
