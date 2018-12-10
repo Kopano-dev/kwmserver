@@ -381,7 +381,7 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 
 			// Lookup target and send modified message.
 			connection, ok := channel.Get(msg.Target)
-			if !ok {
+			if !ok || connection == nil {
 				return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
 			}
 			connection.Send(msg)
