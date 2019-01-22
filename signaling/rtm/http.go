@@ -75,9 +75,11 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 				return nil, false
 			}
 
+			var userClaims map[string]interface{}
+
 			// Check for id token support.
 			if idTokenString := req.Form.Get("id_token"); idTokenString != "" {
-				_, idStd, _, idErr := m.oidcp.ValidateTokenString(req.Context(), idTokenString)
+				_, idStd, idExtra, idErr := m.oidcp.ValidateTokenString(req.Context(), idTokenString)
 				if idErr == kcoidc.ErrStatusTokenExpiredOrNotValidYet {
 					// Allow ID tokens to be expired.
 					idErr = nil
@@ -90,8 +92,9 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 					return nil, false
 				}
 
-				// Set authenticated user for further processing.
+				// Set authenticated user and claims for further processing.
 				req.Form.Set("user", authenticatedUserID)
+				userClaims = map[string]interface{}(*idExtra)
 			}
 
 			return &api.AdminAuthToken{
@@ -99,6 +102,8 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 				Type:      authHeader[0],
 				Value:     authHeader[1],
 				ExpiresAt: std.ExpiresAt,
+
+				Claims: userClaims,
 			}, true
 		}
 	}
@@ -164,7 +169,7 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdent
 			URL: websocketURI.String(),
 			Self: &api.Self{
 				ID:   user,
-				Name: "", // TODO(longsleep): Receive from auth.
+				Name: auth.Name(),
 			},
 
 			TURN: turnConfig,

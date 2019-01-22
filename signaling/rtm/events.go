@@ -66,7 +66,7 @@ func (m *Manager) OnConnect(c *connection.Connection) error {
 		ur := entry.(*userRecord)
 		self = &api.Self{
 			ID:   ur.id,
-			Name: "", // TODO(longsleep): Receive from auth.
+			Name: ur.auth.Name(),
 		}
 
 		if first {

@@ -17,6 +17,16 @@
 
 package api
 
+// Token types as known by kwm server.
+const (
+	AdminAuthTokenTypeToken = "Token"
+)
+
+// Claims as known by kwm server.
+const (
+	NameClaim = "name"
+)
+
 // ResponseOK is the most basic response type with boolean OK flag.
 type ResponseOK struct {
 	OK bool `json:"ok"`
@@ -46,9 +56,19 @@ type AdminAuthToken struct {
 	Type      string `json:"type"`
 	Value     string `json:"value,omitempty"`
 	ExpiresAt int64  `json:"exp,omitempty"`
+
+	Claims map[string]interface{} `json:"claims,omitempty"`
 }
 
-// Token types as known by kwm server.
-const (
-	AdminAuthTokenTypeToken = "Token"
-)
+// Name returns the associated tokens name claim string value or empty string.
+func (aat *AdminAuthToken) Name() string {
+	if aat.Claims != nil {
+		if ncv, ok := aat.Claims[NameClaim]; ok {
+			if name, ok := ncv.(string); ok {
+				return name
+			}
+		}
+	}
+
+	return ""
+}

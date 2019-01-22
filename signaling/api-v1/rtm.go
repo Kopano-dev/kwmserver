@@ -152,6 +152,7 @@ type RTMTypeWebRTC struct {
 	*RTMTypeSubtypeEnvelope
 	Target      string          `json:"target"`
 	Source      string          `json:"source"`
+	Profile     *RTMDataProfile `json:"profile,omitempty"`
 	Initiator   bool            `json:"initiator,omitempty"`
 	State       string          `json:"state,omitempty"`
 	Channel     string          `json:"channel,omitempty"`
@@ -202,4 +203,10 @@ type RTMTDataWebRTCChannelGroup struct {
 type RTMDataWebRTCChannelPipeline struct {
 	Pipeline string `json:"pipeline"`
 	Mode     string `json:"mode"`
+}
+
+// RTMDataProfile defines user profile data which the RTM server can deliver
+// to clients.
+type RTMDataProfile struct {
+	Name string `json:"name,omitempty"`
 }

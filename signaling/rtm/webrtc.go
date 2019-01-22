@@ -87,6 +87,9 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 	if msg.Version < minimalWebRTCPayloadVersion {
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "outdated WebRTC payload version", msg.ID)
 	}
+	if msg.Profile != nil {
+		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "profile cannot be set by client", msg.ID)
+	}
 
 	switch msg.Subtype {
 	case api.RTMSubtypeNameWebRTCGroup:
@@ -218,6 +221,10 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 		if msg.Source != "" {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "source must be empty", msg.ID)
 		}
+		// Create profile.
+		profile := &api.RTMDataProfile{
+			Name: ur.auth.Name(),
+		}
 		// Check if this is a request or response.
 		// Ff initiator is true, it must be a request, thus channel, hash
 		// and source must be empty.
@@ -280,8 +287,9 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 				Data:    msg.Data,
 			})
 
-			// Reset id for sending to target.
+			// Reset id for sending to target and add profile.
 			msg.ID = 0
+			msg.Profile = profile
 			// TODO(longsleep): Add transaction and gather all targets in a
 			// single reply.
 
@@ -375,9 +383,10 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 				}
 			}
 
-			// Add source and send modified message.
+			// Add source and profile, then send modified message.
 			msg.Source = ur.id
 			msg.ID = 0
+			msg.Profile = profile
 
 			// Lookup target and send modified message.
 			connection, ok := channel.Get(msg.Target)
