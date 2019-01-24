@@ -29,6 +29,7 @@ type Services struct {
 	AdminManager Service
 	MCUManager   Service
 	RTMManager   Service
+	GuestManager Service
 }
 
 // Services returns all active services of the accociated Services as iterable.
@@ -43,6 +44,9 @@ func (services *Services) Services() []Service {
 	}
 	if services.RTMManager != nil {
 		s = append(s, services.RTMManager)
+	}
+	if services.GuestManager != nil {
+		s = append(s, services.GuestManager)
 	}
 
 	return s

@@ -26,6 +26,7 @@ import (
 
 	"stash.kopano.io/kwm/kwmserver/signaling"
 	"stash.kopano.io/kwm/kwmserver/signaling/admin"
+	"stash.kopano.io/kwm/kwmserver/signaling/guest"
 	"stash.kopano.io/kwm/kwmserver/signaling/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/rtm"
 )
@@ -72,6 +73,11 @@ func (h *HTTPService) AddRoutes(ctx context.Context, router *mux.Router, wrapper
 		r.Handle("/connect", wrapper(rtmm.MakeHTTPConnectHandler(router, WebsocketRouteIdentifier)))
 		r.Handle("/turn", wrapper(rtmm.MakeHTTPTURNHandler(router)))
 		r.Handle("/websocket/{key}", wrapper(http.HandlerFunc(rtmm.HTTPWebsocketHandler))).Name(WebsocketRouteIdentifier)
+	}
+
+	if guestm, ok := h.services.GuestManager.(*guest.Manager); ok {
+		r := v2.PathPrefix("/guest").Subrouter()
+		r.Handle("/logon", wrapper(guestm.MakeHTTPLogonHandler()))
 	}
 
 	return router

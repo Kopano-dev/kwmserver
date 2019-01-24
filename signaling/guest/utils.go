@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Kopano and its licensors
+ * Copyright 2019 Kopano and its licensors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License, version 3,
@@ -15,26 +15,23 @@
  *
  */
 
-package api
+package guest
 
-// ResponseOK is the most basic response type with boolean OK flag.
-type ResponseOK struct {
-	OK bool `json:"ok"`
-}
+import (
+	"strings"
 
-// ResponseOKValue is a response value with true OK status.
-var ResponseOKValue = &ResponseOK{true}
+	"github.com/Pallinder/go-randomdata"
+	"github.com/kennygrant/sanitize"
+)
 
-// ResponseError is the most basic error response with error string.
-type ResponseError struct {
-	ResponseOK
+const guestDisplayNamePrefix = "(Guest)"
 
-	Error string `json:"error"`
-}
+func guestDisplayName(name string) string {
+	name = sanitize.HTML(strings.TrimSpace(name))
 
-// NewResponseError creates a new error response with the provided error.
-func NewResponseError(s string) *ResponseError {
-	return &ResponseError{
-		Error: s,
+	if name == "" {
+		name = strings.Title(randomdata.Adjective() + " " + randomdata.Adjective() + randomdata.Noun())
 	}
+
+	return guestDisplayNamePrefix + name
 }

@@ -39,6 +39,7 @@ import (
 	"stash.kopano.io/kwm/kwmserver/signaling/admin"
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
 	apiv2 "stash.kopano.io/kwm/kwmserver/signaling/api-v2/service"
+	"stash.kopano.io/kwm/kwmserver/signaling/guest"
 	"stash.kopano.io/kwm/kwmserver/signaling/mcu"
 	"stash.kopano.io/kwm/kwmserver/signaling/rtm"
 	"stash.kopano.io/kwm/kwmserver/signaling/www"
@@ -207,6 +208,14 @@ func (s *Server) Serve(ctx context.Context) error {
 		mcum = mcu.NewManager(serveCtx, "", logger)
 		services.MCUManager = mcum
 		logger.Infoln("mcu: API endpoint enabled")
+	}
+
+	// Guest API.
+	var guestm *guest.Manager
+	if true {
+		guestm = guest.NewManager(serveCtx, "", logger)
+		services.GuestManager = guestm
+		logger.Infoln("guest: API endpoint enabled")
 	}
 
 	// RTM API.
