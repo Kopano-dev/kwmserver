@@ -19,7 +19,7 @@ import:
 - package: github.com/dgrijalva/jwt-go
   version: v3.0.0
 - package: stash.kopano.io/kc/libkcoidc
-  version: ~0.4.3
+  version: ~0.5.0
 - package: github.com/Pallinder/go-randomdata
   version: ~1.1.0
 - package: github.com/kennygrant/sanitize
