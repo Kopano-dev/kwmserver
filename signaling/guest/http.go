@@ -83,8 +83,12 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 		name := req.Form.Get("name")
 		m.logger.WithField("guest", guest).Debugln("guest handler logon request")
 
+		var gc *Claims
+		claims := &ClaimsRequest{}
+
+		// Flexible guest type support.
 		switch guest {
-		case "1":
+		case guestTypeSimple:
 			// Guest mode 1 supports access via a path parameter to a specific
 			// public group, or access via a token which was previously issued
 			// to grant access to a specific private group.
@@ -106,9 +110,15 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 				}
 			}
 
+			// Set guest claims.
+			gc = &Claims{
+				Type: guest,
+				Path: path,
+			}
+
 		default:
 			// Unknown or unsupported guest mode.
-			http.Error(rw, "unknown guest mode", http.StatusBadRequest)
+			http.Error(rw, "unknown guest type", http.StatusBadRequest)
 			return
 		}
 
@@ -117,17 +127,25 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 
 		key, kid := _getKeyAndKid()
 
+		// Add pass thru claims.
+		err = claims.SetPassthru(&passthruClaims{
+			Guest: gc,
+		})
+		if err != nil {
+			m.logger.WithError(err).Errorln("failed to set guest pass thru claims")
+			http.Error(rw, "failed to set pass thru claims", http.StatusInternalServerError)
+			return
+		}
+
 		// Generate random id, claims and request.
 		id := fmt.Sprintf("%s@%s.kwmguest", rndm.GenerateRandomString(32), guest)
-		claims := &ClaimsRequest{
-			IDToken: &ClaimsRequestMap{
-				RequestGuestClaim: &ClaimsRequestValue{
-					Essential: true,
-					Value:     id,
-				},
-				NameClaim: &ClaimsRequestValue{
-					Value: guestDisplayName(name),
-				},
+		claims.IDToken = &ClaimsRequestMap{
+			RequestGuestClaim: &ClaimsRequestValue{
+				Essential: true,
+				Value:     id,
+			},
+			NameClaim: &ClaimsRequestValue{
+				Value: guestDisplayName(name),
 			},
 		}
 		request := &RequestObjectClaims{

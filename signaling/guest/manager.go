@@ -19,8 +19,12 @@ package guest
 
 import (
 	"context"
+	"errors"
 
 	"github.com/sirupsen/logrus"
+	kcoidc "stash.kopano.io/kc/libkcoidc"
+
+	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
 // Manager handles guests.
@@ -50,4 +54,37 @@ func (m *Manager) Context() context.Context {
 // accociated manager.
 func (m *Manager) NumActive() uint64 {
 	return 0
+}
+
+// ApplyRestrictions returns the guest claims from the provided claims.
+func (m *Manager) ApplyRestrictions(auth *api.AdminAuthToken, claims *kcoidc.ExtraClaimsWithType) error {
+	auth.GroupRestriction = make(map[string]bool)
+
+	authorizedClaims := kcoidc.AuthorizedClaimsFromClaims(claims)
+	if authorizedClaims == nil {
+		return nil
+	}
+
+	if passthru, _ := authorizedClaims["passthru"].(map[string]interface{}); passthru != nil {
+		if guestclaim, _ := passthru[guestClaim].(map[string]interface{}); guestclaim != nil {
+			gc, err := newClaimsFromMap(guestclaim)
+			if err != nil {
+				return err
+			}
+
+			switch gc.Type {
+			case guestTypeSimple:
+				// FIXME(longsleep): This currently sets all incoming paths as group
+				// restriction. In the future we might want to have other restricts
+				// based on path patterns.
+				auth.GroupRestriction[gc.Path] = true
+
+			default:
+				return errors.New("unknown guest type in guest claims")
+			}
+
+		}
+	}
+
+	return nil
 }

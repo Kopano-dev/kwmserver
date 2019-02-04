@@ -26,6 +26,8 @@ type AdminAuthToken struct {
 	ExpiresAt int64  `json:"exp,omitempty"`
 
 	Claims map[string]interface{} `json:"claims,omitempty"`
+
+	GroupRestriction map[string]bool `json:"-"`
 }
 
 // Name returns the associated tokens name claim string value or empty string.

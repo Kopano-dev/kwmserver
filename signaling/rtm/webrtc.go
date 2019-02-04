@@ -83,6 +83,27 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 	return processErr
 }
 
+func (m *Manager) validateRestrictedWebRTCMessage(c *connection.Connection, msg *api.RTMTypeWebRTC, ur *userRecord) error {
+	if ur == nil || ur.auth == nil || ur.auth.GroupRestriction == nil {
+		// Not restricted.
+		return nil
+	}
+
+	// Validae group restriction, which is the only restriction currently
+	// supported here.
+	for {
+		if ur.auth.GroupRestriction[msg.Group] != true {
+			break
+		}
+
+		// Ending up here, means nothing failed. So let pass without error.
+		return nil
+	}
+
+	c.Logger().WithField("group", msg.Group).Debugln("restriction validation failed", ur.auth.GroupRestriction)
+	return fmt.Errorf("access denied")
+}
+
 func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTypeWebRTC) error {
 	if msg.Version < minimalWebRTCPayloadVersion {
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "outdated WebRTC payload version", msg.ID)
@@ -91,15 +112,20 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "profile cannot be set by client", msg.ID)
 	}
 
+	// Fech user record for connection.
+	bound := c.Bound()
+	ur, _ := bound.(*userRecord)
+	if err := m.validateRestrictedWebRTCMessage(c, msg, ur); err != nil {
+		return api.NewRTMTypeError(api.RTMErrorIDAccessRestricted, err.Error(), msg.ID)
+	}
+
 	switch msg.Subtype {
 	case api.RTMSubtypeNameWebRTCGroup:
 		// Group query or create.
 		// Connection must have a user.
-		bound := c.Bound()
-		if bound == nil {
+		if ur == nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "connection has no user", msg.ID)
 		}
-		ur := bound.(*userRecord)
 		// Target must always be not empty.
 		if msg.Target == "" {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target is empty", msg.ID)
@@ -200,11 +226,9 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 
 	case api.RTMSubtypeNameWebRTCCall:
 		// Connection must have a user.
-		bound := c.Bound()
-		if bound == nil {
+		if ur == nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "connection has no user", msg.ID)
 		}
-		ur := bound.(*userRecord)
 		// Target must always be not empty.
 		if msg.Target == "" {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "target is empty", msg.ID)
@@ -400,9 +424,8 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 		fallthrough
 
 	case api.RTMSubtypeNameWebRTCSignal:
-		bound := c.Bound()
 		// Connection must have a user.
-		if bound == nil {
+		if ur == nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "connection has no user", msg.ID)
 		}
 		// State must always be not empty.
@@ -416,8 +439,6 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 		if msg.Channel == "" || msg.Hash == "" || msg.Data == nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "channel hash or data is empty", msg.ID)
 		}
-
-		ur := bound.(*userRecord)
 
 		// Get channel and add user with connection.
 		record, ok := m.channels.Get(msg.Channel)

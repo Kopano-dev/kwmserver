@@ -19,12 +19,18 @@ package guest
 
 import (
 	"encoding/json"
+	"errors"
 )
 
 // Claims as used by kwmserver guest support.
 const (
 	RequestGuestClaim = "guest"
 	NameClaim         = "name"
+)
+
+// Types as used in the guest data.
+const (
+	guestTypeSimple = "1"
 )
 
 // NOTE(longsleep): The request claims related structs in this file are copied
@@ -59,6 +65,13 @@ type ClaimsRequest struct {
 	Passthru json.RawMessage   `json:"passthru,omitempty"`
 }
 
+// SetPassthru sets the accociated claims request passthrough field to the JSON
+// encoded value of the provided data.
+func (cr *ClaimsRequest) SetPassthru(d interface{}) (err error) {
+	cr.Passthru, err = json.Marshal(d)
+	return
+}
+
 // ClaimsRequestMap defines a mapping of claims request values used with
 // OpenID Connect claims request parameter values.
 type ClaimsRequestMap map[string]*ClaimsRequestValue
@@ -69,4 +82,28 @@ type ClaimsRequestValue struct {
 	Essential bool          `json:"essential,omitempty"`
 	Value     interface{}   `json:"value,omitempty"`
 	Values    []interface{} `json:"values,omitempty"`
+}
+
+const guestClaim = "kopano/kwm/guest"
+
+type passthruClaims struct {
+	Guest *Claims `json:"kopano/kwm/guest,omitempty"`
+}
+
+// Claims define the claims for guests.
+type Claims struct {
+	Type string `json:"type"`
+	Path string `json:"path,omitempty"`
+}
+
+func newClaimsFromMap(claims map[string]interface{}) (*Claims, error) {
+	c := &Claims{}
+	c.Type, _ = claims["type"].(string)
+	c.Path, _ = claims["path"].(string)
+
+	if c.Type == "" {
+		return nil, errors.New("no type in guest claims")
+	}
+
+	return c, nil
 }

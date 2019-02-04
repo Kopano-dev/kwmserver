@@ -92,19 +92,37 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 					return nil, false
 				}
 
-				// Set authenticated user and claims for further processing.
-				req.Form.Set("user", authenticatedUserID)
 				userClaims = map[string]interface{}(*idExtra)
 			}
 
-			return &api.AdminAuthToken{
+			// Set authenticated user and claims for further processing.
+			req.Form.Set("user", authenticatedUserID)
+
+			// Prepare auth.
+			auth := &api.AdminAuthToken{
 				Subject:   authenticatedUserID,
 				Type:      authHeader[0],
 				Value:     authHeader[1],
 				ExpiresAt: std.ExpiresAt,
 
 				Claims: userClaims,
-			}, true
+			}
+
+			// Guest support.
+			if kcoidc.AuthenticatedUserIsGuest(claims) {
+				if m.guestm != nil {
+					err = m.guestm.ApplyRestrictions(auth, claims)
+					if err != nil {
+						m.logger.WithError(err).Errorln("rtm connect guest claims failed")
+						return nil, false
+					}
+				} else {
+					m.logger.Warnln("rtm connect as guest but guest support is disabled")
+					return nil, false
+				}
+			}
+
+			return auth, true
 		}
 	}
 

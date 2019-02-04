@@ -221,7 +221,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	// RTM API.
 	var rtmm *rtm.Manager
 	if s.config.EnableRTMAPI {
-		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, logger, mcum, adminm, oidcp, turnsrv)
+		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, logger, mcum, adminm, guestm, oidcp, turnsrv)
 		services.RTMManager = rtmm
 		logger.Infoln("rtm: API endpoint enabled")
 	}

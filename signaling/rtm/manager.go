@@ -34,6 +34,7 @@ import (
 	"stash.kopano.io/kwm/kwmserver/signaling/admin"
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 	"stash.kopano.io/kwm/kwmserver/signaling/connection"
+	"stash.kopano.io/kwm/kwmserver/signaling/guest"
 	"stash.kopano.io/kwm/kwmserver/signaling/mcu"
 	"stash.kopano.io/kwm/kwmserver/turn"
 )
@@ -48,6 +49,7 @@ type Manager struct {
 	ctx     context.Context
 	mcum    *mcu.Manager
 	adminm  *admin.Manager
+	guestm  *guest.Manager
 	oidcp   *kcoidc.Provider
 	turnsrv turn.Server
 
@@ -62,7 +64,7 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, insecure bool, requiredScopes []string, logger logrus.FieldLogger, mcum *mcu.Manager, adminm *admin.Manager, oidcp *kcoidc.Provider, turnsrv turn.Server) *Manager {
+func NewManager(ctx context.Context, id string, insecure bool, requiredScopes []string, logger logrus.FieldLogger, mcum *mcu.Manager, adminm *admin.Manager, guestm *guest.Manager, oidcp *kcoidc.Provider, turnsrv turn.Server) *Manager {
 	m := &Manager{
 		id:             id,
 		insecure:       insecure,
@@ -72,6 +74,7 @@ func NewManager(ctx context.Context, id string, insecure bool, requiredScopes []
 		ctx:     ctx,
 		mcum:    mcum,
 		adminm:  adminm,
+		guestm:  guestm,
 		oidcp:   oidcp,
 		turnsrv: turnsrv,
 
