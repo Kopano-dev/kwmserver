@@ -27,3 +27,6 @@ import:
 - package: golang.org/x/net
   subpackages:
   - html
+- package: gopkg.in/yaml.v2
+  version: ~2.2.2
+- package: github.com/mendsley/gojwk

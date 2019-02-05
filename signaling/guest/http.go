@@ -18,10 +18,7 @@
 package guest
 
 import (
-	"crypto"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"net/http"
 	"strings"
@@ -39,29 +36,17 @@ func (m *Manager) corsAllowed(next http.Handler) http.Handler {
 	return corsHandler.Handler(next)
 }
 
-func _getKeyAndKid() (crypto.Signer, string) {
-	kid := "example-1-ecdsa-p-256"
-	data := []byte(`-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIGoEsppN6NbL1I1vATQN5WLjfkiArrcObJGIwo2Gbin7oAoGCCqGSM49
-AwEHoUQDQgAERTZpWoRbjwX1YavmSHVBj6Cy3Yzdkkp6QLvTGB22D0eN5q+PBxfT
-GUNJyEVwEzNdJTvAazZU+k3FYLCbEW+YXQ==
------END EC PRIVATE KEY-----`)
-
-	block, _ := pem.Decode(data)
-
-	key, err := x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		panic(err)
-	}
-
-	return key, kid
-}
-
 // MakeHTTPLogonHandler implements the HTTP handler for guest logon requests.
 func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 	return m.corsAllowed(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodPost {
 			http.Error(rw, "", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if m.clients == nil {
+			m.logger.Debugln("guest logon request but no keys are registered")
+			http.Error(rw, "guest access is not set up", http.StatusNotFound)
 			return
 		}
 
@@ -104,7 +89,7 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 				return
 			} else {
 				// Validate path.
-				if strings.Index(path, "/public/") == -1 {
+				if !m.isValidPublicPath(path, guest) {
 					http.Error(rw, "guest access denied", http.StatusForbidden)
 					return
 				}
@@ -125,7 +110,25 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 		// TODO(longsleep): Optionally get id token hint from request to renew
 		// previously created data?
 
-		key, kid := _getKeyAndKid()
+		// TODO(longsleep): Get client secret from request.
+		// TODO(longsleep): Use origin from request.
+		_, client, err := m.clients.Lookup(req.Context(), clientID, "", "", true)
+		if err != nil {
+			m.logger.WithError(err).WithField("client_id", clientID).Debugln("client lookup failed")
+			http.Error(rw, "guest access denied", http.StatusForbidden)
+			return
+		}
+		alg := jwt.GetSigningMethod(client.RawRequestObjectSigningAlg)
+		if alg == nil {
+			m.logger.WithError(err).WithField("client_id", clientID).Debugln("no request object signing alg for client_id key")
+			http.Error(rw, "guest access denied", http.StatusForbidden)
+		}
+		secured, err := client.Private(nil)
+		if err != nil {
+			m.logger.WithError(err).WithField("client_id", clientID).Debugln("no default key for client_id")
+			http.Error(rw, "guest access denied", http.StatusForbidden)
+			return
+		}
 
 		// Add pass thru claims.
 		err = claims.SetPassthru(&passthruClaims{
@@ -157,12 +160,12 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 		}
 
 		// Sign request.
-		requestToken := jwt.NewWithClaims(jwt.SigningMethodES256, request)
-		requestToken.Header["kid"] = kid
+		requestToken := jwt.NewWithClaims(alg, request)
+		requestToken.Header["kid"] = secured.Kid
 
 		// Create query parameters.
 		eqp := make(map[string]string)
-		eqp["request"], err = requestToken.SignedString(key)
+		eqp["request"], err = requestToken.SignedString(secured.PrivateKey)
 		if err != nil {
 			panic(err)
 		}

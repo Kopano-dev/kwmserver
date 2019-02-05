@@ -70,6 +70,9 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().Bool("log-timestamp", true, "Prefix each log line with timestamp")
 	serveCmd.Flags().String("log-level", "info", "Log level (one of panic, fatal, error, warn, info or debug)")
 	serveCmd.Flags().StringArray("rtm-required-scope", nil, "Require specific scope when checking auth for RTM")
+	serveCmd.Flags().Bool("enable-guest-api", false, "Enables the guest API endpoints")
+	serveCmd.Flags().Bool("allow-guest-only-channels", false, "If set, guests can join empty channels")
+	serveCmd.Flags().String("registration-conf", "", "Path to a registration.yaml config file")
 
 	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
@@ -102,6 +105,18 @@ func serve(cmd *cobra.Command, args []string) error {
 		listenAddr = defaultListenAddr
 	}
 	config.ListenAddr = listenAddr
+
+	registrationConf, _ := cmd.Flags().GetString("registration-conf")
+	if registrationConf != "" {
+		config.RegistrationConf, _ = filepath.Abs(registrationConf)
+		if _, errStat := os.Stat(config.RegistrationConf); errStat != nil {
+			return fmt.Errorf("registration-conf file not found or unable to access: %v", errStat)
+		}
+	}
+
+	enableGuestAPI, _ := cmd.Flags().GetBool("enable-guest-api")
+	config.EnableGuestAPI = enableGuestAPI
+	config.GuestsCanCreateChannels, _ = cmd.Flags().GetBool("allow-guest-only-channels")
 
 	enableMcuAPI, _ := cmd.Flags().GetBool("enable-mcu-api")
 	config.EnableMcuAPI = enableMcuAPI

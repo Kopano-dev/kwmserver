@@ -30,10 +30,15 @@ type Config struct {
 	WithPprof       bool
 	PprofListenAddr string
 
+	RegistrationConf string
+
 	EnableMcuAPI bool
 
 	EnableRTMAPI      bool
 	RTMRequiredScopes []string
+
+	EnableGuestAPI          bool
+	GuestsCanCreateChannels bool
 
 	EnableWww bool
 	WwwRoot   string

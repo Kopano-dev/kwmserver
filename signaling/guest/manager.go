@@ -20,10 +20,12 @@ package guest
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	kcoidc "stash.kopano.io/kc/libkcoidc"
 
+	"stash.kopano.io/kwm/kwmserver/clients"
 	api "stash.kopano.io/kwm/kwmserver/signaling/api-v1"
 )
 
@@ -32,15 +34,19 @@ type Manager struct {
 	id                     string
 	allowGuestOnlyChannels bool
 
+	clients *clients.Registry
+
 	logger logrus.FieldLogger
 	ctx    context.Context
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, allowGuestOnlyChannels bool, logger logrus.FieldLogger) *Manager {
+func NewManager(ctx context.Context, id string, clientsRegistry *clients.Registry, allowGuestOnlyChannels bool, logger logrus.FieldLogger) *Manager {
 	m := &Manager{
 		id:                     id,
 		allowGuestOnlyChannels: allowGuestOnlyChannels,
+
+		clients: clientsRegistry,
 
 		logger: logger.WithField("manager", "guest"),
 		ctx:    ctx,
@@ -93,4 +99,9 @@ func (m *Manager) ApplyRestrictions(auth *api.AdminAuthToken, claims *kcoidc.Ext
 	}
 
 	return nil
+}
+
+func (m *Manager) isValidPublicPath(path string, guestType string) bool {
+	// Validate path.
+	return strings.Index(path, "/public/") >= 0
 }

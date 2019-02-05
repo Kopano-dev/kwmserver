@@ -212,6 +212,8 @@ func (m *Manager) MakeHTTPTURNHandler(router *mux.Router) http.Handler {
 	}
 
 	return m.corsAllowed(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		req.ParseForm()
+
 		// Check authentication
 		auth, authOK := m.isRequestWithValidAuth(req)
 		if !authOK {
@@ -219,7 +221,6 @@ func (m *Manager) MakeHTTPTURNHandler(router *mux.Router) http.Handler {
 			return
 		}
 
-		req.ParseForm()
 		user := req.Form.Get("user")
 		if user == "" {
 			http.Error(rw, "missing user parameter", http.StatusBadRequest)

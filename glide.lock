@@ -1,5 +1,5 @@
-hash: d007838560deebde9d5b658cd46d2d02f4559db219eca0bbc4516feb00f891e0
-updated: 2019-02-04T17:42:09.292895854+01:00
+hash: 285721784122e6b1e7c109b013be7f8b63ca41eb68f4569fdbeda78f8b239f47
+updated: 2019-02-05T16:45:41.333956067+01:00
 imports:
 - name: github.com/dgrijalva/jwt-go
   version: d2709f9f1f31ebcda9651b03077758c1f3a0018c
@@ -18,6 +18,8 @@ imports:
   subpackages:
   - loggedwriter
   - timing
+- name: github.com/mendsley/gojwk
+  version: 4d5ec6e58103388d6cb0d7d72bc72649be4f0504
 - name: github.com/orcaman/concurrent-map
   version: 2ae17bc4c860c83513ee50feb9746f3e50d7515d
 - name: github.com/Pallinder/go-randomdata
@@ -50,6 +52,8 @@ imports:
   subpackages:
   - cipher
   - json
+- name: gopkg.in/yaml.v2
+  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: stash.kopano.io/kc/libkcoidc
   version: 0771c58a11c23f7c3961ca0211115a931c5a9890
 - name: stash.kopano.io/kgol/rndm

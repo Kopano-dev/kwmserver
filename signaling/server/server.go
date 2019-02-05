@@ -35,6 +35,7 @@ import (
 	kcoidc "stash.kopano.io/kc/libkcoidc"
 	"stash.kopano.io/kgol/rndm"
 
+	"stash.kopano.io/kwm/kwmserver/clients"
 	"stash.kopano.io/kwm/kwmserver/signaling"
 	"stash.kopano.io/kwm/kwmserver/signaling/admin"
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
@@ -187,6 +188,15 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 	}
 
+	// Clients registration.
+	var clientsRegistry *clients.Registry
+	if s.config.RegistrationConf != "" {
+		clientsRegistry, err = clients.NewRegistry(s.config.Iss, s.config.RegistrationConf, logger)
+		if err != nil {
+			return fmt.Errorf("failed to initialize clients registry: %v", err)
+		}
+	}
+
 	// Admin API.
 	adminm := admin.NewManager(serveCtx, "", logger)
 	if s.config.AdminTokensSigningKey == nil || len(s.config.AdminTokensSigningKey) < 32 {
@@ -212,8 +222,8 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// Guest API.
 	var guestm *guest.Manager
-	if true {
-		guestm = guest.NewManager(serveCtx, "", true, logger)
+	if s.config.EnableGuestAPI {
+		guestm = guest.NewManager(serveCtx, "", clientsRegistry, s.config.GuestsCanCreateChannels, logger)
 		services.GuestManager = guestm
 		logger.Infoln("guest: API endpoint enabled")
 	}
