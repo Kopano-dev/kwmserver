@@ -213,7 +213,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	// Guest API.
 	var guestm *guest.Manager
 	if true {
-		guestm = guest.NewManager(serveCtx, "", logger)
+		guestm = guest.NewManager(serveCtx, "", true, logger)
 		services.GuestManager = guestm
 		logger.Infoln("guest: API endpoint enabled")
 	}

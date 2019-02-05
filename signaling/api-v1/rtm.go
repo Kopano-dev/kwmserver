@@ -44,6 +44,7 @@ const (
 	RTMErrorIDBadMessage       = "bad_message"
 	RTMErrorIDNoSessionForUser = "no_session_for_user"
 	RTMErrorIDAccessRestricted = "access_restricted"
+	RTMErrorIDCreateRestricted = "create_restricted"
 )
 
 // RTMConnectResponse is the response returned from rtm.connect.

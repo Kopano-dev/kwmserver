@@ -51,7 +51,12 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 	switch authHeader[0] {
 	case api.AdminAuthTokenTypeToken:
 		// Self created token.
-		return m.adminm.IsValidAdminAuthTokenRequest(req)
+		auth, success := m.adminm.IsValidAdminAuthTokenRequest(req)
+		if auth != nil {
+			// Set default restrictions for auth token auth
+			auth.CanCreateChannels = true
+		}
+		return auth, success
 
 	case "Bearer":
 		if m.oidcp != nil {
@@ -106,6 +111,8 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 				ExpiresAt: std.ExpiresAt,
 
 				Claims: userClaims,
+
+				CanCreateChannels: true,
 			}
 
 			// Guest support.

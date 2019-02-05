@@ -27,7 +27,8 @@ type AdminAuthToken struct {
 
 	Claims map[string]interface{} `json:"claims,omitempty"`
 
-	GroupRestriction map[string]bool `json:"-"`
+	GroupRestriction  map[string]bool `json:"-"`
+	CanCreateChannels bool            `json:"-"`
 }
 
 // Name returns the associated tokens name claim string value or empty string.

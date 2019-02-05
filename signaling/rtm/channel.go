@@ -144,15 +144,15 @@ func NewChannel(id string, m *Manager, logger logrus.FieldLogger, config *Channe
 }
 
 // CreateRandomChannel creates a new channel with random id.
-func CreateRandomChannel(m *Manager, config *ChannelConfig) (*Channel, error) {
+func CreateRandomChannel(m *Manager, config *ChannelConfig) *Channel {
 	id := fmt.Sprintf("%s%s", ChannelPrefixStandard, rndm.GenerateRandomString(channelIDSize))
 
-	return NewChannel(id, m, m.logger.WithField("channel", id), config), nil
+	return NewChannel(id, m, m.logger.WithField("channel", id), config)
 }
 
 // CreateKnownChannel creates a new channel with known id.
-func CreateKnownChannel(id string, m *Manager, config *ChannelConfig) (*Channel, error) {
-	return NewChannel(id, m, m.logger.WithField("channel", id), config), nil
+func CreateKnownChannel(id string, m *Manager, config *ChannelConfig) *Channel {
+	return NewChannel(id, m, m.logger.WithField("channel", id), config)
 }
 
 // Add adds the provided connection to the channel identified by id.

@@ -83,25 +83,26 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 	return processErr
 }
 
-func (m *Manager) validateRestrictedWebRTCMessage(c *connection.Connection, msg *api.RTMTypeWebRTC, ur *userRecord) error {
+func (m *Manager) validateRestrictedWebRTCMessage(c *connection.Connection, msg *api.RTMTypeWebRTC, ur *userRecord) (*api.AdminAuthToken, error) {
 	if ur == nil || ur.auth == nil || ur.auth.GroupRestriction == nil {
-		// Not restricted.
-		return nil
+		// Not restricted, since no auth.
+		return nil, nil
 	}
 
+	auth := ur.auth
 	// Validae group restriction, which is the only restriction currently
 	// supported here.
 	for {
-		if ur.auth.GroupRestriction[msg.Group] != true {
+		if auth.GroupRestriction[msg.Group] != true {
 			break
 		}
 
 		// Ending up here, means nothing failed. So let pass without error.
-		return nil
+		return auth, nil
 	}
 
 	c.Logger().WithField("group", msg.Group).Debugln("restriction validation failed", ur.auth.GroupRestriction)
-	return fmt.Errorf("access denied")
+	return auth, fmt.Errorf("access denied")
 }
 
 func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTypeWebRTC) error {
@@ -115,7 +116,8 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 	// Fech user record for connection.
 	bound := c.Bound()
 	ur, _ := bound.(*userRecord)
-	if err := m.validateRestrictedWebRTCMessage(c, msg, ur); err != nil {
+	auth, err := m.validateRestrictedWebRTCMessage(c, msg, ur)
+	if err != nil {
 		return api.NewRTMTypeError(api.RTMErrorIDAccessRestricted, err.Error(), msg.ID)
 	}
 
@@ -153,16 +155,12 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 			if exists && valueInMap != nil {
 				return valueInMap
 			}
-			newChannel, newChannelErr := CreateKnownChannel(channelID, m, &ChannelConfig{
+			newChannel := CreateKnownChannel(channelID, m, &ChannelConfig{
 				Group: msg.Group,
 
 				Replace:          m.onGroupReplace,
 				AfterAddOrRemove: m.onAfterGroupAddOrRemove,
 			})
-			if newChannelErr != nil {
-				m.logger.WithError(newChannelErr).WithField("channel", channelID).Errorln("failed to create known channel")
-				return nil
-			}
 			return &channelRecord{
 				when:    time.Now(),
 				channel: newChannel,
@@ -176,6 +174,11 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 		}
 
 		channel := record.(*channelRecord).channel
+
+		// Ensure that the channel is not empty.
+		if auth != nil && !auth.CanCreateChannels && channel.Size() == 0 {
+			return api.NewRTMTypeError(api.RTMErrorIDCreateRestricted, "access denied", msg.ID)
+		}
 
 		// Add user connection.
 		err = channel.Add(ur.id, c)
@@ -246,8 +249,9 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "source must be empty", msg.ID)
 		}
 		// Create profile.
-		profile := &api.RTMDataProfile{
-			Name: ur.auth.Name(),
+		profile := &api.RTMDataProfile{}
+		if auth != nil {
+			profile.Name = auth.Name()
 		}
 		// Check if this is a request or response.
 		// Ff initiator is true, it must be a request, thus channel, hash
@@ -260,12 +264,12 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 			if msg.Data != nil {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "data must be empty", msg.ID)
 			}
+			if auth != nil && !auth.CanCreateChannels {
+				return api.NewRTMTypeError(api.RTMErrorIDCreateRestricted, "access denied", msg.ID)
+			}
 
 			// Create channel and add user with connection.
-			channel, err := CreateRandomChannel(m, nil)
-			if err != nil {
-				return fmt.Errorf("failed to create channel: %v", err)
-			}
+			channel := CreateRandomChannel(m, nil)
 			err = channel.Add(ur.id, c)
 			if err != nil {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, err.Error(), msg.ID)

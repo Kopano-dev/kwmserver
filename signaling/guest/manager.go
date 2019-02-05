@@ -29,15 +29,19 @@ import (
 
 // Manager handles guests.
 type Manager struct {
-	id     string
+	id                     string
+	allowGuestOnlyChannels bool
+
 	logger logrus.FieldLogger
 	ctx    context.Context
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, logger logrus.FieldLogger) *Manager {
+func NewManager(ctx context.Context, id string, allowGuestOnlyChannels bool, logger logrus.FieldLogger) *Manager {
 	m := &Manager{
-		id:     id,
+		id:                     id,
+		allowGuestOnlyChannels: allowGuestOnlyChannels,
+
 		logger: logger.WithField("manager", "guest"),
 		ctx:    ctx,
 	}
@@ -59,6 +63,7 @@ func (m *Manager) NumActive() uint64 {
 // ApplyRestrictions returns the guest claims from the provided claims.
 func (m *Manager) ApplyRestrictions(auth *api.AdminAuthToken, claims *kcoidc.ExtraClaimsWithType) error {
 	auth.GroupRestriction = make(map[string]bool)
+	auth.CanCreateChannels = m.allowGuestOnlyChannels
 
 	authorizedClaims := kcoidc.AuthorizedClaimsFromClaims(claims)
 	if authorizedClaims == nil {
@@ -72,6 +77,7 @@ func (m *Manager) ApplyRestrictions(auth *api.AdminAuthToken, claims *kcoidc.Ext
 				return err
 			}
 
+			// Flexible guest type support.
 			switch gc.Type {
 			case guestTypeSimple:
 				// FIXME(longsleep): This currently sets all incoming paths as group
