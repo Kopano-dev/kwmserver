@@ -37,8 +37,9 @@ type Config struct {
 	EnableRTMAPI      bool
 	RTMRequiredScopes []string
 
-	EnableGuestAPI          bool
-	GuestsCanCreateChannels bool
+	EnableGuestAPI           bool
+	GuestsCanCreateChannels  bool
+	GuestPublicAccessPattern string
 
 	EnableWww bool
 	WwwRoot   string

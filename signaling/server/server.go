@@ -223,7 +223,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	// Guest API.
 	var guestm *guest.Manager
 	if s.config.EnableGuestAPI {
-		guestm = guest.NewManager(serveCtx, "", clientsRegistry, s.config.GuestsCanCreateChannels, logger)
+		guestm = guest.NewManager(serveCtx, "", clientsRegistry, s.config.GuestsCanCreateChannels, s.config.GuestPublicAccessPattern, logger)
 		services.GuestManager = guestm
 		logger.Infoln("guest: API endpoint enabled")
 	}

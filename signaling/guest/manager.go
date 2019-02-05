@@ -20,7 +20,7 @@ package guest
 import (
 	"context"
 	"errors"
-	"strings"
+	"regexp"
 
 	"github.com/sirupsen/logrus"
 	kcoidc "stash.kopano.io/kc/libkcoidc"
@@ -33,6 +33,7 @@ import (
 type Manager struct {
 	id                     string
 	allowGuestOnlyChannels bool
+	publicPattern          *regexp.Regexp
 
 	clients *clients.Registry
 
@@ -41,7 +42,7 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, clientsRegistry *clients.Registry, allowGuestOnlyChannels bool, logger logrus.FieldLogger) *Manager {
+func NewManager(ctx context.Context, id string, clientsRegistry *clients.Registry, allowGuestOnlyChannels bool, publicPatternString string, logger logrus.FieldLogger) *Manager {
 	m := &Manager{
 		id:                     id,
 		allowGuestOnlyChannels: allowGuestOnlyChannels,
@@ -50,6 +51,15 @@ func NewManager(ctx context.Context, id string, clientsRegistry *clients.Registr
 
 		logger: logger.WithField("manager", "guest"),
 		ctx:    ctx,
+	}
+
+	if publicPatternString != "" {
+		if publicPattern, err := regexp.Compile(publicPatternString); err == nil {
+			m.publicPattern = publicPattern
+			m.logger.Infoln("pattern", publicPattern.String(), "public guest rooms enabled")
+		} else {
+			m.logger.WithError(err).Errorln("failed to parse public pattern regexp - public guest rooms not enabled")
+		}
 	}
 
 	return m
@@ -102,6 +112,11 @@ func (m *Manager) ApplyRestrictions(auth *api.AdminAuthToken, claims *kcoidc.Ext
 }
 
 func (m *Manager) isValidPublicPath(path string, guestType string) bool {
+	if m.publicPattern == nil {
+		// Nothing is public.
+		return false
+	}
+
 	// Validate path.
-	return strings.Index(path, "/public/") >= 0
+	return m.publicPattern.MatchString(path)
 }

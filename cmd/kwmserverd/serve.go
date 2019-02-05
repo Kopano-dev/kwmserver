@@ -72,6 +72,7 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().StringArray("rtm-required-scope", nil, "Require specific scope when checking auth for RTM")
 	serveCmd.Flags().Bool("enable-guest-api", false, "Enables the guest API endpoints")
 	serveCmd.Flags().Bool("allow-guest-only-channels", false, "If set, guests can join empty channels")
+	serveCmd.Flags().String("public-guest-access-regexp", "", "If set, rooms matching this regex can be accessed by guest without invitation (example: ^group/public/.* )")
 	serveCmd.Flags().String("registration-conf", "", "Path to a registration.yaml config file")
 
 	// Pprof support.
@@ -117,6 +118,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	enableGuestAPI, _ := cmd.Flags().GetBool("enable-guest-api")
 	config.EnableGuestAPI = enableGuestAPI
 	config.GuestsCanCreateChannels, _ = cmd.Flags().GetBool("allow-guest-only-channels")
+	config.GuestPublicAccessPattern, _ = cmd.Flags().GetString("public-guest-access-regexp")
 
 	enableMcuAPI, _ := cmd.Flags().GetBool("enable-mcu-api")
 	config.EnableMcuAPI = enableMcuAPI
