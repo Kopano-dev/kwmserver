@@ -15,6 +15,7 @@ OPENSSL=openssl
 DEFAULT_OIDC_ISSUER_IDENTIFIER=https://localhost
 DEFAULT_ADMIN_TOKENS_SECRET_KEY_FILE=/etc/kopano/kwmserverd-admin-tokens-secret.key
 DEFAULT_TURN_SERVICE_URL=https://turnauth.kopano.com/turnserverauth/
+DEFAULT_REGISTRATION_CONF_FILE=/etc/kopano/kwmserverd-registration.yaml
 
 # Handle parameters for configuration.
 
@@ -75,6 +76,10 @@ case "${1}" in
 			set -- "$@" --enable-mcu-api
 		fi
 
+		if [ "$enable_guest_api" = "yes" ]; then
+			set -- "$@" --enable-guest-api
+		fi
+
 		# kwmserver auth
 
 		if [ -n "$rtm_required_scopes" ]; then
@@ -88,6 +93,12 @@ case "${1}" in
 		fi
 		if [ -n "$admin_tokens_secret_key" ]; then
 			set -- "$@" --admin-tokens-key="$admin_tokens_secret_key"
+		fi
+
+		if [ -z "$registration_conf" ]; then
+			if [ -f "${DEFAULT_REGISTRATION_CONF_FILE}" ]; then
+				registration_conf="${DEFAULT_REGISTRATION_CONF_FILE}"
+			fi
 		fi
 
 		# kwmserver turn
@@ -111,6 +122,16 @@ case "${1}" in
 			for uri in $turn_uris; do
 				set -- "$@" --turn-uri="$uri"
 			done
+		fi
+
+		# kwmserver guest
+
+		if [ "$allow_guest_only_channels" = "yes" ]; then
+			set -- "$@" --allow-guest-only-channels
+		fi
+
+		if [ -n "$public_guest_access_regexp" ]; then
+			set -- "$@" --public-guest-access-regexp="$public_guest_access_regexp"
 		fi
 
 		;;
