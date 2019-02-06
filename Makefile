@@ -5,7 +5,7 @@ PACKAGE_NAME = kopano-$(shell basename $(PACKAGE))
 
 GO      ?= go
 GOFMT   ?= gofmt
-GLIDE   ?= glide
+DEP     ?= dep
 GOLINT  ?= golint
 
 GO2XUNIT ?= go2xunit
@@ -68,6 +68,10 @@ fmt: ; $(info running gofmt ...)	@
 		$(GOFMT) -l -w $$d/*.go || ret=$$? ; \
 	done ; exit $$ret
 
+.PHONY: check
+check: ; $(info checking dependencies ...) @
+	@cd $(BASE) && $(DEP) check && echo OK
+
 # Tests
 
 TEST_TARGETS := test-default test-bench test-short test-race test-verbose
@@ -119,15 +123,14 @@ test-coverage: vendor | $(BASE); $(info running coverage tests ...)
 	@$(GO) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
 	@$(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
 
-# Glide
+# Dep
 
-glide.lock: glide.yaml | $(BASE) ; $(info updating dependencies ...) @
-	@cd $(BASE) && $(GLIDE) update
+Gopkg.lock: Gopkg.toml | $(BASE) ; $(info updating dependencies ...)
+	@cd $(BASE) && $(DEP) ensure -update
 	@touch $@
 
-vendor: glide.lock | $(BASE) ; $(info retrieving dependencies ...) @
-	@cd $(BASE) && $(GLIDE) --quiet install
-	@ln -nsf . vendor/src
+vendor: Gopkg.lock | $(BASE) ; $(info retrieving dependencies ...)
+	@cd $(BASE) && $(DEP) ensure -vendor-only
 	@touch $@
 
 # Dist
