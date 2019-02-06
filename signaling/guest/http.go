@@ -118,6 +118,11 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 			http.Error(rw, "guest access denied", http.StatusForbidden)
 			return
 		}
+		if client == nil {
+			m.logger.WithField("client_id", clientID).Debugln("client not found")
+			http.Error(rw, "guest access denied", http.StatusForbidden)
+			return
+		}
 		alg := jwt.GetSigningMethod(client.RawRequestObjectSigningAlg)
 		if alg == nil {
 			m.logger.WithError(err).WithField("client_id", clientID).Debugln("no request object signing alg for client_id key")
