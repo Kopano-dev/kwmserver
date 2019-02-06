@@ -84,12 +84,17 @@ func (m *Manager) onWebRTC(c *connection.Connection, msg *api.RTMTypeWebRTC) err
 }
 
 func (m *Manager) validateRestrictedWebRTCMessage(c *connection.Connection, msg *api.RTMTypeWebRTC, ur *userRecord) (*api.AdminAuthToken, error) {
-	if ur == nil || ur.auth == nil || ur.auth.GroupRestriction == nil {
+	if ur == nil || ur.auth == nil {
 		// Not restricted, since no auth.
 		return nil, nil
 	}
 
 	auth := ur.auth
+	if auth.GroupRestriction == nil {
+		// Not restricted, since no restriction is set.
+		return auth, nil
+	}
+
 	// Validae group restriction, which is the only restriction currently
 	// supported here.
 	for {
