@@ -327,7 +327,7 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 			// single reply.
 
 			// Lookup target and send modified message.
-			connections, ok := m.LookupConnectionsByUserID(msg.Target)
+			connections, ok := m.LookupConnectionsByID(msg.Target)
 			if !ok {
 				return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", msg.ID)
 			}
@@ -385,7 +385,7 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 
 				if ur != nil {
 					// Additional actions based on the target.
-					connections, exists := m.LookupConnectionsByUserID(ur.id)
+					connections, exists := m.LookupConnectionsByID(ur.id)
 					if exists {
 
 						// Ignore busy messages when there are other connections. If a
@@ -491,7 +491,7 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 				msg.Source = ur.id
 				msg.ID = 0
 				// Lookup target and send hangup to all user connections.
-				connections, exists := m.LookupConnectionsByUserID(msg.Target)
+				connections, exists := m.LookupConnectionsByID(msg.Target)
 				if !exists {
 					return api.NewRTMTypeError(api.RTMErrorIDNoSessionForUser, "target not found", ref)
 				}

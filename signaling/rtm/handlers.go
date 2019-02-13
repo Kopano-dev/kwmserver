@@ -47,6 +47,7 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 		return nil
 	}
 
+	// Validate cached token to ensure it is still valid.
 	var err error
 	switch kr.user.auth.Type {
 	case api.AdminAuthTokenTypeToken:
@@ -60,25 +61,23 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 			err = errors.New("bearer auth not enabled")
 			break
 		}
-
-		// Validate token.
-		sub, _, _, validateErr := m.oidcp.ValidateTokenString(ctx, kr.user.auth.Value)
+		// NOTE(longsleep): Ensure that access token in our record is still
+		// valid.
+		_, _, _, validateErr := m.oidcp.ValidateTokenString(ctx, kr.user.auth.Value)
 		if validateErr != nil {
 			err = validateErr
 			break
 		}
-		// Validate token content.
-		if !m.insecure && kr.user.id != sub {
-			err = errors.New("token sub does not match the expected")
-			break
-		}
 	}
 
+	// Fail with error.
 	if err != nil {
+		m.logger.WithError(err).Debugln("websocket connect forbidden")
 		http.Error(rw, err.Error(), http.StatusForbidden)
 		return nil
 	}
 
+	// All good, initiate websocket.
 	ws, err := m.upgrader.Upgrade(rw, req, nil)
 	if _, ok := err.(websocket.HandshakeError); ok {
 		m.logger.WithError(err).Debugln("websocket handshake error")
@@ -87,10 +86,11 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 		return err
 	}
 
+	// Refresh token.
 	m.adminm.RefreshAdminAuthToken(kr.user.auth)
 
+	// Prepare connection and bind user.
 	id := strconv.FormatUint(atomic.AddUint64(&m.count, 1), 10)
-
 	loggerFields := logrus.Fields{
 		"rtm_connection": id,
 	}

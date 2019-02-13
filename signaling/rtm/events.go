@@ -67,6 +67,7 @@ func (m *Manager) OnConnect(c *connection.Connection) error {
 		self = &api.Self{
 			ID:   ur.id,
 			Name: ur.auth.Name(),
+			Auth: ur.auth.Auth,
 		}
 
 		if first {

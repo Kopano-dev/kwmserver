@@ -100,9 +100,6 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 				userClaims = map[string]interface{}(*idExtra)
 			}
 
-			// Set authenticated user and claims for further processing.
-			req.Form.Set("user", authenticatedUserID)
-
 			// Prepare auth.
 			auth := &api.AdminAuthToken{
 				Subject:   authenticatedUserID,
@@ -112,8 +109,35 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 
 				Claims: userClaims,
 
+				Auth:              req.Form.Get("auth"),
 				CanCreateChannels: true,
 			}
+
+			// Support additional auth modes by client requests.
+			switch auth.Auth {
+			case "":
+				fallthrough
+			case "0":
+				// No mode or 0 is legacy mode. Take auth as is.
+
+			case "1":
+				// Mode 1 is support for kc identity claims as kwm subject. For compatibility with the users endpoint
+				// in grapi, this mode uses the kc.i.un claim which also gets exposed in grapi users as
+				// userPrincipalName field.
+				if identityClaims, _ := (*claims)[kcoidc.IdentityClaim].(map[string]interface{}); identityClaims != nil {
+					// TODO(longsleep): Get claim for user from kcoidc once it has it.
+					if identifiedUser, _ := identityClaims["kc.i.un"].(string); identifiedUser != "" {
+						auth.Subject = identifiedUser
+					}
+				}
+
+			default:
+				m.logger.WithField("mode", auth.Auth).Debugln("unsupported auth mode")
+				return nil, false
+			}
+
+			// Set authenticated user and claims for further processing.
+			req.Form.Set("user", auth.Subject)
 
 			// Guest support.
 			if kcoidc.AuthenticatedUserIsGuest(claims) {
@@ -195,6 +219,8 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdent
 			Self: &api.Self{
 				ID:   user,
 				Name: auth.Name(),
+
+				Auth: auth.Auth,
 			},
 
 			TURN: turnConfig,

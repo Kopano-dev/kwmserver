@@ -27,6 +27,7 @@ type AdminAuthToken struct {
 
 	Claims map[string]interface{} `json:"claims,omitempty"`
 
+	Auth              string          `json:"-"`
 	GroupRestriction  map[string]bool `json:"-"`
 	CanCreateChannels bool            `json:"-"`
 }

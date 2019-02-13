@@ -222,21 +222,43 @@ func (m *Manager) Connect(ctx context.Context, userID string, auth *api.AdminAut
 	return key, nil
 }
 
-// LookupConnectionsByUserID returns a copy slice of the active connections for
-// the user accociated with the provided userID.
-func (m *Manager) LookupConnectionsByUserID(userID string) ([]*connection.Connection, bool) {
-	entry, ok := m.users.Get(userID)
+// LookupConnectionsByID returns a copy slice of the active connections for the
+// user accociated with the provided ID.
+func (m *Manager) LookupConnectionsByID(id string) ([]*connection.Connection, bool) {
+	// Find connections provided by the id, potentially transforming the provided
+	// id to something useful.
+	ur, ok := m.lookupUserEntryByID(id)
 	if !ok {
 		return nil, false
 	}
 
-	ur := entry.(*userRecord)
 	ur.RLock()
 	connections := make([]*connection.Connection, len(ur.connections))
 	copy(connections, ur.connections)
 	ur.RUnlock()
 
 	return connections, true
+}
+
+func (m *Manager) lookupUserEntryByID(id string) (*userRecord, bool) {
+	var entry interface{}
+	var ok bool
+	for {
+		if entry, ok = m.users.Get(id); ok {
+			// Fastpath.
+			break
+		}
+
+		return nil, false
+	}
+
+	if entry == nil {
+		if entry, ok = m.users.Get(id); !ok {
+			return nil, false
+		}
+	}
+
+	return entry.(*userRecord), true
 }
 
 // Context Returns the Context of the associated manager.
