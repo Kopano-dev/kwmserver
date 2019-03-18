@@ -100,6 +100,9 @@ case "${1}" in
 				registration_conf="${DEFAULT_REGISTRATION_CONF_FILE}"
 			fi
 		fi
+		if [ -n "$registration_conf" ]; then
+			set -- "$@" --registration-conf="$registration_conf"
+		fi
 
 		# kwmserver turn
 
