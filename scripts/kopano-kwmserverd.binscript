@@ -114,7 +114,7 @@ case "${1}" in
 		fi
 
 		if [ -n "$turn_service_credentials" ]; then
-			set -- "$@" --turn-service-credentials="$$turn_service_credentials"
+			set -- "$@" --turn-service-credentials="$turn_service_credentials"
 		fi
 
 		if [ -n "$turn_server_shared_secret" ]; then
