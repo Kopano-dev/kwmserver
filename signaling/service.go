@@ -17,7 +17,9 @@
 
 package signaling
 
-import ()
+import (
+	_ "stash.kopano.io/kwm/kwmserver" // Import to ensure corret path.
+)
 
 // Service is an interface for services providing information about activity.
 type Service interface {
