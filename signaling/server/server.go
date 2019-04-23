@@ -20,7 +20,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -139,7 +138,21 @@ func (s *Server) Serve(ctx context.Context) error {
 	// OpenID connect.
 	var oidcp *kcoidc.Provider
 	if s.config.Iss != nil {
-		oidcp, err = kcoidc.NewProvider(s.config.Client, log.New(os.Stderr, "kcoidc: ", log.LstdFlags), os.Getenv("KCOIDC_DEBUG") == "1")
+		var kcoidcLogger *debugLogger
+		kcoidcDebug := os.Getenv("KCOIDC_DEBUG") == "1"
+		if kcoidcDebug && logger != nil {
+			kcoidcLogger = &debugLogger{
+				logger: logger,
+				prefix: "kcoidc debug ",
+			}
+		}
+
+		var oidcp *kcoidc.Provider
+		if kcoidcLogger != nil {
+			oidcp, err = kcoidc.NewProvider(s.config.Client, kcoidcLogger, kcoidcDebug)
+		} else {
+			oidcp, err = kcoidc.NewProvider(s.config.Client, nil, kcoidcDebug)
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create kcoidc provider for server: %v", err)
 		}

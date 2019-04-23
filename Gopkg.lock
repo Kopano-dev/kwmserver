@@ -10,12 +10,20 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
+  branch = "master"
+  digest = "1:a4b30dab05a035c96618400af0b15e1896e37f213a925735faa1455a5f49ace1"
+  name = "github.com/desertbit/timer"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "c41aec40b27f0eeb2b94300fffcd624c69b02990"
+
+[[projects]]
+  digest = "1:217f778e19b8d206112c21d21a7cc72ca3cb493b67631680a2324bc50335d432"
   name = "github.com/dgrijalva/jwt-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
-  version = "v3.2.0"
+  revision = "dbeaa9332f19a944acb5736b4456cfcc02140e29"
+  version = "v3.1.0"
 
 [[projects]]
   digest = "1:ca59b1175189b3f0e9f1793d2c350114be36eaabbe5b9f554b35edee1de50aea"
@@ -83,6 +91,17 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "7ed82d9cb71768a4e3656ee8837c7af568c75459"
+
+[[projects]]
+  branch = "master"
+  digest = "1:bd9efe4e0b0f768302a1e2f0c22458149278de533e521206e5ddc71848c269a0"
+  name = "github.com/pquerna/cachecontrol"
+  packages = [
+    ".",
+    "cacheobject",
+  ]
+  pruneopts = "UT"
+  revision = "1555304b9b35fdd2b425bccf1a5613677705e7d0"
 
 [[projects]]
   digest = "1:b0c25f00bad20d783d259af2af8666969e2fc343fa0dc9efe52936bbd67fb758"
@@ -172,12 +191,20 @@
   version = "v2.2.2"
 
 [[projects]]
-  digest = "1:e3d1aa6b99cadf1f7beea47f91bf606ce0f1bc072793eaa66014a5e7f6685524"
+  digest = "1:9d8f2e02cd192f5e4607adba07356c16821487d51709f0beb9aaf3cef7cec494"
   name = "stash.kopano.io/kc/libkcoidc"
   packages = ["."]
   pruneopts = "UT"
-  revision = "0771c58a11c23f7c3961ca0211115a931c5a9890"
-  version = "v0.5.0"
+  revision = "110d66f85c102fbaf54b4550fc0791a274b2bcf2"
+  version = "v0.6.0"
+
+[[projects]]
+  digest = "1:05c67dc6aab8d89af757f205480b320b4ffe60f176ba6f5b8908bbfd3bf69cd0"
+  name = "stash.kopano.io/kgol/oidc-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0f3bf16d2ef6d2c4b66bcac7a9c17ed29cc574cf"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:e004a22416b1063c30360a2a91beadb538fa8c103362e6c653aaa1de4d6bbb5e"
