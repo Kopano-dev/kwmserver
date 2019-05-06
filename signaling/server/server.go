@@ -147,7 +147,6 @@ func (s *Server) Serve(ctx context.Context) error {
 			}
 		}
 
-		var oidcp *kcoidc.Provider
 		if kcoidcLogger != nil {
 			oidcp, err = kcoidc.NewProvider(s.config.Client, kcoidcLogger, kcoidcDebug)
 		} else {

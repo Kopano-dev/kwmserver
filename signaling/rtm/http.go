@@ -154,6 +154,8 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 			}
 
 			return auth, true
+		} else {
+			m.logger.Debugln("bearer auth received but oidc not set up")
 		}
 	}
 
@@ -168,7 +170,7 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdent
 		// Check authentication
 		auth, authOK := m.isRequestWithValidAuth(req)
 		if !authOK {
-			http.Error(rw, "", http.StatusForbidden)
+			http.Error(rw, "auth failed", http.StatusForbidden)
 			return
 		}
 
