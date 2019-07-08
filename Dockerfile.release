@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2018 Kopano and its licensors
+# Copyright 2018-2019 Kopano and its licensors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License, version 3 or
@@ -15,8 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-FROM alpine:3.7
-MAINTAINER Kopano Development <development@kopano.io>
+FROM alpine:3.10
+LABEL maintainer="development@kopano.io"
 
 # Expose ports.
 EXPOSE 8778
@@ -30,7 +30,7 @@ ENV KWMSERVERD_LISTEN=0.0.0.0:8778
 ENV KWMSERVERD_ADMIN_TOKENS_KEY_FILE=kwmserverd_admin_tokens_key
 
 # Defaults which can be overwritten.
-ENV ARGS=
+ENV ARGS=""
 
 WORKDIR /var/lib/kwmserverd-docker
 
@@ -52,10 +52,13 @@ setup_secrets() { \n\
 setup_secrets\n\
 ' > /etc/defaults/docker-env
 
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
+
 # Download
-RUN apk add --no-cache ca-certificates curl && \
-	pwd && \
-	curl -sSL https://download.kopano.io/community/kwmserver:/kopano-kwmserver-${VERSION}.tar.gz | \
+RUN apk add --no-cache \
+		ca-certificates=20190108-r0 \
+		curl=7.65.1-r0 \
+	&& curl -sSL https://download.kopano.io/community/kwmserver:/kopano-kwmserver-${VERSION}.tar.gz | \
 	tar -C /var/lib/kwmserverd-docker --strip 1 -vxzf - && \
 	mv ${EXE} /usr/local/bin/${EXE}
 
@@ -69,5 +72,5 @@ CMD [ \
 	]
 
 # Health check support is cool too.
-HEALTHCHECK --interval=30s --timeout=5s \
-	CMD healthcheck.sh
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+	CMD healthcheck.sh --hostname="${KWMSERVERD_LISTEN}" || exit 1
