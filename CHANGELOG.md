@@ -4,6 +4,18 @@
 
 
 
+## v0.16.0 (2019-07-08)
+
+- Update Dockerfiles for best practices
+- Add healthcheck sub command
+- Bump js-yaml from 3.10.0 to 3.13.1 in /docs
+- Bump forwarded from 0.1.1 to 0.1.2 in /docs
+- Ensure oidc provider is correctly set and log if not
+- Use proper import annotation
+- Update libkcoidc to 0.6.0 and use its new flexible logger
+- Add changelog
+
+
 ## v0.15.3 (2019-03-24)
 
 - remove surplus $ from variable
@@ -232,15 +244,15 @@
 - Use rndm from external module
 - Fix trigger of close event on server side close
 - Add support to mute/unmute local stream
-- Merge pull request [#6](https://stash.kopano.io/projects/KC/repos/konnect/issues/6/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-kwmjs-mmjanus to master
+- Merge pull request [#6](https://stash.kopano.io/projects/KWM/repos/kwmserver/issues/6/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-kwmjs-mmjanus to master
 - Export KWM class as root of javascript module
-- Merge pull request [#5](https://stash.kopano.io/projects/KC/repos/konnect/issues/5/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-kwmjs to master
+- Merge pull request [#5](https://stash.kopano.io/projects/KWM/repos/kwmserver/issues/5/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-kwmjs to master
 - Prevent wakelock by properly clearing stream
 - Implement KWM javascript client library
-- Merge pull request [#4](https://stash.kopano.io/projects/KC/repos/konnect/issues/4/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-aci-building to master
+- Merge pull request [#4](https://stash.kopano.io/projects/KWM/repos/kwmserver/issues/4/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-aci-building to master
 - Add aci build script and systemd service
 - Add support to serve www directly with signaling server
-- Merge pull request [#3](https://stash.kopano.io/projects/KC/repos/konnect/issues/3/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-chromiumcu to master
+- Merge pull request [#3](https://stash.kopano.io/projects/KWM/repos/kwmserver/issues/3/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-chromiumcu to master
 - Move pprof support to cmd package
 - Avoid mix cased command line parameters
 - Simplify close callbacks and add more logging
@@ -254,9 +266,9 @@
 - Add mcu basics and chromiumcu
 - Add janus compatible API for MM
 - Build static without cgo by default
-- Merge pull request [#2](https://stash.kopano.io/projects/KC/repos/konnect/issues/2/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-handler-to-service to master
+- Merge pull request [#2](https://stash.kopano.io/projects/KWM/repos/kwmserver/issues/2/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-handler-to-service to master
 - Refactor handler into service
-- Merge pull request [#1](https://stash.kopano.io/projects/KC/repos/konnect/issues/1/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-signaling-server to master
+- Merge pull request [#1](https://stash.kopano.io/projects/KWM/repos/kwmserver/issues/1/) in KWM/kwmserver from ~SEISENMANN/kwmserver:longsleep-signaling-server to master
 - Move to use eslint, remove jshint and jscs
 - Prepare for multi point mode
 - Add Makefile
