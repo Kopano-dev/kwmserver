@@ -127,6 +127,7 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 		if alg == nil {
 			m.logger.WithError(err).WithField("client_id", clientID).Debugln("no request object signing alg for client_id key")
 			http.Error(rw, "guest access denied", http.StatusForbidden)
+			return
 		}
 		secured, err := client.Private(nil)
 		if err != nil {
