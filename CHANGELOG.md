@@ -2,12 +2,15 @@
 
 ## Unreleased
 
+
+
+## v0.16.1 (2019-07-16)
+
 - Add missing return in guest mode logon request error handling
 
 
 ## v0.16.0 (2019-07-09)
 
-- Add v0.16.0 to changelog
 - Update Dockerfiles for best practices
 - Add healthcheck sub command
 - Bump js-yaml from 3.10.0 to 3.13.1 in /docs
@@ -15,7 +18,6 @@
 - Ensure oidc provider is correctly set and log if not
 - Use proper import annotation
 - Update libkcoidc to 0.6.0 and use its new flexible logger
-- Add changelog
 
 
 ## v0.15.3 (2019-03-24)
