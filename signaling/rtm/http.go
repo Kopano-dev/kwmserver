@@ -209,7 +209,7 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdent
 			turnConfig, err = m.turnsrv.GetConfig(req.Context(), user)
 			if err != nil {
 				m.logger.WithError(err).Errorln("rtm connect TURN config failed")
-				http.Error(rw, "TURN config failed", http.StatusInternalServerError)
+				http.Error(rw, "TURN config failed", http.StatusServiceUnavailable)
 				return
 			}
 		}
