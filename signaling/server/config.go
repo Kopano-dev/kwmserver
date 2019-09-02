@@ -27,8 +27,8 @@ import (
 type Config struct {
 	ListenAddr string
 
-	WithPprof       bool
-	PprofListenAddr string
+	WithMetrics       bool
+	MetricsListenAddr string
 
 	RegistrationConf string
 

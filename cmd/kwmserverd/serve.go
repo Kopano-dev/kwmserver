@@ -34,6 +34,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 
 	"stash.kopano.io/kwm/kwmserver/signaling/server"
@@ -74,10 +75,10 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().Bool("allow-guest-only-channels", false, "If set, guests can join empty channels")
 	serveCmd.Flags().String("public-guest-access-regexp", "", "If set, rooms matching this regex can be accessed by guest without invitation (example: ^group/public/.* )")
 	serveCmd.Flags().String("registration-conf", "", "Path to a registration.yaml config file")
-
-	// Pprof support.
 	serveCmd.Flags().Bool("with-pprof", false, "With pprof enabled")
 	serveCmd.Flags().String("pprof-listen", "127.0.0.1:6060", "TCP listen address for pprof")
+	serveCmd.Flags().Bool("with-metrics", false, "Enable metrics")
+	serveCmd.Flags().String("metrics-listen", "127.0.0.1:6778", "TCP listen address for metrics")
 
 	return serveCmd
 }
@@ -289,6 +290,22 @@ func serve(cmd *cobra.Command, args []string) error {
 		if len(config.RTMRequiredScopes) > 0 {
 			logger.WithField("required_scopes", config.RTMRequiredScopes).Infoln("rtm: access requirements set up")
 		}
+	}
+
+	// Metrics support.
+	config.WithMetrics, _ = cmd.Flags().GetBool("with-metrics")
+	metricsListenAddr, _ := cmd.Flags().GetString("metrics-listen")
+	if config.WithMetrics && metricsListenAddr != "" {
+		go func() {
+			metricsListen := metricsListenAddr
+			handler := http.NewServeMux()
+			logger.WithField("listenAddr", metricsListen).Infoln("metrics enabled, starting listener")
+			handler.Handle("/metrics", promhttp.Handler())
+			err := http.ListenAndServe(metricsListen, handler)
+			if err != nil {
+				logger.WithError(err).Errorln("unable to start metrics listener")
+			}
+		}()
 	}
 
 	srv, err := server.NewServer(config)
