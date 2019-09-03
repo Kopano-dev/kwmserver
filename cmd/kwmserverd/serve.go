@@ -34,9 +34,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 
+	cfg "stash.kopano.io/kwm/kwmserver/config"
 	"stash.kopano.io/kwm/kwmserver/signaling/server"
 )
 
@@ -95,7 +97,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	}
 	logger.Infoln("serve start")
 
-	config := &server.Config{
+	config := &cfg.Config{
 		Logger: logger,
 	}
 
@@ -296,11 +298,18 @@ func serve(cmd *cobra.Command, args []string) error {
 	config.WithMetrics, _ = cmd.Flags().GetBool("with-metrics")
 	metricsListenAddr, _ := cmd.Flags().GetString("metrics-listen")
 	if config.WithMetrics && metricsListenAddr != "" {
+		reg := prometheus.NewPedanticRegistry()
+		config.Metrics = prometheus.WrapRegistererWithPrefix("kwmserver_", reg)
+		// Add the standard process and Go metrics to the custom registry.
+		reg.MustRegister(
+			prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+			prometheus.NewGoCollector(),
+		)
 		go func() {
 			metricsListen := metricsListenAddr
 			handler := http.NewServeMux()
 			logger.WithField("listenAddr", metricsListen).Infoln("metrics enabled, starting listener")
-			handler.Handle("/metrics", promhttp.Handler())
+			handler.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 			err := http.ListenAndServe(metricsListen, handler)
 			if err != nil {
 				logger.WithError(err).Errorln("unable to start metrics listener")

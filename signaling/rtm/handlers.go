@@ -108,7 +108,9 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 }
 
 func (m *Manager) serveWebsocketConnection(c *connection.Connection, id string) {
+	connectionAdd.WithLabelValues(m.id).Inc()
 	m.connections.Set(id, c)
 	c.ServeWS(m.Context())
 	m.connections.Remove(id)
+	connectionRemove.WithLabelValues(m.id).Inc()
 }

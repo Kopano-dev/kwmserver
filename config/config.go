@@ -15,12 +15,14 @@
  *
  */
 
-package server
+package config
 
 import (
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 // Config defines a Server's configuration settings.
@@ -62,4 +64,6 @@ type Config struct {
 	Iss *url.URL
 
 	Logger logrus.FieldLogger
+
+	Metrics prometheus.Registerer
 }

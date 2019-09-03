@@ -26,6 +26,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+
+	cfg "stash.kopano.io/kwm/kwmserver/config"
 )
 
 var logger = &logrus.Logger{
@@ -36,8 +38,8 @@ var logger = &logrus.Logger{
 
 var adminTokensSigningKey = []byte("test-key")
 
-func newTestServer(ctx context.Context, t *testing.T) (*httptest.Server, *Server, http.Handler, *Config) {
-	config := &Config{
+func newTestServer(ctx context.Context, t *testing.T) (*httptest.Server, *Server, http.Handler, *cfg.Config) {
+	config := &cfg.Config{
 		AdminTokensSigningKey: adminTokensSigningKey,
 
 		Logger: logger,

@@ -295,6 +295,7 @@
     "github.com/longsleep/go-metrics/timing",
     "github.com/mendsley/gojwk",
     "github.com/orcaman/concurrent-map",
+    "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/rs/cors",
     "github.com/sirupsen/logrus",

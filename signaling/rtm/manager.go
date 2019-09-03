@@ -170,6 +170,7 @@ func (m *Manager) purgeInactiveUsers() {
 				"user_id":  record.id,
 				"duration": record.exit.Sub(record.when),
 			}).Debugln("user no longer active")
+			userCleanup.WithLabelValues(m.id).Inc()
 		} else {
 			record.Unlock()
 		}

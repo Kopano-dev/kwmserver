@@ -35,6 +35,7 @@ import (
 	"stash.kopano.io/kgol/rndm"
 
 	"stash.kopano.io/kwm/kwmserver/clients"
+	cfg "stash.kopano.io/kwm/kwmserver/config"
 	"stash.kopano.io/kwm/kwmserver/signaling"
 	"stash.kopano.io/kwm/kwmserver/signaling/admin"
 	apiv1 "stash.kopano.io/kwm/kwmserver/signaling/api-v1/service"
@@ -48,7 +49,7 @@ import (
 
 // Server is our HTTP server implementation.
 type Server struct {
-	config *Config
+	config *cfg.Config
 
 	listenAddr string
 	logger     logrus.FieldLogger
@@ -57,7 +58,7 @@ type Server struct {
 }
 
 // NewServer constructs a server from the provided parameters.
-func NewServer(c *Config) (*Server, error) {
+func NewServer(c *cfg.Config) (*Server, error) {
 	s := &Server{
 		config: c,
 
@@ -245,6 +246,9 @@ func (s *Server) Serve(ctx context.Context) error {
 	if s.config.EnableRTMAPI {
 		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, logger, mcum, adminm, guestm, oidcp, turnsrv)
 		services.RTMManager = rtmm
+		if s.config.Metrics != nil {
+			rtm.MustRegister(s.config.Metrics, rtm.NewManagerCollector(rtmm))
+		}
 		logger.Infoln("rtm: API endpoint enabled")
 	}
 

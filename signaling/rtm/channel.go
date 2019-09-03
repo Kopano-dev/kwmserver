@@ -89,6 +89,7 @@ func NewChannel(id string, m *Manager, logger logrus.FieldLogger, config *Channe
 		connections: make(map[string]*connection.Connection),
 	}
 	channel.logger.Debugln("channel create")
+	channelNew.WithLabelValues(m.id).Inc()
 
 	pipeline := m.Pipeline(mcu.PluginIDKWMRTMChannel, id)
 	if pipeline != nil {
@@ -196,6 +197,7 @@ func (c *Channel) Add(id string, conn *connection.Connection) error {
 		"id":      id,
 		"channel": c.id,
 	}).Debugln("channel add")
+	channelAdd.WithLabelValues(c.m.id).Inc()
 
 	if c.config.AfterAddOrRemove != nil {
 		go c.config.AfterAddOrRemove(c, ChannelOpAdd, id)
@@ -223,6 +225,7 @@ func (c *Channel) remove(id string, conn *connection.Connection) error {
 		"id":      id,
 		"channel": c.id,
 	}).Debugln("channel remove")
+	channelRemove.WithLabelValues(c.m.id).Inc()
 
 	if c.config.AfterAddOrRemove != nil {
 		go c.config.AfterAddOrRemove(c, ChannelOpRemove, id)
@@ -289,6 +292,7 @@ func (c *Channel) Cleanup() bool {
 	}
 
 	c.logger.Debugln("channel cleaned up")
+	channelCleanup.WithLabelValues(c.m.id).Inc()
 
 	return true
 }

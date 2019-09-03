@@ -73,6 +73,7 @@ func (m *Manager) OnConnect(c *connection.Connection) error {
 		if first {
 			// This was the users first connection.
 			m.logger.WithField("user_id", nur.id).Debugln("user is now active")
+			userNew.WithLabelValues(m.id).Inc()
 		}
 	}
 
