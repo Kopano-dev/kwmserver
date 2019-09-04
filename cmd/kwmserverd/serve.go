@@ -37,9 +37,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
+	"stash.kopano.io/kgol/ksurveyclient-go/autosurvey"
 
 	cfg "stash.kopano.io/kwm/kwmserver/config"
 	"stash.kopano.io/kwm/kwmserver/signaling/server"
+	"stash.kopano.io/kwm/kwmserver/version"
 )
 
 const defaultListenAddr = "127.0.0.1:8778"
@@ -335,6 +337,12 @@ func serve(cmd *cobra.Command, args []string) error {
 				logger.WithError(err).Errorln("unable to start pprof listener")
 			}
 		}()
+	}
+
+	// Survey support.
+	err = autosurvey.Start(ctx, "kwmserverd", version.Version)
+	if err != nil {
+		return fmt.Errorf("failed to start auto survey: %v", err)
 	}
 
 	logger.Infoln("serve started")
