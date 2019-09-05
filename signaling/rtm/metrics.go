@@ -19,6 +19,7 @@ package rtm
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"stash.kopano.io/kgol/ksurveyclient-go/counter"
 )
 
 const (
@@ -138,14 +139,25 @@ func MustRegister(reg prometheus.Registerer, cs ...prometheus.Collector) {
 type managerCollector struct {
 	m *Manager
 
-	channelsCountDesc *prometheus.Desc
+	channelsCountDesc       *prometheus.Desc
+	channelsCountMaxDesc    *prometheus.Desc
+	channelsCountMaxCounter counter.UintMinMax
 
-	groupChannelsCountDesc            *prometheus.Desc
-	groupChannelsConnectionsCountDesc *prometheus.Desc
+	groupChannelsCountDesc       *prometheus.Desc
+	groupChannelsCountMaxDesc    *prometheus.Desc
+	groupChannelsCountMaxCounter counter.UintMinMax
 
-	connectionsCountDesc *prometheus.Desc
+	groupChannelsConnectionsCountDesc    *prometheus.Desc
+	groupChannelsConnectionsMaxCountDesc *prometheus.Desc
+	groupChannelsConnectionsMaxCounter   counter.UintMinMax
 
-	usersCountDesc *prometheus.Desc
+	connectionsCountDesc       *prometheus.Desc
+	connectionsMaxCountDesc    *prometheus.Desc
+	connectionsCountMaxCounter counter.UintMinMax
+
+	usersCountDesc       *prometheus.Desc
+	usersCountMaxDesc    *prometheus.Desc
+	usersCountMaxCounter counter.UintMinMax
 }
 
 // NewManagerCollector return as a collector that exports metrics of the
@@ -156,37 +168,73 @@ func NewManagerCollector(manager *Manager) prometheus.Collector {
 
 		channelsCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("", metricsSubsystem, "channels_created_current"),
-			"Current number of RTM channels",
+			"Current number of concurrent RTM channels",
 			[]string{"id"},
 			nil,
 		),
+		channelsCountMaxDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("", metricsSubsystem, "channels_created_max"),
+			"Maximum number of concurrent RTM channels",
+			[]string{"id"},
+			nil,
+		),
+		channelsCountMaxCounter: counter.GetUintMax(),
 
 		groupChannelsCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("", metricsSubsystem, "group_channels_created_current"),
-			"Current number of RTM group channels",
+			"Current number of concurrent RTM group channels",
 			[]string{"id"},
 			nil,
 		),
+		groupChannelsCountMaxDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("", metricsSubsystem, "group_channels_created_max"),
+			"Maximum number of concurrent RTM group channels",
+			[]string{"id"},
+			nil,
+		),
+		groupChannelsCountMaxCounter: counter.GetUintMax(),
+
 		groupChannelsConnectionsCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("", metricsSubsystem, "group_channels_connections_connected_current"),
-			"Current number of connections attached to RTM group channels",
+			"Current number of concurrent connections attached to RTM group channels",
 			[]string{"id"},
 			nil,
 		),
+		groupChannelsConnectionsMaxCountDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("", metricsSubsystem, "group_channels_connections_connected_max"),
+			"Maximum number of concurrent connections to RTM group channels",
+			[]string{"id"},
+			nil,
+		),
+		groupChannelsConnectionsMaxCounter: counter.GetUintMax(),
 
 		connectionsCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("", metricsSubsystem, "connections_connected_current"),
-			"Current number of connections to RTM",
+			"Current number of concurrent connections to RTM",
 			[]string{"id"},
 			nil,
 		),
+		connectionsMaxCountDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("", metricsSubsystem, "connections_connected_max"),
+			"Maximum number of concurrent connections to RTM",
+			[]string{"id"},
+			nil,
+		),
+		connectionsCountMaxCounter: counter.GetUintMax(),
 
 		usersCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("", metricsSubsystem, "distinct_users_connected_current"),
-			"Current number of distinct users connected to RTM",
+			"Current number of concurrent distinct users connected to RTM",
 			[]string{"id"},
 			nil,
 		),
+		usersCountMaxDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("", metricsSubsystem, "distinct_users_connected_max"),
+			"Maximum number of concurrent distinct users connected to RTM",
+			[]string{"id"},
+			nil,
+		),
+		usersCountMaxCounter: counter.GetUintMax(),
 	}
 }
 
@@ -200,19 +248,33 @@ func (mc *managerCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect first gathers the associated managers collectors managers data. Then
 // it creates constant metrics based on the returned data.
 func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
-	numConnections := float64(mc.m.connections.Count())
-	numUsers := float64(mc.m.users.Count())
-
+	numConnections := uint64(mc.m.connections.Count())
+	mc.connectionsCountMaxCounter.Set(numConnections)
 	ch <- prometheus.MustNewConstMetric(
 		mc.connectionsCountDesc,
 		prometheus.GaugeValue,
-		numConnections,
+		float64(numConnections),
 		mc.m.id,
 	)
 	ch <- prometheus.MustNewConstMetric(
+		mc.connectionsMaxCountDesc,
+		prometheus.GaugeValue,
+		float64(mc.connectionsCountMaxCounter.Value()),
+		mc.m.id,
+	)
+
+	numUsers := uint64(mc.m.users.Count())
+	mc.usersCountMaxCounter.Set(numUsers)
+	ch <- prometheus.MustNewConstMetric(
 		mc.usersCountDesc,
 		prometheus.GaugeValue,
-		numUsers,
+		float64(numUsers),
+		mc.m.id,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		mc.usersCountMaxDesc,
+		prometheus.GaugeValue,
+		float64(mc.usersCountMaxCounter.Value()),
 		mc.m.id,
 	)
 
@@ -230,10 +292,20 @@ func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 		numAllChannels++
 	}
+	mc.channelsCountMaxCounter.Set(numAllChannels)
+	mc.groupChannelsCountMaxCounter.Set(numGroupChannels)
+	mc.groupChannelsConnectionsMaxCounter.Set(numGroupChannelsConnections)
+
 	ch <- prometheus.MustNewConstMetric(
 		mc.channelsCountDesc,
 		prometheus.GaugeValue,
 		float64(numAllChannels),
+		mc.m.id,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		mc.channelsCountMaxDesc,
+		prometheus.GaugeValue,
+		float64(mc.channelsCountMaxCounter.Value()),
 		mc.m.id,
 	)
 	ch <- prometheus.MustNewConstMetric(
@@ -243,9 +315,21 @@ func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 		mc.m.id,
 	)
 	ch <- prometheus.MustNewConstMetric(
+		mc.groupChannelsCountMaxDesc,
+		prometheus.GaugeValue,
+		float64(mc.groupChannelsCountMaxCounter.Value()),
+		mc.m.id,
+	)
+	ch <- prometheus.MustNewConstMetric(
 		mc.groupChannelsConnectionsCountDesc,
 		prometheus.GaugeValue,
 		float64(numGroupChannelsConnections),
+		mc.m.id,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		mc.groupChannelsConnectionsMaxCountDesc,
+		prometheus.GaugeValue,
+		float64(mc.groupChannelsConnectionsMaxCounter.Value()),
 		mc.m.id,
 	)
 }
