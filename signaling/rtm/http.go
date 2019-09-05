@@ -214,6 +214,8 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdent
 			}
 		}
 
+		httpRequestSuccessConnect.WithLabelValues(m.id).Inc()
+
 		response := &api.RTMConnectResponse{
 			ResponseOK: *api.ResponseOKValue,
 
@@ -270,6 +272,8 @@ func (m *Manager) MakeHTTPTURNHandler(router *mux.Router) http.Handler {
 			return
 		}
 
+		httpRequestSuccessTURN.WithLabelValues(m.id).Inc()
+
 		response := &api.RTMTURNResponse{
 			ResponseOK: *api.ResponseOKValue,
 
@@ -294,6 +298,8 @@ func (m *Manager) HTTPWebsocketHandler(rw http.ResponseWriter, req *http.Request
 		http.NotFound(rw, req)
 		return
 	}
+
+	httpRequestSuccessWebsocket.WithLabelValues(m.id).Inc()
 
 	err := m.HandleWebsocketConnect(req.Context(), key, rw, req)
 	if err != nil {

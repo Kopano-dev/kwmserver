@@ -29,7 +29,7 @@ var (
 	channelNew = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
-			Name:      "total_created_channels",
+			Name:      "channels_created_total",
 			Help:      "Total number of created RTM channels",
 		},
 		[]string{"id"},
@@ -37,7 +37,7 @@ var (
 	channelCleanup = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
-			Name:      "total_cleanedup_channels",
+			Name:      "channels_cleanedup_total",
 			Help:      "Total number of cleaned up RTM channels",
 		},
 		[]string{"id"},
@@ -45,7 +45,7 @@ var (
 	channelAdd = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
-			Name:      "total_added_channel_connections",
+			Name:      "channels_connections_added_total",
 			Help:      "Total number of connections added to RTM channels",
 		},
 		[]string{"id"},
@@ -53,7 +53,7 @@ var (
 	channelRemove = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
-			Name:      "total_removed_channel_connections",
+			Name:      "channels_connections_removed_total",
 			Help:      "Total number of connections removed from RTM channels",
 		},
 		[]string{"id"},
@@ -61,32 +61,56 @@ var (
 	connectionAdd = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
-			Name:      "total_connects",
-			Help:      "Total number of connects to RTM signaling",
+			Name:      "connections_connected_total",
+			Help:      "Total number of connects to RTM",
 		},
 		[]string{"id"},
 	)
 	connectionRemove = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
-			Name:      "total_disconnects",
-			Help:      "Total number of disconnects to RTM signaling",
+			Name:      "connections_disconnected_total",
+			Help:      "Total number of disconnects from RTM",
 		},
 		[]string{"id"},
 	)
 	userNew = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
-			Name:      "total_connected_distinct_users",
-			Help:      "Total number of distinct user connects to RTM signaling",
+			Name:      "distinct_users_connected_total",
+			Help:      "Total number of distinct user connects to RTM",
 		},
 		[]string{"id"},
 	)
 	userCleanup = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
-			Name:      "total_cleanedup_distinct_users",
-			Help:      "Total number of distinct user cleanups to RTM signaling",
+			Name:      "distinct_users_cleanedup_total",
+			Help:      "Total number of distinct user cleanups of RTM",
+		},
+		[]string{"id"},
+	)
+	httpRequestSuccessConnect = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Subsystem: metricsSubsystem,
+			Name:      "http_connect_success_total",
+			Help:      "Total number of successfull calls to RTM connect HTTP endpoint",
+		},
+		[]string{"id"},
+	)
+	httpRequestSuccessTURN = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Subsystem: metricsSubsystem,
+			Name:      "http_turn_success_total",
+			Help:      "Total number of successfull calls to RTM turn HTTP endpoint",
+		},
+		[]string{"id"},
+	)
+	httpRequestSuccessWebsocket = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Subsystem: metricsSubsystem,
+			Name:      "http_websocket_success_total",
+			Help:      "Total number of successfull calls to RTM websocket HTTP endpoint",
 		},
 		[]string{"id"},
 	)
@@ -104,6 +128,9 @@ func MustRegister(reg prometheus.Registerer, cs ...prometheus.Collector) {
 		connectionRemove,
 		userNew,
 		userCleanup,
+		httpRequestSuccessConnect,
+		httpRequestSuccessTURN,
+		httpRequestSuccessWebsocket,
 	)
 	reg.MustRegister(cs...)
 }
@@ -128,35 +155,35 @@ func NewManagerCollector(manager *Manager) prometheus.Collector {
 		m: manager,
 
 		channelsCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("", metricsSubsystem, "current_channels"),
+			prometheus.BuildFQName("", metricsSubsystem, "channels_created_current"),
 			"Current number of RTM channels",
 			[]string{"id"},
 			nil,
 		),
 
 		groupChannelsCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("", metricsSubsystem, "current_group_channels"),
+			prometheus.BuildFQName("", metricsSubsystem, "group_channels_created_current"),
 			"Current number of RTM group channels",
 			[]string{"id"},
 			nil,
 		),
 		groupChannelsConnectionsCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("", metricsSubsystem, "current_group_channels_connections"),
-			"Current number of RTM group channel connections",
+			prometheus.BuildFQName("", metricsSubsystem, "group_channels_connections_connected_current"),
+			"Current number of connections attached to RTM group channels",
 			[]string{"id"},
 			nil,
 		),
 
 		connectionsCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("", metricsSubsystem, "current_connections"),
-			"Current number of RTM connections",
+			prometheus.BuildFQName("", metricsSubsystem, "connections_connected_current"),
+			"Current number of connections to RTM",
 			[]string{"id"},
 			nil,
 		),
 
 		usersCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("", metricsSubsystem, "current_users"),
-			"Current number of RTM users",
+			prometheus.BuildFQName("", metricsSubsystem, "distinct_users_connected_current"),
+			"Current number of distinct users connected to RTM",
 			[]string{"id"},
 			nil,
 		),
