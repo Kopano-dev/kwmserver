@@ -111,9 +111,14 @@ func MustRegister(reg prometheus.Registerer, cs ...prometheus.Collector) {
 type managerCollector struct {
 	m *Manager
 
-	channelCountDesc     *prometheus.Desc
+	channelsCountDesc *prometheus.Desc
+
+	groupChannelsCountDesc            *prometheus.Desc
+	groupChannelsConnectionsCountDesc *prometheus.Desc
+
 	connectionsCountDesc *prometheus.Desc
-	userCountDesc        *prometheus.Desc
+
+	usersCountDesc *prometheus.Desc
 }
 
 // NewManagerCollector return as a collector that exports metrics of the
@@ -122,19 +127,34 @@ func NewManagerCollector(manager *Manager) prometheus.Collector {
 	return &managerCollector{
 		m: manager,
 
-		channelCountDesc: prometheus.NewDesc(
+		channelsCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("", metricsSubsystem, "current_channels"),
 			"Current number of RTM channels",
 			[]string{"id"},
 			nil,
 		),
+
+		groupChannelsCountDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("", metricsSubsystem, "current_group_channels"),
+			"Current number of RTM group channels",
+			[]string{"id"},
+			nil,
+		),
+		groupChannelsConnectionsCountDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("", metricsSubsystem, "current_group_channels_connections"),
+			"Current number of RTM group channel connections",
+			[]string{"id"},
+			nil,
+		),
+
 		connectionsCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("", metricsSubsystem, "current_connections"),
 			"Current number of RTM connections",
 			[]string{"id"},
 			nil,
 		),
-		userCountDesc: prometheus.NewDesc(
+
+		usersCountDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("", metricsSubsystem, "current_users"),
 			"Current number of RTM users",
 			[]string{"id"},
@@ -153,16 +173,9 @@ func (mc *managerCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect first gathers the associated managers collectors managers data. Then
 // it creates constant metrics based on the returned data.
 func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
-	numChannels := float64(mc.m.channels.Count())
 	numConnections := float64(mc.m.connections.Count())
 	numUsers := float64(mc.m.users.Count())
 
-	ch <- prometheus.MustNewConstMetric(
-		mc.channelCountDesc,
-		prometheus.GaugeValue,
-		numChannels,
-		mc.m.id,
-	)
 	ch <- prometheus.MustNewConstMetric(
 		mc.connectionsCountDesc,
 		prometheus.GaugeValue,
@@ -170,9 +183,42 @@ func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 		mc.m.id,
 	)
 	ch <- prometheus.MustNewConstMetric(
-		mc.userCountDesc,
+		mc.usersCountDesc,
 		prometheus.GaugeValue,
 		numUsers,
+		mc.m.id,
+	)
+
+	var cr *channelRecord
+	var numAllChannels uint64
+	var numGroupChannels uint64
+	var numGroupChannelsConnections uint64
+	for entry := range mc.m.channels.IterBuffered() {
+		cr = entry.Val.(*channelRecord)
+		if cr.channel.config.Group != "" {
+			numGroupChannels++
+			cr.channel.RLock()
+			numGroupChannelsConnections += uint64(len(cr.channel.connections))
+			cr.channel.RUnlock()
+		}
+		numAllChannels++
+	}
+	ch <- prometheus.MustNewConstMetric(
+		mc.channelsCountDesc,
+		prometheus.GaugeValue,
+		float64(numAllChannels),
+		mc.m.id,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		mc.groupChannelsCountDesc,
+		prometheus.GaugeValue,
+		float64(numGroupChannels),
+		mc.m.id,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		mc.groupChannelsConnectionsCountDesc,
+		prometheus.GaugeValue,
+		float64(numGroupChannelsConnections),
 		mc.m.id,
 	)
 }
