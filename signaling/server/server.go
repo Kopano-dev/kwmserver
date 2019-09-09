@@ -246,8 +246,12 @@ func (s *Server) Serve(ctx context.Context) error {
 	if s.config.EnableRTMAPI {
 		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, logger, mcum, adminm, guestm, oidcp, turnsrv)
 		services.RTMManager = rtmm
+		collector := rtm.NewManagerCollector(rtmm)
 		if s.config.Metrics != nil {
-			rtm.MustRegister(s.config.Metrics, rtm.NewManagerCollector(rtmm))
+			rtm.MustRegister(s.config.Metrics, collector)
+		}
+		if s.config.Survey != nil {
+			rtm.MustRegister(s.config.Survey, collector)
 		}
 		logger.Infoln("rtm: API endpoint enabled")
 	}

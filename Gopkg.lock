@@ -267,16 +267,17 @@
   version = "v0.6.0"
 
 [[projects]]
-  digest = "1:672fe60daa863aa7faca810ed03729ba67eb3a6df94f80a6d0a23dc4b46dd624"
+  digest = "1:5eb0b004a371f23e174d331d7ee4d74d83102b19051afdaac0a1d4401d27d636"
   name = "stash.kopano.io/kgol/ksurveyclient-go"
   packages = [
     ".",
     "autosurvey",
     "counter",
+    "prometrics",
   ]
   pruneopts = "UT"
-  revision = "5b84a9aa14cd44d7084df08529dc7b4d654587ea"
-  version = "v0.2.0"
+  revision = "7ba0dd77d591ab434341a083531986d6ee3f5c0a"
+  version = "v0.3.0"
 
 [[projects]]
   digest = "1:05c67dc6aab8d89af757f205480b320b4ffe60f176ba6f5b8908bbfd3bf69cd0"
@@ -316,6 +317,7 @@
     "stash.kopano.io/kc/libkcoidc",
     "stash.kopano.io/kgol/ksurveyclient-go/autosurvey",
     "stash.kopano.io/kgol/ksurveyclient-go/counter",
+    "stash.kopano.io/kgol/ksurveyclient-go/prometrics",
     "stash.kopano.io/kgol/rndm",
   ]
   solver-name = "gps-cdcl"

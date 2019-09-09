@@ -38,6 +38,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"stash.kopano.io/kgol/ksurveyclient-go/autosurvey"
+	"stash.kopano.io/kgol/ksurveyclient-go/prometrics"
 
 	cfg "stash.kopano.io/kwm/kwmserver/config"
 	"stash.kopano.io/kwm/kwmserver/signaling/server"
@@ -101,6 +102,14 @@ func serve(cmd *cobra.Command, args []string) error {
 
 	config := &cfg.Config{
 		Logger: logger,
+
+		// Initialize survey client data with operational usage.
+		Survey: prometrics.WrapRegistry(autosurvey.DefaultRegistry, map[string]string{
+			"rtm_distinct_users_connected_max": "usercnt_active",
+			"rtm_group_channels_created_max":   "usercnt_room",
+			"rtm_channels_created_max":         "usercnt_equipment",
+			"rtm_connections_connected_max":    "usercnt_nonactive",
+		}),
 	}
 
 	listenAddr, _ := cmd.Flags().GetString("listen")

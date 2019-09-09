@@ -66,4 +66,5 @@ type Config struct {
 	Logger logrus.FieldLogger
 
 	Metrics prometheus.Registerer
+	Survey  prometheus.Registerer
 }
