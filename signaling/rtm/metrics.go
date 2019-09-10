@@ -250,6 +250,7 @@ func (mc *managerCollector) Describe(ch chan<- *prometheus.Desc) {
 func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 	numConnections := uint64(mc.m.connections.Count())
 	mc.connectionsCountMaxCounter.Set(numConnections)
+
 	ch <- prometheus.MustNewConstMetric(
 		mc.connectionsCountDesc,
 		prometheus.GaugeValue,
@@ -258,13 +259,14 @@ func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 	)
 	ch <- prometheus.MustNewConstMetric(
 		mc.connectionsMaxCountDesc,
-		prometheus.GaugeValue,
+		prometheus.CounterValue,
 		float64(mc.connectionsCountMaxCounter.Value()),
 		mc.m.id,
 	)
 
 	numUsers := uint64(mc.m.users.Count())
 	mc.usersCountMaxCounter.Set(numUsers)
+
 	ch <- prometheus.MustNewConstMetric(
 		mc.usersCountDesc,
 		prometheus.GaugeValue,
@@ -273,7 +275,7 @@ func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 	)
 	ch <- prometheus.MustNewConstMetric(
 		mc.usersCountMaxDesc,
-		prometheus.GaugeValue,
+		prometheus.CounterValue,
 		float64(mc.usersCountMaxCounter.Value()),
 		mc.m.id,
 	)
@@ -304,7 +306,7 @@ func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 	)
 	ch <- prometheus.MustNewConstMetric(
 		mc.channelsCountMaxDesc,
-		prometheus.GaugeValue,
+		prometheus.CounterValue,
 		float64(mc.channelsCountMaxCounter.Value()),
 		mc.m.id,
 	)
@@ -316,7 +318,7 @@ func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 	)
 	ch <- prometheus.MustNewConstMetric(
 		mc.groupChannelsCountMaxDesc,
-		prometheus.GaugeValue,
+		prometheus.CounterValue,
 		float64(mc.groupChannelsCountMaxCounter.Value()),
 		mc.m.id,
 	)
@@ -328,7 +330,7 @@ func (mc *managerCollector) Collect(ch chan<- prometheus.Metric) {
 	)
 	ch <- prometheus.MustNewConstMetric(
 		mc.groupChannelsConnectionsMaxCountDesc,
-		prometheus.GaugeValue,
+		prometheus.CounterValue,
 		float64(mc.groupChannelsConnectionsMaxCounter.Value()),
 		mc.m.id,
 	)
