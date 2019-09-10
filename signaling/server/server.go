@@ -238,6 +238,12 @@ func (s *Server) Serve(ctx context.Context) error {
 	if s.config.EnableGuestAPI {
 		guestm = guest.NewManager(serveCtx, "", clientsRegistry, s.config.GuestsCanCreateChannels, s.config.GuestPublicAccessPattern, logger)
 		services.GuestManager = guestm
+		if s.config.Metrics != nil {
+			guest.MustRegister(s.config.Metrics)
+		}
+		if s.config.Survey != nil {
+			guest.MustRegister(s.config.Survey)
+		}
 		logger.Infoln("guest: API endpoint enabled")
 	}
 

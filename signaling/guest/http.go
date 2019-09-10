@@ -176,6 +176,8 @@ func (m *Manager) MakeHTTPLogonHandler() http.Handler {
 			panic(err)
 		}
 
+		httpRequestSucessLogon.WithLabelValues(m.id).Inc()
+
 		// API response.
 		response := &api.GuestLogonResponse{
 			ResponseOK: *api.ResponseOKValue,

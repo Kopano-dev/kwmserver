@@ -109,6 +109,7 @@ func serve(cmd *cobra.Command, args []string) error {
 			"rtm_group_channels_created_max":   "usercnt_room",
 			"rtm_channels_created_max":         "usercnt_equipment",
 			"rtm_connections_connected_max":    "usercnt_nonactive",
+			"guest_http_logon_success_total":   "usercnt_na_user",
 		}),
 	}
 
