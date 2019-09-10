@@ -4,6 +4,12 @@
 
 
 
+## v0.17.1 (2019-09-10)
+
+- Update 3rd party dependencies
+- Expose metrics port for Docker containers
+
+
 ## v0.17.0 (2019-09-10)
 
 - Build with Go 1.13 and update minimal required Go version
