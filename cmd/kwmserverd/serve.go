@@ -349,7 +349,11 @@ func serve(cmd *cobra.Command, args []string) error {
 	}
 
 	// Survey support.
-	err = autosurvey.Start(ctx, "kwmserverd", version.Version)
+	var guid []byte
+	if config.Iss.Hostname() != "localhost" {
+		guid = []byte(config.Iss.String())
+	}
+	err = autosurvey.Start(ctx, "kwmserverd", version.Version, guid)
 	if err != nil {
 		return fmt.Errorf("failed to start auto survey: %v", err)
 	}

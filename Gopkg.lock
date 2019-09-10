@@ -205,9 +205,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fb961be99914b3b93d599cabeaec91736f662e3f706b894668fcd23c0d9aafd7"
+  digest = "1:f52fd92b15dcb5c6287fcf9668dafc1f826e043f84cab1074a85a29c0759673d"
   name = "golang.org/x/crypto"
   packages = [
+    "blake2b",
     "ed25519",
     "ed25519/internal/edwards25519",
     "pbkdf2",
@@ -229,9 +230,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a1914323eabb0da3b4392fb0d34b1ae5b6b531323daf4eeddc355d8000982052"
+  digest = "1:8b38d0f580ac12385b9b7dc1a242441ff4d59a4889f20044f5c23cc47c2004bb"
   name = "golang.org/x/sys"
   packages = [
+    "cpu",
     "unix",
     "windows",
   ]
@@ -267,7 +269,7 @@
   version = "v0.6.0"
 
 [[projects]]
-  digest = "1:5eb0b004a371f23e174d331d7ee4d74d83102b19051afdaac0a1d4401d27d636"
+  digest = "1:008ce15023c5d85cfb45030f356848c9c8922b825a5e35bc8c6abe7126509517"
   name = "stash.kopano.io/kgol/ksurveyclient-go"
   packages = [
     ".",
@@ -276,8 +278,8 @@
     "prometrics",
   ]
   pruneopts = "UT"
-  revision = "7ba0dd77d591ab434341a083531986d6ee3f5c0a"
-  version = "v0.3.0"
+  revision = "02a75a37b5c417712934089c9941ad2dbdc062d6"
+  version = "v0.4.1"
 
 [[projects]]
   digest = "1:05c67dc6aab8d89af757f205480b320b4ffe60f176ba6f5b8908bbfd3bf69cd0"
