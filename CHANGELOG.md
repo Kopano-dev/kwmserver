@@ -4,6 +4,11 @@
 
 
 
+## v0.17.2 (2019-09-10)
+
+- Update Docker entrypoint for metrics listener
+
+
 ## v0.17.1 (2019-09-10)
 
 - Update 3rd party dependencies
