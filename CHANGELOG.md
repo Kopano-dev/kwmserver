@@ -2,9 +2,24 @@
 
 ## Unreleased
 
+- Build with Go 1.13 and update minimal required Go version
+- Add usage survey block to README
+- Use survey metrics alias syntax
+- Add guest connect metrics to prometheus and survey client
+- Update survey client for proper prometheus conversion
+- Mark counter metrics which are counters as counter
+- Derive service survey GUID from iss configuration
+- Include usage metrics in survey data
+- Add metrics for maximum concurrenct RTM manager data
+- Improve sorting and add attional RTM metrics
+- Add metrics for group channels
+- Add automatic survey reporting
+- Add kwm rtm metrics for channels, connections and users
+- Add basic metrics
+- Return better error when TURN service is not available
 
 
-## v0.16.1 (2019-07-16)
+## v0.16.1 (2019-07-25)
 
 - Add missing return in guest mode logon request error handling
 
