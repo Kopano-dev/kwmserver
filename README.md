@@ -123,6 +123,24 @@ video calls via WebRTC.
 To integrate Kopano Webmeetings with Mattermost, a Mattermost plugin for
 Kopano Webmeetings can be used to enable Audio/Video calling within Mattermost.
 
+## Usage survey
+
+By default, any running kwmserverd regularly transmits usage data to a Kopano
+user survey service at https://stats.kopano.io . To disable participation, set
+the environment variable `KOPANO_SURVEYCLIENT_AUTOSURVEY` to `no`.
+
+The survey data includes system and platform information and the following usage
+metrics:
+
+ - rtm_distinct_users_connected_max
+ - rtm_group_channels_created_max
+ - rtm_channels_created_max
+ - rtm_connections_connected_max
+ - guest_http_logon_success_total
+
+See [here](https://stash.kopano.io/projects/KGOL/repos/ksurveyclient-go) for further
+documentation and customization possibilities.
+
 ## License
 
 See `LICENSE.txt` for licensing information of this project.
