@@ -105,11 +105,11 @@ func serve(cmd *cobra.Command, args []string) error {
 
 		// Initialize survey client data with operational usage.
 		Survey: prometrics.WrapRegistry(autosurvey.DefaultRegistry, map[string]string{
-			"rtm_distinct_users_connected_max": "usercnt_active",
-			"rtm_group_channels_created_max":   "usercnt_room",
-			"rtm_channels_created_max":         "usercnt_equipment",
-			"rtm_connections_connected_max":    "usercnt_nonactive",
-			"guest_http_logon_success_total":   "usercnt_na_user",
+			"rtm_distinct_users_connected_max": "usercnt_active,gauge:int",
+			"rtm_group_channels_created_max":   "usercnt_room,gauge:int",
+			"rtm_channels_created_max":         "usercnt_equipment,gauge:int",
+			"rtm_connections_connected_max":    "usercnt_nonactive,gauge:int",
+			"guest_http_logon_success_total":   "usercnt_na_user,gauge:int",
 		}),
 	}
 
