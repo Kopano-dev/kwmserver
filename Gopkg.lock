@@ -269,7 +269,7 @@
   version = "v0.6.0"
 
 [[projects]]
-  digest = "1:008ce15023c5d85cfb45030f356848c9c8922b825a5e35bc8c6abe7126509517"
+  digest = "1:cac96fb7e99e0e6daf6fbd6c63bb2e852fc9bc99002ef3035561d2de2cf4cf42"
   name = "stash.kopano.io/kgol/ksurveyclient-go"
   packages = [
     ".",
@@ -278,8 +278,8 @@
     "prometrics",
   ]
   pruneopts = "UT"
-  revision = "02a75a37b5c417712934089c9941ad2dbdc062d6"
-  version = "v0.4.1"
+  revision = "7f0523d71a5206182290d0447abee281a4b2bf93"
+  version = "v0.4.2"
 
 [[projects]]
   digest = "1:05c67dc6aab8d89af757f205480b320b4ffe60f176ba6f5b8908bbfd3bf69cd0"
