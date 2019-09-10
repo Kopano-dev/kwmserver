@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+
+
+## v0.17.0 (2019-09-10)
+
 - Build with Go 1.13 and update minimal required Go version
 - Add usage survey block to README
 - Use survey metrics alias syntax
