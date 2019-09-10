@@ -44,10 +44,10 @@ $(BASE): ; $(info creating local GOPATH ...)
 .PHONY: $(CMDS)
 $(CMDS): vendor | $(BASE) ; $(info building $@ ...) @
 	cd $(BASE) && $(GO) build \
+		-trimpath \
 		-tags release \
-		-asmflags '-trimpath=$(GOPATH)' \
-		-gcflags '-trimpath=$(GOPATH)' \
-		-ldflags '-s -w -X $(PACKAGE)/version.Version=$(VERSION) -X $(PACKAGE)/version.BuildDate=$(DATE) -extldflags -static' \
+		-buildmode=exe \
+		-ldflags '-s -w -buildid=reproducible/$(VERSION) -X $(PACKAGE)/version.Version=$(VERSION) -X $(PACKAGE)/version.BuildDate=$(DATE) -extldflags -static' \
 		-o bin/$(notdir $@) $(PACKAGE)/$@
 
 # Helpers

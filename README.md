@@ -17,7 +17,7 @@ Kopano Webmeetings Server. For details see below.
 
 ## Build dependencies
 
-Make sure you have Go 1.8 or later installed. This assumes your GOPATH is `~/go` and
+Make sure you have Go 1.13 or later installed. This assumes your GOPATH is `~/go` and
 you have `~/go/bin` in your $PATH and you have [Glide](https://github.com/Masterminds/glide)
 installed as well.
 

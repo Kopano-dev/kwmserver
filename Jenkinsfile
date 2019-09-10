@@ -3,12 +3,12 @@
 pipeline {
 	agent {
 		docker {
-			image 'golang:1.11'
+			image 'golang:1.13'
 			args '-u 0'
 		 }
 	}
 	environment {
-		DEP_RELEASE_TAG = 'v0.5.0'
+		DEP_RELEASE_TAG = 'v0.5.4'
 		GOBIN = '/usr/local/bin'
 	}
 	stages {
@@ -16,18 +16,17 @@ pipeline {
 			steps {
 				echo 'Bootstrapping..'
 				sh 'curl -sSL -o $GOBIN/dep https://github.com/golang/dep/releases/download/$DEP_RELEASE_TAG/dep-linux-amd64 && chmod 755 $GOBIN/dep'
-				sh 'go get -v github.com/golang/lint/golint'
+				sh 'go get -v golang.org/x/lint/golint'
 				sh 'go get -v github.com/tebeka/go2xunit'
 				sh 'go get -v github.com/axw/gocov/...'
 				sh 'go get -v github.com/AlekSi/gocov-xml'
 				sh 'go get -v github.com/wadey/gocovmerge'
 			}
 		}
-		stage('Build') {
+		stage('Vendor') {
 			steps {
-				echo 'Building..'
-				sh 'make'
-				sh './bin/kwmserverd version'
+				echo 'Fetching vendor dependencies..'
+				sh 'make vendor'
 			}
 		}
 		stage('Lint') {
@@ -35,6 +34,13 @@ pipeline {
 				echo 'Linting..'
 				sh 'make lint | tee golint.txt || true'
 				sh 'make vet | tee govet.txt || true'
+			}
+		}
+		stage('Build') {
+			steps {
+				echo 'Building..'
+				sh 'make DATE=reproducible'
+				sh './bin/kwmserverd version && sha256sum ./bin/kwmserverd'
 			}
 		}
 		stage('Test') {
@@ -70,7 +76,7 @@ pipeline {
 	}
 	post {
 		always {
-			archive 'dist/*.tar.gz'
+			archiveArtifacts 'dist/*.tar.gz'
 			junit allowEmptyResults: true, testResults: 'test/*.xml'
 			warnings parserConfigurations: [[parserName: 'Go Lint', pattern: 'golint.txt'], [parserName: 'Go Vet', pattern: 'govet.txt']], unstableTotalAll: '0'
 			cleanWs()
