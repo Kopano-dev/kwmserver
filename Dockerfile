@@ -20,6 +20,7 @@ LABEL maintainer="development@kopano.io"
 
 # Expose ports.
 EXPOSE 8778
+EXPOSE 6778
 
 # Define basic environment variables.
 ENV EXE=kwmserverd
