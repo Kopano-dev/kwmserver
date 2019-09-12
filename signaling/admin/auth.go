@@ -142,6 +142,42 @@ func (m *Manager) IsValidAdminAuthTokenRequest(req *http.Request) (*api.AdminAut
 	return token, true
 }
 
+// IsValidBasicAuthRequest checks if the provided request has an Authorization
+// header which is a valid basic auth for the accociated manager.
+func (m *Manager) IsValidBasicAuthRequest(req *http.Request) (*api.AdminAuthToken, bool) {
+	if !m.authBasicEnabled {
+		return nil, false
+	}
+
+	auth := strings.SplitN(req.Header.Get("Authorization"), " ", 2)
+	if len(auth) != 2 {
+		return nil, false
+	}
+	if auth[0] != api.BasicAuthTypeToken {
+		return nil, false
+	}
+	if !m.CheckBasicAuth(auth[1]) {
+		return nil, false
+	}
+
+	subject := req.Form.Get("user")
+	if subject == "" {
+		m.Logger().WithError(fmt.Errorf("no user value")).Debugln("basic auth missing user value")
+		return nil, false
+	}
+
+	token := &api.AdminAuthToken{
+		Subject: subject,
+	}
+
+	token.Type = auth[0]
+	if !m.IsValidAdminAuthToken(token) {
+		m.SetToken(getAdminAuthTokenTokensRecordID(token), token)
+	}
+
+	return token, true
+}
+
 // RefreshAdminAuthToken updates the timestamp of the token record of the
 // provided token if known to the accociated manager.
 func (m *Manager) RefreshAdminAuthToken(token *api.AdminAuthToken) bool {
@@ -151,6 +187,25 @@ func (m *Manager) RefreshAdminAuthToken(token *api.AdminAuthToken) bool {
 
 	m.RefreshToken(getAdminAuthTokenTokensRecordID(token))
 	return true
+}
+
+// SetBasicAuth enables basic auth with the provided values.
+func (m *Manager) SetBasicAuth(allowedValues []string) error {
+	if allowedValues != nil {
+		m.authBasicEnabled = true
+		m.authBasicAllowedValues = make(map[string]bool)
+		for _, v := range allowedValues {
+			m.authBasicAllowedValues[v] = true
+		}
+	}
+
+	return nil
+}
+
+// CheckBasicAuth checks wether or not the provided header value is valid to be
+// used by the aassociated Manager for basic auth.
+func (m *Manager) CheckBasicAuth(headerValue string) bool {
+	return m.authBasicAllowedValues[headerValue]
 }
 
 func (m *Manager) addAuthRoutes(ctx context.Context, router *mux.Router, wrapper func(http.Handler) http.Handler) http.Handler {

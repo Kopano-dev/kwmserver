@@ -52,6 +52,9 @@ type Config struct {
 	AdminTokensSigningKey []byte
 	AllowInsecureAuth     bool
 
+	EnableAuthBasic        bool
+	AuthBasicAllowedValues []string
+
 	TURNServerSharedSecret []byte
 	TURNURIs               []string
 

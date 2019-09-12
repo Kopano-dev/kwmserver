@@ -69,6 +69,8 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("iss", "", "OIDC issuer URL")
 	serveCmd.Flags().Bool("insecure", false, "Disable TLS certificate and hostname validation")
 	serveCmd.Flags().Bool("insecure-auth", false, "Disable verification that auth matches user")
+	serveCmd.Flags().Bool("enable-auth-basic", false, "Enables basic authentication support")
+	serveCmd.Flags().String("auth-basic-values", "", "Full path to the file which contains valid values for basic authentication")
 	serveCmd.Flags().StringArray("turn-uri", nil, "TURN uri to send to clients")
 	serveCmd.Flags().String("turn-server-shared-secret", "", "Full path to the file which contains the shared secret for TURN server password generation")
 	serveCmd.Flags().String("turn-service-url", "", "TURN service API url")
@@ -296,6 +298,35 @@ func serve(cmd *cobra.Command, args []string) error {
 	config.AllowInsecureAuth, _ = cmd.Flags().GetBool("insecure-auth")
 	if config.AllowInsecureAuth {
 		logger.Warnln("insecure-auth mode, user identifiers are not forced to match auth")
+	}
+
+	config.EnableAuthBasic, _ = cmd.Flags().GetBool("enable-auth-basic")
+	authBasicValues, _ := cmd.Flags().GetString("auth-basic-values")
+	if config.EnableAuthBasic {
+		if authBasicValues == "" {
+			return fmt.Errorf("auth-basic-values required when using enable-auth-basic")
+		}
+		if _, errStat := os.Stat(authBasicValues); errStat != nil {
+			return fmt.Errorf("auth-basic-values file not found: %v", errStat)
+		}
+		if f, errOpen := os.Open(authBasicValues); errOpen == nil {
+			var lines []string
+			scanner := bufio.NewScanner(f)
+			for scanner.Scan() {
+				t := strings.TrimSpace(scanner.Text())
+				if !strings.HasPrefix(t, "#") {
+					lines = append(lines, t)
+				}
+			}
+			errRead := scanner.Err()
+			f.Close()
+			if errRead != nil {
+				return fmt.Errorf("failed to read auth-basic-values file: %v", errRead)
+			}
+			config.AuthBasicAllowedValues = lines
+		} else {
+			return fmt.Errorf("failed to open auth-basic-values file: %v", errOpen)
+		}
 	}
 
 	config.EnableRTMAPI, _ = cmd.Flags().GetBool("enable-rtm-api")

@@ -58,7 +58,7 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 		}
 		return auth, success
 
-	case "Bearer":
+	case api.BearerAuthTypeToken:
 		if m.oidcp != nil {
 			authenticatedUserID, std, claims, err := m.oidcp.ValidateTokenString(req.Context(), authHeader[1])
 
@@ -157,6 +157,15 @@ func (m *Manager) isRequestWithValidAuth(req *http.Request) (*api.AdminAuthToken
 		} else {
 			m.logger.Debugln("bearer auth received but oidc not set up")
 		}
+
+	case api.BasicAuthTypeToken:
+		// Self created token.
+		auth, success := m.adminm.IsValidBasicAuthRequest(req)
+		if auth != nil {
+			// Set default restrictions for basic auth
+			auth.CanCreateChannels = true
+		}
+		return auth, success
 	}
 
 	return nil, false

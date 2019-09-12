@@ -224,6 +224,11 @@ func (s *Server) Serve(ctx context.Context) error {
 		logger.Infoln("admin: API endpoint enabled")
 	}
 	adminm.AddTokenKey("", s.config.AdminTokensSigningKey)
+	if s.config.EnableAuthBasic {
+		if err := adminm.SetBasicAuth(s.config.AuthBasicAllowedValues); err != nil {
+			return fmt.Errorf("unable to set basic auth")
+		}
+	}
 
 	// MCU API.
 	var mcum *mcu.Manager

@@ -20,6 +20,8 @@ package api
 // Token types as known by kwm server.
 const (
 	AdminAuthTokenTypeToken = "Token"
+	BearerAuthTypeToken     = "Bearer"
+	BasicAuthTypeToken      = "Basic"
 )
 
 // Claims as known by kwm server.

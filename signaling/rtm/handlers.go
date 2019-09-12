@@ -56,7 +56,7 @@ func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw htt
 			break
 		}
 
-	case "Bearer":
+	case api.BearerAuthTypeToken:
 		if m.oidcp == nil {
 			err = errors.New("bearer auth not enabled")
 			break

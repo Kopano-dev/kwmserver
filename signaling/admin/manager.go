@@ -41,6 +41,9 @@ type Manager struct {
 	tokensKeys         map[string][]byte
 	tokensSigningKeyID string
 	tokensMutex        sync.RWMutex
+
+	authBasicEnabled       bool
+	authBasicAllowedValues map[string]bool
 }
 
 // NewManager creates a new Manager with an id.
