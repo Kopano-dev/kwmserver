@@ -4,6 +4,12 @@
 
 
 
+## v0.17.3 (2019-09-30)
+
+- Build with Go 1.13.1
+- Add support for Basic auth in RTM signaling
+
+
 ## v0.17.2 (2019-09-10)
 
 - Update Docker entrypoint for metrics listener
