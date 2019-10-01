@@ -3,7 +3,8 @@
 This project implements the signaling/channelling server for Kopano
 Web Meetings.
 
-## Technologies:
+## Technologies
+
   - Go
   - WebSockets
   - WebRTC
