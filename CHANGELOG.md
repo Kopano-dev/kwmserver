@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Improve README
 
 
 ## v0.17.3 (2019-09-30)
