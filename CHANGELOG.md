@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+
+
+## v1.0.1 (2019-12-09)
+
 - Build with Go 1.13.4
 - Fix panic on startup when --iss parameter is not given
 - Update Dockerfile for release
