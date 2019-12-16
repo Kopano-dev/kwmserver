@@ -95,7 +95,7 @@ var (
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
 			Name:      "http_connect_success_total",
-			Help:      "Total number of successfull calls to RTM connect HTTP endpoint",
+			Help:      "Total number of successful calls to RTM connect HTTP endpoint",
 		},
 		[]string{"id"},
 	)
@@ -103,7 +103,7 @@ var (
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
 			Name:      "http_turn_success_total",
-			Help:      "Total number of successfull calls to RTM turn HTTP endpoint",
+			Help:      "Total number of successful calls to RTM turn HTTP endpoint",
 		},
 		[]string{"id"},
 	)
@@ -111,7 +111,7 @@ var (
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
 			Name:      "http_websocket_success_total",
-			Help:      "Total number of successfull calls to RTM websocket HTTP endpoint",
+			Help:      "Total number of successful calls to RTM websocket HTTP endpoint",
 		},
 		[]string{"id"},
 	)

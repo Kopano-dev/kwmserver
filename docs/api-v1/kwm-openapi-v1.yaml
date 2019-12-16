@@ -176,7 +176,7 @@ tags:
       - `source` must match the accepted `source` from corresponding
         `webrtc_call` response.
 
-      Additional data can be sent in both ways, with knowlege of `channel`,
+      Additional data can be sent in both ways, with knowledge of `channel`,
       `target` and valid remote `state`
 
       ```json

@@ -30,7 +30,7 @@ var (
 		prometheus.CounterOpts{
 			Subsystem: metricsSubsystem,
 			Name:      "http_logon_success_total",
-			Help:      "Total number of successfull calls to Guest logon HTTP endpoint",
+			Help:      "Total number of successful calls to Guest logon HTTP endpoint",
 		},
 		[]string{"id"},
 	)

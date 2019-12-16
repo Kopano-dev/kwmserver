@@ -33,7 +33,7 @@ import (
 
 // HandleWebsocketConnect checks the presence of the key in cache and starts
 // the websocket connection in a new go routine. Returns with nil when the
-// websocket connection was successfully started, otherwise with error.
+// websocket connection was successfuly started, otherwise with error.
 func (m *Manager) HandleWebsocketConnect(ctx context.Context, key string, rw http.ResponseWriter, req *http.Request) error {
 	record, ok := m.keys.Pop(key)
 	if !ok {
