@@ -16,4 +16,3 @@
  */
 
 package kwmserver // import "stash.kopano.io/kwm/kwmserver"
-

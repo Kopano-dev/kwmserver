@@ -18,9 +18,7 @@ Kopano Webmeetings Server. For details see below.
 
 ## Build dependencies
 
-Make sure you have Go 1.13 or later installed. This assumes your GOPATH is `~/go` and
-you have `~/go/bin` in your $PATH and you have [Glide](https://github.com/Masterminds/glide)
-installed as well.
+Make sure you have Go 1.13 or later installed. This project uses Go Modules.
 
 When building, third party dependencies will tried to be fetched from the Internet
 if not there already.
@@ -28,8 +26,6 @@ if not there already.
 ## Building from source
 
 ```
-mkdir -p ~/go/src/stash.kopano.io/kwm
-cd ~/go/src/stash.kopano.io/kwm
 git clone <THIS-PROJECT> kwmserver
 cd kwmserver
 make
