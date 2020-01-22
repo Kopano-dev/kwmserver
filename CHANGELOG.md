@@ -4,6 +4,13 @@
 
 
 
+## v1.1.0 (2020-01-22)
+
+- Update external dependencies
+- Use Go modules
+- Fix spelling mistakes
+
+
 ## v1.0.1 (2019-12-09)
 
 - Build with Go 1.13.4
