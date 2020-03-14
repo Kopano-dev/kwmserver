@@ -138,6 +138,14 @@ func NewChannel(id string, m *Manager, logger logrus.FieldLogger, config *Channe
 			}
 
 			return nil
+		}, func(err error) error {
+			if err != nil {
+				logger.WithError(err).Warnln("channel pipeline reset due to error")
+			} else {
+				logger.Debugln("channel pipeline reset")
+			}
+			// TODO(longsleep): Maybe clients should be notified, trigger renegotiate?
+			return nil
 		})
 	}
 
@@ -285,13 +293,14 @@ func (c *Channel) Cleanup() bool {
 	pipeline := c.pipeline
 	c.closed = true
 	c.pipeline = nil
+	size := len(c.connections)
 	c.Unlock()
 
 	if pipeline != nil {
 		go pipeline.Close()
 	}
 
-	c.logger.Debugln("channel cleaned up")
+	c.logger.WithField("connections", size).Debugln("channel cleaned up")
 	channelCleanup.WithLabelValues(c.m.id).Inc()
 
 	return true

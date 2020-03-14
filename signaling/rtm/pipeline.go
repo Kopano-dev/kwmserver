@@ -22,7 +22,7 @@ type Pipeline interface {
 	ID() string
 	Mode() string
 
-	Connect(onConnect func() error, onText func([]byte) error) error
+	Connect(onConnect func() error, onText func([]byte) error, onReset func(error) error) error
 
 	Send(msg interface{}) error
 

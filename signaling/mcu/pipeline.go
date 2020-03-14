@@ -44,10 +44,12 @@ type Pipeline struct {
 
 	onConnectHandler func() error
 	onTextHandler    func([]byte) error
+	onResetHandler   func(error) error
 
 	connecting  bool
 	closed      bool
 	reconnector *time.Timer
+	watcher     *time.Timer
 	connection  *connection.Connection
 }
 
@@ -62,7 +64,7 @@ func (p *Pipeline) Mode() string {
 }
 
 // Connect sends the attach message with the provided parameters.
-func (p *Pipeline) Connect(onConnect func() error, onText func([]byte) error) error {
+func (p *Pipeline) Connect(onConnect func() error, onText func([]byte) error, onReset func(err error) error) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -72,13 +74,17 @@ func (p *Pipeline) Connect(onConnect func() error, onText func([]byte) error) er
 
 	p.onConnectHandler = onConnect
 	p.onTextHandler = onText
+	p.onResetHandler = onReset
 
 	// Ask manager to connect.
 	_, err := p.m.Attach(p.plugin, p.handle, p.onConnect, p.onText)
 	if err != nil {
-		p.logger.WithError(err).Warnln("failed to connect pipeline")
+		p.logger.WithError(err).Warnln("failed to establish pipeline control")
 		go p.reconnect()
+	} else {
+		p.logger.Debugln("pipeline control established")
 	}
+	go p.watch()
 
 	return nil
 }
@@ -109,18 +115,53 @@ func (p *Pipeline) onClosed(conn *connection.Connection) {
 		return
 	}
 
+	p.connection = nil
+
 	go p.reconnect()
 	p.mutex.Unlock()
+}
+
+func (p *Pipeline) watch() {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if p.watcher != nil {
+		p.watcher.Stop()
+	}
+
+	p.watcher = time.AfterFunc(10*time.Second, func() { // TODO(longsleep): Make timeout configuration.
+		p.mutex.Lock()
+		defer p.mutex.Unlock()
+
+		p.watcher = nil
+
+		if p.closed {
+			return
+		}
+
+		// Ensure to reconnect when no connection.
+		if p.connection == nil && !p.connecting {
+			p.logger.Warnln("pipeline connection watcher timeout")
+			defer func() {
+				go p.reconnect()
+			}()
+		}
+
+		defer func() {
+			go p.watch()
+		}()
+	})
 }
 
 func (p *Pipeline) reconnect() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+
 	if p.connecting {
 		return
 	}
 
-	p.logger.Debugln("pipeline scheduling reconnect")
+	p.logger.Infoln("pipeline scheduling control reestablish")
 
 	if p.reconnector != nil {
 		p.reconnector.Stop()
@@ -129,8 +170,11 @@ func (p *Pipeline) reconnect() {
 	p.connecting = true
 	p.reconnector = time.AfterFunc(3*time.Second, func() {
 		p.mutex.Lock()
+		defer p.mutex.Unlock()
+
+		p.reconnector = nil
+
 		if !p.connecting || p.closed {
-			p.mutex.Unlock()
 			return
 		}
 
@@ -138,13 +182,22 @@ func (p *Pipeline) reconnect() {
 		_, err := p.m.Attach(p.plugin, p.handle, p.onConnect, p.onText)
 		// TODO(longsleep): Implement background retry on error or timeout.
 		if err != nil {
-			p.logger.WithError(err).Warnln("pipeline failed to reconnect")
-			go p.reconnect()
-		} else {
+			p.logger.WithError(err).Warnln("pipeline failed to reestablish control")
 			p.connecting = false
+			defer func() {
+				go p.reconnect()
+			}()
+		} else {
+			p.logger.Infoln("pipeline control reestablished")
+			p.connecting = false
+			if p.watcher != nil {
+				// Restart watcher, to restart timeout.
+				p.watcher.Stop()
+				defer func() {
+					go p.watch()
+				}()
+			}
 		}
-
-		p.mutex.Unlock()
 	})
 }
 
@@ -193,6 +246,10 @@ func (p *Pipeline) Close() error {
 	if p.reconnector != nil {
 		p.reconnector.Stop()
 		p.reconnector = nil
+	}
+	if p.watcher != nil {
+		p.watcher.Stop()
+		p.watcher = nil
 	}
 	p.mutex.Unlock()
 
