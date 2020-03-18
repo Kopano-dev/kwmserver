@@ -69,6 +69,7 @@ type ChannelConfig struct {
 
 	Replace          func(channel *Channel, cid string, oldConn *connection.Connection, newConn *connection.Connection)
 	AfterAddOrRemove func(channel *Channel, op ChannelOp, cid string)
+	AfterReset       func(channel *Channel)
 }
 
 // ChannelDefaultConfig holds a Channel's default extra configuration.
@@ -144,7 +145,10 @@ func NewChannel(id string, m *Manager, logger logrus.FieldLogger, config *Channe
 			} else {
 				logger.Debugln("channel pipeline reset")
 			}
-			// TODO(longsleep): Maybe clients should be notified, trigger renegotiate?
+			// Reset channel if handler set.
+			if channel.config.AfterReset != nil {
+				go channel.config.AfterReset(channel)
+			}
 			return nil
 		})
 	}

@@ -97,3 +97,10 @@ func (m *Manager) onAfterGroupAddOrRemove(channel *Channel, op ChannelOp, id str
 		}
 	}
 }
+
+func (m *Manager) onAfterGroupChannelReset(channel *Channel) {
+	members, connections := channel.Connections()
+
+	m.logger.Debugln("onAfterGroupChannelReset", len(connections), len(members))
+	// TODO(longsleep): Send data to each and every member so it reestablishes its data.
+}

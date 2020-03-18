@@ -197,6 +197,12 @@ func (p *Pipeline) reconnect() {
 					go p.watch()
 				}()
 			}
+			if p.onResetHandler != nil {
+				err = p.onResetHandler(nil)
+				if err != nil {
+					p.logger.WithError(err).Warnln("pipeline reseth handler failed")
+				}
+			}
 		}
 	})
 }

@@ -165,6 +165,7 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 
 				Replace:          m.onGroupReplace,
 				AfterAddOrRemove: m.onAfterGroupAddOrRemove,
+				AfterReset:       m.onAfterGroupChannelReset,
 			})
 			return &channelRecord{
 				when:    time.Now(),
