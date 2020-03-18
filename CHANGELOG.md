@@ -4,6 +4,15 @@
 
 
 
+## v1.1.1 (2020-03-18)
+
+- Add channel pipeline after reset handler support
+- Improve connection stability in MCU pipeline connections
+- Update 3rd party dependencies
+- Update license ranger and generate 3rd party licenses from vendor folder
+- Build with Go 1.14
+
+
 ## v1.1.0 (2020-01-22)
 
 - Update external dependencies
