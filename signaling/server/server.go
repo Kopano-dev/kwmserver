@@ -255,7 +255,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	// RTM API.
 	var rtmm *rtm.Manager
 	if s.config.EnableRTMAPI {
-		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, logger, mcum, adminm, guestm, oidcp, turnsrv)
+		rtmm = rtm.NewManager(serveCtx, "", s.config.AllowInsecureAuth, s.config.RTMRequiredScopes, s.config.PipelineForcedPattern, logger, mcum, adminm, guestm, oidcp, turnsrv)
 		services.RTMManager = rtmm
 		collector := rtm.NewManagerCollector(rtmm)
 		if s.config.Metrics != nil {

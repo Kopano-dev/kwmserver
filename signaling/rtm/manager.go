@@ -20,7 +20,7 @@ package rtm
 import (
 	"context"
 	"net/http"
-	"strings"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,9 +41,10 @@ import (
 
 // Manager handles RTM connect state.
 type Manager struct {
-	id             string
-	insecure       bool
-	requiredScopes []string
+	id                    string
+	insecure              bool
+	requiredScopes        []string
+	pipelineForcedPattern *regexp.Regexp
 
 	logger  logrus.FieldLogger
 	ctx     context.Context
@@ -64,7 +65,7 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with an id.
-func NewManager(ctx context.Context, id string, insecure bool, requiredScopes []string, logger logrus.FieldLogger, mcum *mcu.Manager, adminm *admin.Manager, guestm *guest.Manager, oidcp *kcoidc.Provider, turnsrv turn.Server) *Manager {
+func NewManager(ctx context.Context, id string, insecure bool, requiredScopes []string, pipelineForcedPatternString string, logger logrus.FieldLogger, mcum *mcu.Manager, adminm *admin.Manager, guestm *guest.Manager, oidcp *kcoidc.Provider, turnsrv turn.Server) *Manager {
 	m := &Manager{
 		id:             id,
 		insecure:       insecure,
@@ -91,6 +92,15 @@ func NewManager(ctx context.Context, id string, insecure bool, requiredScopes []
 		connections: cmap.New(),
 		users:       cmap.New(),
 		channels:    cmap.New(),
+	}
+
+	if pipelineForcedPatternString != "" {
+		if pipelineForcedPattern, err := regexp.Compile(pipelineForcedPatternString); err == nil {
+			m.pipelineForcedPattern = pipelineForcedPattern
+			m.logger.Infoln("pattern", pipelineForcedPattern.String(), "forced pipline channels enabled")
+		} else {
+			m.logger.WithError(err).Errorln("failed to parse forced pipeline pattern regexp - forced pipeline channels not enabled")
+		}
 	}
 
 	// Cleanup function.
@@ -149,12 +159,12 @@ func (m *Manager) purgeInactiveUsers() {
 	for entry := range m.users.IterBuffered() {
 		record = entry.Val.(*userRecord)
 		record.Lock()
-		m.logger.WithFields(logrus.Fields{
-			"user_id":     record.id,
-			"connections": len(record.connections),
-			"duration":    now.Sub(record.when),
-		}).Debugf("user active")
 		if len(record.connections) == 0 {
+			m.logger.WithFields(logrus.Fields{
+				"user_id":     record.id,
+				"connections": len(record.connections),
+				"duration":    now.Sub(record.when),
+			}).Debugf("user inactive")
 			if record.exit.Before(deadline) {
 				empty = append(empty, record)
 			}
@@ -169,7 +179,7 @@ func (m *Manager) purgeInactiveUsers() {
 			m.logger.WithFields(logrus.Fields{
 				"user_id":  record.id,
 				"duration": record.exit.Sub(record.when),
-			}).Debugln("user no longer active")
+			}).Debugln("user offline")
 			userCleanup.WithLabelValues(m.id).Inc()
 		} else {
 			record.Unlock()
@@ -289,16 +299,11 @@ func (m *Manager) Pipeline(scope string, id string) Pipeline {
 	switch scope {
 	case mcu.PluginIDKWMRTMChannel:
 		withPipeline := false
-		alwaysPipeline := false // TODO(longsleep): Add to configuration.
-
-		// NOTE(longsleep): For now route only @conference channels through MCU.
-		switch {
-		case alwaysPipeline:
-			withPipeline = true
-		case strings.HasPrefix(id, "@conference/"):
-			withPipeline = true
+		if m.pipelineForcedPattern != nil {
+			if m.pipelineForcedPattern.MatchString(id) {
+				withPipeline = true
+			}
 		}
-
 		if !withPipeline {
 			return nil
 		}

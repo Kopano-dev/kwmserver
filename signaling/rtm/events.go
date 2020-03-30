@@ -30,7 +30,7 @@ import (
 
 // OnConnect is called for new connections.
 func (m *Manager) OnConnect(c *connection.Connection) error {
-	c.Logger().Debugln("websocket OnConnect")
+	c.Logger().Debugln("websocket rtm connect")
 
 	var self *api.Self
 	bound := c.Bound()
@@ -83,13 +83,17 @@ func (m *Manager) OnConnect(c *connection.Connection) error {
 		Self: self,
 	}
 	err := c.Send(msg)
-
+	if err != nil {
+		c.Logger().WithError(err).Debugln("websocket rtm connect hello send error")
+	} else {
+		c.Logger().Debugln("websocket rtm connect done")
+	}
 	return err
 }
 
 // OnDisconnect is called after a connection has closed.
 func (m *Manager) OnDisconnect(c *connection.Connection) error {
-	c.Logger().Debugln("websocket OnDisconnect")
+	c.Logger().Debugln("websocket rtm disconnect")
 
 	bound := c.Bound()
 	if bound != nil {
@@ -126,14 +130,14 @@ func (m *Manager) OnDisconnect(c *connection.Connection) error {
 		})
 	}
 
-	c.Logger().Debugln("websocket onDisconnect done")
+	c.Logger().Debugln("websocket rtm disconnect done")
 	return nil
 }
 
 // OnBeforeDisconnect is called before a connection is closed. An indication why
 // the connection will be closed is provided with the passed error.
 func (m *Manager) OnBeforeDisconnect(c *connection.Connection, err error) error {
-	//c.Logger().Debugln("websocket OnBeforeDisconnect", err)
+	//c.Logger().Debugln("websocket rtm before disconnect", err)
 
 	if err == nil {
 		msg := &api.RTMTypeHello{
@@ -150,7 +154,7 @@ func (m *Manager) OnBeforeDisconnect(c *connection.Connection, err error) error 
 // OnText is called when the provided connection received a text message. The
 // message payload is provided as []byte in the msg parameter.
 func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
-	//c.Logger().Debugf("websocket OnText: %s", msg)
+	//c.Logger().Debugf("websocket rtm text: %s", msg)
 
 	// TODO(longsleep): Reuse RTMTypeTransaction / put into pool.
 	var transaction api.RTMTypeTransaction

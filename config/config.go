@@ -43,6 +43,8 @@ type Config struct {
 	GuestsCanCreateChannels  bool
 	GuestPublicAccessPattern string
 
+	PipelineForcedPattern string
+
 	EnableWww bool
 	WwwRoot   string
 

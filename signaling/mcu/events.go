@@ -25,14 +25,14 @@ import (
 
 // OnConnect is called for new connections.
 func (m *Manager) OnConnect(c *connection.Connection) error {
-	c.Logger().Debugln("websocket OnConnect")
+	c.Logger().Debugln("websocket mcu connect")
 
 	return nil
 }
 
 // OnDisconnect is called after a connection has closed.
 func (m *Manager) OnDisconnect(c *connection.Connection) error {
-	c.Logger().Debugln("websocket OnDisconnect")
+	c.Logger().Debugln("websocket mcu disconnect")
 
 	return nil
 }
@@ -40,7 +40,7 @@ func (m *Manager) OnDisconnect(c *connection.Connection) error {
 // OnBeforeDisconnect is called before a connection is closed. An indication why
 // the connection will be closed is provided with the passed error.
 func (m *Manager) OnBeforeDisconnect(c *connection.Connection, err error) error {
-	//c.Logger().Debugln("mcu websocket OnBeforeDisconnect", err)
+	//c.Logger().Debugln("websocket mcu before disconnect", err)
 
 	return nil
 }
@@ -48,7 +48,7 @@ func (m *Manager) OnBeforeDisconnect(c *connection.Connection, err error) error 
 // OnText is called when the provided connection received a text message. The
 // message payload is provided as []byte in the msg parameter.
 func (m *Manager) OnText(c *connection.Connection, msg []byte) error {
-	//c.Logger().Debugf("websocket OnText: %s", msg)
+	//c.Logger().Debugf("websocket mcu text: %s", msg)
 
 	// TODO(longsleep): Reuse msg []byte slices / put into pool.
 	var transaction transactionMessage

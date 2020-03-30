@@ -86,6 +86,7 @@ func commandServe() *cobra.Command {
 	serveCmd.Flags().String("pprof-listen", "127.0.0.1:6060", "TCP listen address for pprof")
 	serveCmd.Flags().Bool("with-metrics", false, "Enable metrics")
 	serveCmd.Flags().String("metrics-listen", "127.0.0.1:6778", "TCP listen address for metrics")
+	serveCmd.Flags().String("pipeline-forced-regexp", "@conference/.*", "If set, channels matching this regex will be routed through a pipeline")
 
 	return serveCmd
 }
@@ -136,6 +137,8 @@ func serve(cmd *cobra.Command, args []string) error {
 	config.EnableGuestAPI = enableGuestAPI
 	config.GuestsCanCreateChannels, _ = cmd.Flags().GetBool("allow-guest-only-channels")
 	config.GuestPublicAccessPattern, _ = cmd.Flags().GetString("public-guest-access-regexp")
+
+	config.PipelineForcedPattern, _ = cmd.Flags().GetString("pipeline-forced-regexp")
 
 	enableMcuAPI, _ := cmd.Flags().GetBool("enable-mcu-api")
 	config.EnableMcuAPI = enableMcuAPI
