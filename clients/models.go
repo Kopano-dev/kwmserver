@@ -102,6 +102,10 @@ func (cr *ClientRegistration) Private(rawKid interface{}) (*Secured, error) {
 }
 
 func (cr *ClientRegistration) findKeyByKid(rawKid interface{}) (*gojwk.Key, error) {
+	if cr.JWKS == nil {
+		return nil, fmt.Errorf("no jwks")
+	}
+
 	var key *gojwk.Key
 
 	switch len(cr.JWKS.Keys) {
