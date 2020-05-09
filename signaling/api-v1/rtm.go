@@ -199,6 +199,7 @@ type RTMDataWebRTCChannelExtra struct {
 type RTMTDataWebRTCChannelGroup struct {
 	Group   string   `json:"group"`
 	Members []string `json:"members"`
+	Reset   bool     `json:"reset"`
 }
 
 // RTMDataWebRTCChannelPipeline defines webrtc channel pipeline details.

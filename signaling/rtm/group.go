@@ -61,6 +61,7 @@ func (m *Manager) onAfterGroupAddOrRemove(channel *Channel, op ChannelOp, id str
 	data.Group = &api.RTMTDataWebRTCChannelGroup{
 		Group:   channel.config.Group,
 		Members: members,
+		Reset:   op == ChannelOpReset,
 	}
 	extra, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
@@ -102,5 +103,6 @@ func (m *Manager) onAfterGroupChannelReset(channel *Channel) {
 	members, connections := channel.Connections()
 
 	m.logger.Debugln("onAfterGroupChannelReset", len(connections), len(members))
-	// TODO(longsleep): Send data to each and every member so it reestablishes its data.
+	// TODO(longsleep): Send data to each and every member so it reestablishes its connections.
+	m.onAfterGroupAddOrRemove(channel, ChannelOpReset, "")
 }

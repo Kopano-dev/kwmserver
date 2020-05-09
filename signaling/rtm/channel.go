@@ -45,6 +45,7 @@ type ChannelOp int
 const (
 	ChannelOpAdd ChannelOp = iota
 	ChannelOpRemove
+	ChannelOpReset
 )
 
 // Channel binds connections together.

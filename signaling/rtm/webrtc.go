@@ -208,6 +208,7 @@ func (m *Manager) processWebRTCMessage(c *connection.Connection, msg *api.RTMTyp
 		data.Group = &api.RTMTDataWebRTCChannelGroup{
 			Group:   msg.Group,
 			Members: members,
+			Reset:   true,
 		}
 		if pipeline := channel.Pipeline(); pipeline != nil {
 			data.Pipeline = &api.RTMDataWebRTCChannelPipeline{
