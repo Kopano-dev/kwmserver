@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+
+
+## v1.2.0 (2020-05-11)
+
 - Tell clients if a channel has been reset
 - Fix panic for client registration entries without jwks
 - Add configuration for pipeline mode via regexp option
