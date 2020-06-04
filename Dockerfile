@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-FROM alpine:3.10
+FROM alpine:3.12
 LABEL maintainer="development@kopano.io"
 
 # Expose ports.

@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-FROM alpine:3.10
+FROM alpine:3.12
 LABEL maintainer="development@kopano.io"
 
 # Expose ports.
@@ -57,8 +57,8 @@ SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 
 # Download
 RUN apk add --no-cache \
-		ca-certificates=20190108-r0 \
-		curl=7.66.0-r0 \
+		ca-certificates=20191127-r3 \
+		curl=7.69.1-r0 \
 	&& curl -sSL https://download.kopano.io/community/kwmserver:/kopano-kwmserver-${VERSION}.tar.gz | \
 	tar -C /var/lib/kwmserverd-docker --strip 1 -vxzf - && \
 	mv ${EXE} /usr/local/bin/${EXE}
