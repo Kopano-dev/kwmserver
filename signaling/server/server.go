@@ -274,7 +274,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	// Basic routes provided by server.
 	s.AddRoutes(ctx, router)
 
-	if true {
+	if false {
 		apiv1Service := apiv1.NewHTTPService(serveCtx, logger, services)
 		apiv1Service.AddRoutes(ctx, router, s.WithMetrics)
 		httpServices = append(httpServices, apiv1Service)

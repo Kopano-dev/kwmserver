@@ -8,17 +8,6 @@
 
 	tls self_signed
 
-	# kwmserverd websocket API v1
-	proxy /api/v1/websocket 127.0.0.1:8778 {
-		websocket
-	}
-
-	# kwmserverd API v1
-	proxy /api/v1 127.0.0.1:8778
-
-	# kwmserverd admin API v1 - internal only
-	internal /api/v1/admin
-
 	# kwmserverd API v2
 	proxy /api/kwm/v2/ 127.0.0.1:8778 {
 		websocket
@@ -26,4 +15,7 @@
 
 	# kwmserverd admin API v2 - internal only
 	internal /api/kwm/v2/admin
+
+    # kwmserver mcu API v2 - internal only
+    internal /api/kwm/v2/mcu
 }
