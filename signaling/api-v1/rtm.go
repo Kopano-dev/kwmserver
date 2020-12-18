@@ -32,6 +32,7 @@ const (
 	RTMTypeNameGoodbye = "goodbye"
 
 	RTMTypeNameWebRTC = "webrtc"
+	RTMTypeNameChats  = "chats"
 
 	RTMSubtypeNameWebRTCCall    = "webrtc_call"
 	RTMSubtypeNameWebRTCChannel = "webrtc_channel"
@@ -39,6 +40,8 @@ const (
 	RTMSubtypeNameWebRTCSignal  = "webrtc_signal"
 
 	RTMSubtypeNameWebRTCGroup = "webrtc_group"
+
+	RTMSubtypeNameChatsMessage = "chats_message"
 
 	RTMErrorIDServerError      = "server_error"
 	RTMErrorIDBadMessage       = "bad_message"
@@ -181,6 +184,25 @@ type RTMTypeWebRTCReply struct {
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
+// RTMTypeChats defines chats related messages.
+type RTMTypeChats struct {
+	*RTMTypeSubtypeEnvelope
+	Channel string          `json:"channel"`
+	Profile *RTMDataProfile `json:"profile,omitempty"`
+	Group   string          `json:"group,omitempty"`
+	Version uint64          `json:"v"`
+	Data    json.RawMessage `json:"data,omitempty"`
+}
+
+// RTMTypeChatsReply defines webrtc related replies.
+type RTMTypeChatsReply struct {
+	*RTMTypeSubtypeEnvelopeReply
+	Channel string          `json:"channel,omitempty"`
+	Group   string          `json:"group,omitempty"`
+	Version uint64          `json:"v"`
+	Data    json.RawMessage `json:"data,omitempty"`
+}
+
 // RTMDataWebRTCAccept defines webrtc extra accept data.
 type RTMDataWebRTCAccept struct {
 	Accept bool   `json:"accept"`
@@ -212,4 +234,15 @@ type RTMDataWebRTCChannelPipeline struct {
 // to clients.
 type RTMDataProfile struct {
 	Name string `json:"name,omitempty"`
+}
+
+// RTMDataChatsMessage defines chats channel chat message data.
+type RTMDataChatsMessage struct {
+	Kind     string `json:"kind"`
+	Sender   string `json:"sender"`
+	Target   string `json:"target"`
+	TS       int64  `json:"ts"`
+	Text     string `json:"text"`
+	RichText string `json:"richText,omitempty"`
+	ID       string `json:"id"`
 }

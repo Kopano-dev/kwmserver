@@ -223,6 +223,15 @@ func (m *Manager) processTextMessage(c *connection.Connection, transaction *api.
 		}
 		err = m.onWebRTC(c, &webrtc)
 
+	case api.RTMTypeNameChats:
+		// Chats.
+		var chats api.RTMTypeChats
+		err = json.Unmarshal(msg, &chats)
+		if err != nil {
+			break
+		}
+		err = m.onChats(c, &chats)
+
 	default:
 		return fmt.Errorf("unknown incoming type %v", transaction.Type)
 	}
