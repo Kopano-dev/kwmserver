@@ -38,6 +38,11 @@ const (
 	ChannelPrefixNamedGroup = "@"
 )
 
+// Channel mutexes
+const (
+	channelMutexChats = "chats"
+)
+
 // A ChannelOp defines channel operations.
 type ChannelOp int
 
@@ -60,6 +65,7 @@ type Channel struct {
 	config *ChannelConfig
 
 	connections map[string]*connection.Connection
+	mutex       map[string]*sync.Mutex
 
 	pipeline Pipeline
 }
@@ -89,6 +95,9 @@ func NewChannel(id string, m *Manager, logger logrus.FieldLogger, config *Channe
 		config: config,
 
 		connections: make(map[string]*connection.Connection),
+		mutex: map[string]*sync.Mutex{
+			channelMutexChats: {},
+		},
 	}
 	channel.logger.Debugln("channel create")
 	channelNew.WithLabelValues(m.id).Inc()
@@ -411,4 +420,12 @@ func (c *Channel) checkWebRTCMessage(source string, msg *api.RTMTypeWebRTC) erro
 	}
 
 	return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "invalid hash", msg.ID)
+}
+
+func (c *Channel) namedMutexLock(name string) {
+	c.mutex[name].Lock()
+}
+
+func (c *Channel) namedMutexUnlock(name string) {
+	c.mutex[name].Unlock()
 }

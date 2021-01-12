@@ -153,10 +153,12 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 			return nil
 		}
 
-		// TODO(longsleep): Ensure chat message order per channel.
+		// Ensure chat message order per channel.
+		channel.namedMutexLock(channelMutexChats)
+		defer channel.namedMutexUnlock(channelMutexChats)
 
 		// Send to self to let sender know id.
-		c.Send(&api.RTMTypeChatsReply{
+		err = c.Send(&api.RTMTypeChatsReply{
 			RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
 				Type:    api.RTMTypeNameChats,
 				Subtype: api.RTMSubtypeNameChatsMessage,
@@ -166,6 +168,10 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 			Data:    message,
 			Version: currentChatsPayloadVersion,
 		})
+		if err != nil {
+			m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to send channel chats message reply to sender")
+			return nil
+		}
 
 		_, connections := channel.Connections()
 		for _, connection := range connections {
