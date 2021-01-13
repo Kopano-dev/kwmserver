@@ -42,12 +42,16 @@ const (
 	RTMSubtypeNameWebRTCGroup = "webrtc_group"
 
 	RTMSubtypeNameChatsMessage = "chats_message"
+	RTMSubtypeNameChatsSystem  = "chats_system"
 
 	RTMErrorIDServerError      = "server_error"
 	RTMErrorIDBadMessage       = "bad_message"
 	RTMErrorIDNoSessionForUser = "no_session_for_user"
 	RTMErrorIDAccessRestricted = "access_restricted"
 	RTMErrorIDCreateRestricted = "create_restricted"
+
+	RTMChatsMessageKindMessageUserText = ""
+	RTMChatsMessageKindMessageQueued   = "delivery_queued"
 )
 
 // RTMConnectResponse is the response returned from rtm.connect.

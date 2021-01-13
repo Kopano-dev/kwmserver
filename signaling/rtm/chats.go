@@ -111,7 +111,7 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 		}
 
 		switch extra.Kind {
-		case "":
+		case api.RTMChatsMessageKindMessageUserText:
 			// Normal user generated text message.
 			extra.Text = strings.TrimSpace(extra.Text)
 			if extra.Text == "" {
@@ -123,8 +123,12 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "unknown message kind", msg.ID)
 		}
 
+		// Generate new message ID.
+		messageID := rndm.GenerateRandomString(12)
+
+		// Set meta data.
 		extra.TS = time.Now().Unix()
-		extra.ID = rndm.GenerateRandomString(12)
+		extra.ID = messageID
 		extra.Sender = ur.id
 
 		// Create profile.
@@ -133,6 +137,7 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 			profile.Name = ur.auth.Name()
 		}
 
+		// Encode payload (only once, same message for everyone).
 		message, err := json.MarshalIndent(extra, "", "\t")
 		if err != nil {
 			m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to encode channel chats message")
@@ -153,36 +158,67 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 			return nil
 		}
 
-		// Ensure chat message order per channel.
-		channel.namedMutexLock(channelMutexChats)
-		defer channel.namedMutexUnlock(channelMutexChats)
+		// Scope with lock, to ensure chat message order per channel.
+		err = func() error {
+			channel.namedMutexLock(channelMutexChats)
+			defer channel.namedMutexUnlock(channelMutexChats)
 
-		// Send to self to let sender know id.
-		err = c.Send(&api.RTMTypeChatsReply{
-			RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
+			// Send to self to let sender know id of the new message.
+			sendErr := c.Send(&api.RTMTypeChatsReply{
+				RTMTypeSubtypeEnvelopeReply: &api.RTMTypeSubtypeEnvelopeReply{
+					Type:    api.RTMTypeNameChats,
+					Subtype: api.RTMSubtypeNameChatsMessage,
+					ReplyTo: msg.ID,
+				},
+				Channel: channel.id,
+				Data:    message,
+				Version: currentChatsPayloadVersion,
+			})
+			if sendErr != nil {
+				m.logger.WithError(sendErr).WithField("channel", channel.id).Errorln("failed to send channel chats message reply to sender")
+				return sendErr
+			}
+
+			// Loop through channel connections, sending out payload.
+			_, connections := channel.Connections()
+			for _, connection := range connections {
+				if connection == c {
+					// Skip sending message to sender (self).
+					continue
+				}
+				err = connection.RawSend(payload)
+				if err != nil {
+					connection.Logger().WithError(err).WithField("channel", channel.id).Errorln("failed to send channel chats message to connection")
+				}
+			}
+
+			return nil
+		}()
+		if err != nil {
+			return err
+		}
+
+		// Send to self for delivery report to sender.
+		extra = &api.RTMDataChatsMessage{
+			ID:   messageID,
+			Kind: api.RTMChatsMessageKindMessageQueued,
+		}
+		message, err = json.MarshalIndent(extra, "", "\t")
+		if err != nil {
+			m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to encode channel chats delivery system message")
+			return nil
+		}
+		err = c.Send(&api.RTMTypeChats{
+			RTMTypeSubtypeEnvelope: &api.RTMTypeSubtypeEnvelope{
 				Type:    api.RTMTypeNameChats,
-				Subtype: api.RTMSubtypeNameChatsMessage,
-				ReplyTo: msg.ID,
+				Subtype: api.RTMSubtypeNameChatsSystem,
 			},
 			Channel: channel.id,
 			Data:    message,
 			Version: currentChatsPayloadVersion,
 		})
 		if err != nil {
-			m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to send channel chats message reply to sender")
-			return nil
-		}
-
-		_, connections := channel.Connections()
-		for _, connection := range connections {
-			if connection == c {
-				continue
-			}
-
-			err = connection.RawSend(payload)
-			if err != nil {
-				connection.Logger().WithError(err).WithField("channel", channel.id).Errorln("failed to send channel chats message to connection")
-			}
+			m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to send channel chats delivery system message to sender")
 		}
 
 	default:
