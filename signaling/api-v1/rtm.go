@@ -52,6 +52,7 @@ const (
 
 	RTMChatsMessageKindMessageUserText = ""
 	RTMChatsMessageKindMessageQueued   = "delivery_queued"
+	RTMChatsMessageKindSystemText      = "system"
 )
 
 // RTMConnectResponse is the response returned from rtm.connect.
@@ -249,4 +250,6 @@ type RTMDataChatsMessage struct {
 	Text     string `json:"text"`
 	RichText string `json:"richText,omitempty"`
 	ID       string `json:"id"`
+
+	Extra map[string]interface{} `json:"extra,omitempty"`
 }

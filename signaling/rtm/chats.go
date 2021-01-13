@@ -117,6 +117,9 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 			if extra.Text == "" {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "message text is empty", msg.ID)
 			}
+			if extra.Extra != nil {
+				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "message contains unexpected extra data", msg.ID)
+			}
 			extra.RichText = strings.TrimSpace(extra.RichText)
 
 		default:
@@ -223,6 +226,88 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 
 	default:
 		return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "unknown subtype", msg.ID)
+	}
+
+	return nil
+}
+
+func (m *Manager) emitChannelChatsAddOrRemove(c *connection.Connection, channel *Channel, op ChannelOp, id string) error {
+	// Fech user record for connection.
+	bound := c.Bound()
+	ur, _ := bound.(*userRecord)
+
+	// Create profile.
+	profile := &api.RTMDataProfile{}
+	displayName := ""
+	if ur.auth != nil {
+		displayName = ur.auth.Name()
+		profile.Name = displayName
+	} else {
+		displayName = "Unknown user"
+	}
+
+	extra := &api.RTMDataChatsMessage{
+		ID:     rndm.GenerateRandomString(12),
+		Kind:   api.RTMChatsMessageKindSystemText,
+		TS:     time.Now().Unix(),
+		Sender: id,
+	}
+
+	switch op {
+	case ChannelOpAdd:
+		extra.Text = displayName + " has joined the meeting."
+		extra.Extra = map[string]interface{}{
+			"id": "joined",
+		}
+	case ChannelOpRemove:
+		extra.Text = displayName + " has left the meeting."
+		extra.Extra = map[string]interface{}{
+			"id": "left",
+		}
+	}
+
+	// Encode payload (only once, same message for everyone).
+	message, err := json.MarshalIndent(extra, "", "\t")
+	if err != nil {
+		m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to encode channel chats system join/left message")
+		return err
+	}
+	payload, err := json.MarshalIndent(&api.RTMTypeChats{
+		RTMTypeSubtypeEnvelope: &api.RTMTypeSubtypeEnvelope{
+			Type:    api.RTMTypeNameChats,
+			Subtype: api.RTMSubtypeNameChatsSystem,
+		},
+		Channel: channel.id,
+		Profile: profile,
+		Data:    message,
+		Version: currentChatsPayloadVersion,
+	}, "", "\t")
+	if err != nil {
+		m.logger.WithError(err).WithField("channel", channel.id).Errorln("failed to encode channel chats system join/left data")
+		return err
+	}
+
+	err = func() error {
+		channel.namedMutexLock(channelMutexChats)
+		defer channel.namedMutexUnlock(channelMutexChats)
+
+		// Loop through channel connections, sending out payload.
+		_, connections := channel.Connections()
+		for _, connection := range connections {
+			if connection == c {
+				// Skip sending message to sender (self).
+				continue
+			}
+			err = connection.RawSend(payload)
+			if err != nil {
+				connection.Logger().WithError(err).WithField("channel", channel.id).Errorln("failed to send channel chats system join/left to connection")
+			}
+		}
+
+		return nil
+	}()
+	if err != nil {
+		return err
 	}
 
 	return nil

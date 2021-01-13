@@ -221,6 +221,10 @@ func (c *Channel) Add(id string, conn *connection.Connection) error {
 	}).Debugln("channel add")
 	channelAdd.WithLabelValues(c.m.id).Inc()
 
+	if !replacing {
+		go c.m.emitChannelChatsAddOrRemove(conn, c, ChannelOpAdd, id)
+	}
+
 	if c.config.AfterAddOrRemove != nil {
 		go c.config.AfterAddOrRemove(c, ChannelOpAdd, id)
 	}
@@ -235,9 +239,9 @@ func (c *Channel) Remove(id string) error {
 }
 
 func (c *Channel) remove(id string, conn *connection.Connection) error {
+	existingConn, _ := c.connections[id]
 	if conn != nil {
 		// Validate that conn is the one we have.
-		existingConn, _ := c.connections[id]
 		if existingConn != conn {
 			return errors.New("conn does not match")
 		}
@@ -248,6 +252,10 @@ func (c *Channel) remove(id string, conn *connection.Connection) error {
 		"channel": c.id,
 	}).Debugln("channel remove")
 	channelRemove.WithLabelValues(c.m.id).Inc()
+
+	if existingConn != nil {
+		go c.m.emitChannelChatsAddOrRemove(existingConn, c, ChannelOpRemove, id)
+	}
 
 	if c.config.AfterAddOrRemove != nil {
 		go c.config.AfterAddOrRemove(c, ChannelOpRemove, id)
