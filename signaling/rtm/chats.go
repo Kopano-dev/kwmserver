@@ -37,6 +37,11 @@ const minimalChatsPayloadVersion uint64 = 0
 // with kwmjs.
 const currentChatsPayloadVersion uint64 = 20201201
 
+// maximalChatsTextMessageSize is the maximum number of characters which is
+// accepted for incoming chats messages.
+const maximalChatsTextMessageSize = 1 << 14
+const maximalChatsRichTextMessageSize = maximalChatsTextMessageSize + 1638 // Allow a little extra for rich text
+
 func (m *Manager) onChats(c *connection.Connection, msg *api.RTMTypeChats) error {
 	processErr := m.processChatsMessage(c, msg)
 
@@ -100,7 +105,6 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 		if err != nil {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "message data parse error", msg.ID)
 		}
-
 		// Message sender must be empty.
 		if extra.Sender != "" {
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "message sender must be empty", msg.ID)
@@ -111,16 +115,24 @@ func (m *Manager) processChatsMessage(c *connection.Connection, msg *api.RTMType
 		}
 
 		switch extra.Kind {
-		case api.RTMChatsMessageKindMessageUserText:
-			// Normal user generated text message.
+		case api.RTMChatsMessageKindMessageUserText: // Normal user generated text message.
+			// Limit message size.
+			if len(extra.Text) > maximalChatsTextMessageSize {
+				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "message text size limit exceeded", msg.ID)
+			}
+			if len(extra.RichText) > maximalChatsRichTextMessageSize {
+				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "message rich text size limit exceeded", msg.ID)
+			}
+			// Trim spaces.
 			extra.Text = strings.TrimSpace(extra.Text)
 			if extra.Text == "" {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "message text is empty", msg.ID)
 			}
+			extra.RichText = strings.TrimSpace(extra.RichText)
+			// Do not allow extra data in user generated text messages.
 			if extra.Extra != nil {
 				return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "message contains unexpected extra data", msg.ID)
 			}
-			extra.RichText = strings.TrimSpace(extra.RichText)
 
 		default:
 			return api.NewRTMTypeError(api.RTMErrorIDBadMessage, "unknown message kind", msg.ID)
