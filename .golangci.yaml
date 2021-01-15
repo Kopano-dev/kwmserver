@@ -27,7 +27,7 @@ linters-settings:
   lll:
     line-length: 140
   goimports:
-    local-prefixes: stash.kopano.io/kc/kapi
+    local-prefixes: stash.kopano.io/kwm/kwmserver
   gocritic:
     enabled-tags:
       - performance
