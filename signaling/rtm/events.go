@@ -81,6 +81,8 @@ func (m *Manager) OnConnect(c *connection.Connection) error {
 	msg := &api.RTMTypeHello{
 		Type: api.RTMTypeNameHello,
 		Self: self,
+
+		ServerStatus: m.getServerStatus(),
 	}
 	err := c.Send(msg)
 	if err != nil {
@@ -253,4 +255,39 @@ func (m *Manager) OnError(c *connection.Connection, err error) error {
 	}
 
 	return err
+}
+
+// OnServerStatus is called, when the associated server status changes any of
+// its pre defined status settings.
+func (m *Manager) OnServerStatus(newServerStatus *api.ServerStatus) error {
+	serverStatus := m.getServerStatus()
+	if serverStatus != nil && serverStatus.Equal(newServerStatus) {
+		// No change, no action.
+		return nil
+	}
+
+	m.setServerStatus(newServerStatus)
+
+	// Prepare server hello message.
+	msg := &api.RTMTypeHello{
+		Type: api.RTMTypeNameServer,
+
+		ServerStatus: newServerStatus,
+	}
+	payload, err := json.MarshalIndent(msg, "", "\t")
+	if err != nil {
+		m.logger.WithError(err).Debugln("websocket server status hello send error")
+		return err
+	}
+
+	// Send updated server status to all connections.
+	for entry := range m.connections.IterBuffered() {
+		c := entry.Val.(*connection.Connection)
+		err = c.RawSend(payload)
+		if err != nil {
+			c.Logger().WithError(err).Errorln("failed to send server status to connection")
+		}
+	}
+
+	return nil
 }

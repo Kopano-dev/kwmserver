@@ -30,6 +30,7 @@ const (
 	RTMTypeNamePing    = "ping"
 	RTMTypeNamePong    = "pong"
 	RTMTypeNameGoodbye = "goodbye"
+	RTMTypeNameServer  = "server"
 
 	RTMTypeNameWebRTC = "webrtc"
 	RTMTypeNameChats  = "chats"
@@ -63,6 +64,8 @@ type RTMConnectResponse struct {
 	Self *Self  `json:"self"`
 
 	TURN *turn.ClientConfig `json:"turn,omitempty"`
+
+	ServerStatus *ServerStatus `json:"server_status,omitempty"`
 }
 
 // RTMTURNResponse is the response returned from rtm.turn.
@@ -118,6 +121,8 @@ type RTMTypeSubtypeEnvelopeReply struct {
 type RTMTypeHello struct {
 	Type string `json:"type"`
 	Self *Self  `json:"self,omitempty"`
+
+	ServerStatus *ServerStatus `json:"server_status,omitempt"`
 }
 
 // RTMTypeError is the error reply.

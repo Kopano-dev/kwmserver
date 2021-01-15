@@ -7,3 +7,7 @@ var BuildDate string
 // Version defines the main version number that is being run at the moment. This
 // will be filled by the compiler.
 var Version = "0.0.0-no-proper-build"
+
+// KustomerBuildVersion defines the kustomer version that is being run at the
+// moment. It will be filled by the compiler.
+var KustomerBuildVersion string

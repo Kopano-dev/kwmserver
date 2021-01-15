@@ -15,7 +15,7 @@
  *
  */
 
-package cmd
+package main
 
 import (
 	"fmt"
@@ -32,17 +32,14 @@ func CommandVersion() *cobra.Command {
 		Use:   "version",
 		Short: "Print the version and exit",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf(`Version    : %s
-Build date : %s
-Built with : %s %s/%s
-`,
-				version.Version, version.BuildDate, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+			fmt.Printf("Version    : %s\n", version.Version)
+			if supportedBuildTag != "" {
+				fmt.Printf("Supported  : %s\n", supportedBuildTag)
+			}
+			fmt.Printf("Build date : %s\n", version.BuildDate)
+			fmt.Printf("Built with : %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 		},
 	}
 
 	return versionCmd
-}
-
-func init() {
-	RootCmd.AddCommand(CommandVersion())
 }

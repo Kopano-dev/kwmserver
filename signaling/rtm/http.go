@@ -237,6 +237,8 @@ func (m *Manager) MakeHTTPConnectHandler(router *mux.Router, websocketRouteIdent
 			},
 
 			TURN: turnConfig,
+
+			ServerStatus: m.getServerStatus(),
 		}
 
 		rw.Header().Set("Content-Type", "application/json")

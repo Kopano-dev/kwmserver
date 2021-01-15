@@ -10,7 +10,6 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.1
 	github.com/kennygrant/sanitize v1.2.4
-	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/longsleep/go-metrics v0.0.0-20181008184033-900f92a5ad22
 	github.com/mendsley/gojwk v0.0.0-20141217222730-4d5ec6e58103
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
@@ -21,14 +20,11 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.6
-	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/crypto v0.0.0-20190909091759-094676da4a83 // indirect
 	golang.org/x/net v0.0.0-20190909003024-a7b16738d86b // indirect
-	golang.org/x/sys v0.0.0-20190910064555-bbd175535a8b // indirect
-	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	stash.kopano.io/kc/libkcoidc v0.7.2
-	stash.kopano.io/kgol/ksurveyclient-go v0.5.1
+	stash.kopano.io/kc/libkustomer v0.7.0
+	stash.kopano.io/kgol/ksurveyclient-go v0.6.1
 	stash.kopano.io/kgol/oidc-go v0.1.0 // indirect
 	stash.kopano.io/kgol/rndm v1.0.0
 )

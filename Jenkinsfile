@@ -31,21 +31,21 @@ pipeline {
 				sh 'make vendor'
 			}
 		}
-		stage('Community') {
+		stage('Standard') {
 			stages {
-				stage('Build community') {
+				stage('Build standard') {
 					steps {
 						echo 'Building..'
 						sh 'make DATE=reproducible BUILD_TAGS=release'
 						sh './bin/kwmserverd version && sha256sum ./bin/kwmserverd'
 					}
 				}
-				stage('Dist community') {
+				stage('Dist standard') {
 					steps {
 						echo 'Dist..'
 						sh 'test -z "$(git diff --shortstat 2>/dev/null |tail -n1)" && echo "Clean check passed."'
 						sh 'make check'
-						sh 'make dist PACKAGE_NAME_SUFFIX=-community'
+						sh 'make dist PACKAGE_NAME_SUFFIX=-standard'
 					}
 				}
 			}
@@ -64,7 +64,7 @@ pipeline {
 						echo 'Dist..'
 						sh 'test -z "$(git diff --shortstat 2>/dev/null |tail -n1)" && echo "Clean check passed."'
 						sh 'make check'
-						sh 'make dist'
+						sh 'make dist PACKAGE_NAME_SUFFIX=-supported'
 					}
 				}
 			}

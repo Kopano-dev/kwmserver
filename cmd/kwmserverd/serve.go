@@ -340,14 +340,20 @@ func serve(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Build specific initialization.
+	if errHook := initializeBuild(ctx, logger); errHook != nil {
+		return fmt.Errorf("failed to initialize: %w", errHook)
+	}
+
 	// Metrics support.
+	metricsRegistry := prometheus.NewPedanticRegistry()
+	config.Gatherer = metricsRegistry
+	config.Metrics = prometheus.WrapRegistererWithPrefix("kwmserver_", metricsRegistry)
 	config.WithMetrics, _ = cmd.Flags().GetBool("with-metrics")
 	metricsListenAddr, _ := cmd.Flags().GetString("metrics-listen")
 	if config.WithMetrics && metricsListenAddr != "" {
-		reg := prometheus.NewPedanticRegistry()
-		config.Metrics = prometheus.WrapRegistererWithPrefix("kwmserver_", reg)
 		// Add the standard process and Go metrics to the custom registry.
-		reg.MustRegister(
+		metricsRegistry.MustRegister(
 			prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
 			prometheus.NewGoCollector(),
 		)
@@ -355,7 +361,7 @@ func serve(cmd *cobra.Command, args []string) error {
 			metricsListen := metricsListenAddr
 			handler := http.NewServeMux()
 			logger.WithField("listenAddr", metricsListen).Infoln("metrics enabled, starting listener")
-			handler.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+			handler.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
 			err := http.ListenAndServe(metricsListen, handler)
 			if err != nil {
 				logger.WithError(err).Errorln("unable to start metrics listener")

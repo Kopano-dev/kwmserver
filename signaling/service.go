@@ -28,10 +28,18 @@ type Service interface {
 
 // Services is a defined collection of services which handle activity.
 type Services struct {
+	waitCh chan struct{}
+
 	AdminManager Service
 	MCUManager   Service
 	RTMManager   Service
 	GuestManager Service
+}
+
+func NewServices() *Services {
+	return &Services{
+		waitCh: make(chan struct{}),
+	}
 }
 
 // Services returns all active services of the accociated Services as iterable.
@@ -52,4 +60,14 @@ func (services *Services) Services() []Service {
 	}
 
 	return s
+}
+
+// Ready wakes all goroutines waiting on services. It can only be called once.
+func (services *Services) Ready() {
+	close(services.waitCh)
+}
+
+// Wait blocks until the associated Services are ready.
+func (services *Services) Wait() {
+	<-services.waitCh
 }

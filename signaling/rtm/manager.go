@@ -57,6 +57,8 @@ type Manager struct {
 	keys     cmap.ConcurrentMap
 	upgrader *websocket.Upgrader
 
+	serverStatus atomic.Value
+
 	count       uint64
 	handles     uint64
 	connections cmap.ConcurrentMap
@@ -93,6 +95,8 @@ func NewManager(ctx context.Context, id string, insecure bool, requiredScopes []
 		users:       cmap.New(),
 		channels:    cmap.New(),
 	}
+
+	m.serverStatus.Store(&api.ServerStatus{})
 
 	if pipelineForcedPatternString != "" {
 		if pipelineForcedPattern, err := regexp.Compile(pipelineForcedPatternString); err == nil {
@@ -212,6 +216,18 @@ func (m *Manager) purgeEmptyChannels() {
 			m.channels.Remove(entry.Key)
 		}
 	}
+}
+
+func (m *Manager) getServerStatus() *api.ServerStatus {
+	serverStatus := m.serverStatus.Load()
+	if serverStatus == nil {
+		return nil
+	}
+	return serverStatus.(*api.ServerStatus)
+}
+
+func (m *Manager) setServerStatus(serverStatus *api.ServerStatus) {
+	m.serverStatus.Store(serverStatus)
 }
 
 // Connect adds a new connect entry to the managers table with random key.

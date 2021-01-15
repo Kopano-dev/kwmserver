@@ -24,3 +24,13 @@ type Self struct {
 
 	Auth string `json:"auth"`
 }
+
+// ServerStatus contains server status information to share with clients.
+type ServerStatus struct {
+	Kustomer *uint64 `json:"kustomer,omitempty"`
+}
+
+// Equal reports wether serverStatus and otherServers are "deeply equal".
+func (serverStatus *ServerStatus) Equal(otherServerStatus *ServerStatus) bool {
+	return serverStatus.Kustomer == otherServerStatus.Kustomer
+}

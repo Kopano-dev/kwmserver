@@ -49,7 +49,8 @@ import (
 
 // Server is our HTTP server implementation.
 type Server struct {
-	config *cfg.Config
+	config   *cfg.Config
+	services *signaling.Services
 
 	listenAddr string
 	logger     logrus.FieldLogger
@@ -60,7 +61,8 @@ type Server struct {
 // NewServer constructs a server from the provided parameters.
 func NewServer(c *cfg.Config) (*Server, error) {
 	s := &Server{
-		config: c,
+		config:   c,
+		services: signaling.NewServices(),
 
 		listenAddr: c.ListenAddr,
 		logger:     c.Logger,
@@ -133,8 +135,14 @@ func (s *Server) Serve(ctx context.Context) error {
 	serveCtx, serveCtxCancel := context.WithCancel(ctx)
 	defer serveCtxCancel()
 
+	// Build specific bootstrap.
+	err = bootstrapBuild(serveCtx, s)
+	if err != nil {
+		return fmt.Errorf("serve hook failed: %w", err)
+	}
+
 	logger := s.logger
-	services := &signaling.Services{}
+	services := s.services
 
 	// OpenID connect.
 	var oidcp *kcoidc.Provider
@@ -305,6 +313,8 @@ func (s *Server) Serve(ctx context.Context) error {
 		httpServices = append(httpServices, wwwService)
 		logger.Infof("www: endpoints from %s enabled", s.config.WwwRoot)
 	}
+
+	services.Ready()
 
 	errCh := make(chan error, 2)
 	exitCh := make(chan bool, 1)

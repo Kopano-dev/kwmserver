@@ -1,5 +1,6 @@
 PACKAGE  = stash.kopano.io/kwm/kwmserver
-PACKAGE_NAME = kopano-$(shell basename $(PACKAGE))
+PACKAGE_NAME_SUFFIX ?=
+PACKAGE_NAME = kopano-$(shell basename $(PACKAGE))$(PACKAGE_NAME_SUFFIX)
 
 # Tools
 
@@ -34,11 +35,14 @@ DATE    ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 VERSION ?= $(shell git describe --tags --always --dirty --match=v* 2>/dev/null | sed 's/^v//' || \
 			cat $(CURDIR)/.version 2> /dev/null || echo 0.0.0-unreleased)
 PKGS     = $(or $(PKG),$(shell $(GO) list -mod=readonly ./... | grep -v "^$(PACKAGE)/vendor/"))
+KUSTOMER = $(shell $(GO) list -mod=readonly -f '{{.Version}}' -m stash.kopano.io/kc/libkustomer | sed 's/^v//')
 TESTPKGS = $(shell $(GO) list -mod=readonly -f '{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' $(PKGS) 2>/dev/null)
 CMDS     = $(or $(CMD),$(addprefix cmd/,$(notdir $(shell find "$(PWD)/cmd/" -type d))))
 TIMEOUT ?= 240
 
 # Build
+
+BUILD_TAGS ?= release
 
 .PHONY: all
 all: fmt vendor | $(CMDS)
@@ -48,9 +52,9 @@ $(CMDS): vendor ; $(info building $@ ...) @
 	$(GO) build \
 		-mod vendor \
 		-trimpath \
-		-tags release \
+		-tags $(BUILD_TAGS) \
 		-buildmode=exe \
-		-ldflags '-s -w -buildid=reproducible/$(VERSION) -X $(PACKAGE)/version.Version=$(VERSION) -X $(PACKAGE)/version.BuildDate=$(DATE) -extldflags -static' \
+		-ldflags '-s -w -buildid=reproducible/$(VERSION) -X $(PACKAGE)/version.Version=$(VERSION) -X $(PACKAGE)/version.BuildDate=$(DATE) -X $(PACKAGE)/version.KustomerBuildVersion=$(KUSTOMER) -extldflags -static' \
 		-o bin/$(notdir $@) ./$@
 
 # Helpers
