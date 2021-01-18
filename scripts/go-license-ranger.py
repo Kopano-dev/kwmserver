@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 #
 # go-license-ranger. A simple script to generate a 3rd party license file out o
-# a Go dependency tree. Requires [Go modules](https://github.com/golang/go/wiki/Modules), 
-# [glide](https://glide.sh) or [dep](https://golang.github.io/dep/) to find the 
+# a Go dependency tree. Requires [Go modules](https://github.com/golang/go/wiki/Modules),
+# [glide](https://glide.sh) or [dep](https://golang.github.io/dep/) to find the
 # dependencies.
 #
 #
@@ -27,11 +27,11 @@ from __future__ import print_function
 import json
 import os
 from os import listdir
-from os.path import abspath, isdir, join
+from os.path import abspath, isdir, isfile, join
 import subprocess
 import sys
 
-version = "20200309-1"
+version = "20200714-1"
 
 # Default configuration. Override possible with `.license-ranger.json` or with
 # a custom name if environment variable is set to a different value.
@@ -108,6 +108,7 @@ def getDependenciesWithModVendor():
                     installed.append(name)
     return installed
 
+
 def getDependenciesWithMod():
     installed = []
     with open("go.sum", "r") as f:
@@ -180,9 +181,12 @@ def getLicenseTable(base, relativeFolderPaths, licenseFileNames):
 def findLicenseFile(base, table, folderPath, licenseFileNames):
     result = []
     for f in listdir(folderPath):
+        filePath = join(folderPath, f)
+        if not isfile(filePath):
+            continue
         if f not in licenseFileNames:
             continue
-        result.append(join(folderPath, f))
+        result.append(filePath)
     if len(result) == 0:
         parentFolderPath = abspath(join(folderPath, ".."))
         if parentFolderPath in table:
