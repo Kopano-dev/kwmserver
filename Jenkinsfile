@@ -31,11 +31,42 @@ pipeline {
 				sh 'make vendor'
 			}
 		}
-		stage('Build') {
-			steps {
-				echo 'Building..'
-				sh 'make DATE=reproducible'
-				sh './bin/kwmserverd version && sha256sum ./bin/kwmserverd'
+		stage('Community') {
+			stages {
+				stage('Build community') {
+					steps {
+						echo 'Building..'
+						sh 'make DATE=reproducible BUILD_TAGS=release'
+						sh './bin/kwmserverd version && sha256sum ./bin/kwmserverd'
+					}
+				}
+				stage('Dist community') {
+					steps {
+						echo 'Dist..'
+						sh 'test -z "$(git diff --shortstat 2>/dev/null |tail -n1)" && echo "Clean check passed."'
+						sh 'make check'
+						sh 'make dist PACKAGE_NAME_SUFFIX=-community'
+					}
+				}
+			}
+		}
+		stage('Supported') {
+			stages {
+				stage('Build supported') {
+					steps {
+						echo 'Building..'
+						sh 'make DATE=reproducible BUILD_TAGS=release,supportedBuild'
+						sh './bin/kwmserverd version && sha256sum ./bin/kwmserverd'
+					}
+				}
+				stage('Dist supported') {
+					steps {
+						echo 'Dist..'
+						sh 'test -z "$(git diff --shortstat 2>/dev/null |tail -n1)" && echo "Clean check passed."'
+						sh 'make check'
+						sh 'make dist'
+					}
+				}
 			}
 		}
 		stage('Test with coverage') {
@@ -44,14 +75,6 @@ pipeline {
 				sh 'make test-coverage COVERAGE_DIR=test/coverage.jenkins || true'
 				publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'test/coverage.jenkins', reportFiles: 'coverage.html', reportName: 'Go Coverage Report HTML', reportTitles: ''])
 				step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'test/coverage.jenkins/coverage.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])
-			}
-		}
-		stage('Dist') {
-			steps {
-				echo 'Dist..'
-				sh 'test -z "$(git diff --shortstat 2>/dev/null |tail -n1)" && echo "Clean check passed."'
-				sh 'make check'
-				sh 'make dist'
 			}
 		}
 	}
