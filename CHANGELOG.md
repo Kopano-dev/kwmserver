@@ -2,9 +2,22 @@
 
 ## Unreleased
 
+- Supported build mode with libkustomer
+- Build community and supported builds in CI pipeline
+- Set correct local prefix for linter
+- Update license ranger
+- Limit chat message size
+- Send channel join/leave system messages to channel chat
+- Send chat delivery queued system messages back to sender
+- Ensure send/receive order of channel chats
+- Add chat support
+- Move Jenkins pipleline to warnings-ng plugin
+- Disable support for obsolete v1 API
+- Update Dockerfile to latest pinned versions
+- Build with Go 1.14.4
 
 
-## v1.2.0 (2020-05-11)
+## v1.2.0 (2020-06-04)
 
 - Tell clients if a channel has been reset
 - Fix panic for client registration entries without jwks
