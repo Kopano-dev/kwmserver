@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+
+
+## v2.0.0 (2021-03-02)
+
 - Supported build mode with libkustomer
 - Build community and supported builds in CI pipeline
 - Set correct local prefix for linter
