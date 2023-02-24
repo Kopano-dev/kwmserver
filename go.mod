@@ -20,7 +20,7 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.6
-	golang.org/x/net v0.0.0-20190909003024-a7b16738d86b // indirect
+	golang.org/x/net v0.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	stash.kopano.io/kc/libkcoidc v0.7.2
 	stash.kopano.io/kc/libkustomer v0.7.0
